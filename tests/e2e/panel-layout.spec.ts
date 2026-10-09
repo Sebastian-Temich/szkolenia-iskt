@@ -9,6 +9,15 @@
 // Link byl osiagalny (nawigacja przewijala sie w poziomie), wiec asercja
 // "dokument nie przewija sie w bok" z `visual-evidence.spec.ts` byla zielona.
 // Dlatego mierzymy geometrie samych linkow, a nie przewijanie dokumentu.
+//
+// UWAGA — dlaczego tryb `serial` i jedno logowanie na caly plik, a nie
+// `loginAsAdmin` w kazdym tescie jak w pozostalych spekach: GoTrue ma limit
+// `sign_in_sign_ups = 30` na 5 minut na adres IP (`supabase/config.toml`).
+// Caly zestaw E2E jest juz blisko tego progu, a osiem kolejnych logowan
+// przez UI przepychalo go ponad — testy czerwienily sie na "Nie udalo sie
+// zalogowac", czyli na limicie, nie na defekcie, ktorego pilnuja. Jedna sesja
+// wystarcza: zaden z tych przypadkow nie sprawdza samego logowania (to robi
+// `panel-dostep.spec.ts`), tylko powloke i geometrie nawigacji.
 import { expect, test, type Page } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
@@ -21,6 +30,7 @@ const panelViews = [
 ] as const;
 
 const PHONE_WIDTH = 360;
+const DESKTOP = { width: 1280, height: 900 };
 
 /** Sekcje, ktore administrator musi zobaczyc w nawigacji panelu. */
 const sections = ["Szkolenia", "Trenerzy", "Zgłoszenia"] as const;
@@ -29,12 +39,23 @@ function panelNav(page: Page) {
   return page.getByRole("navigation", { name: "Nawigacja panelu" });
 }
 
+test.describe.configure({ mode: "serial" });
+
+let page: Page;
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
+  await loginAsAdmin(page);
+});
+
+test.afterAll(async () => {
+  await page.close();
+});
+
 test.describe("POW-1: panel ma wlasna powloke, bez publicznego layoutu", () => {
   for (const [name, path] of panelViews) {
-    test(`${name} (${path}): jeden banner, brak publicznej nawigacji i stopki`, async ({
-      page,
-    }) => {
-      await loginAsAdmin(page);
+    test(`${name} (${path}): jeden banner, brak publicznej nawigacji i stopki`, async () => {
+      await page.setViewportSize(DESKTOP);
       const response = await page.goto(path);
       expect(response?.status()).toBe(200);
 
@@ -55,11 +76,8 @@ test.describe("POW-1: panel ma wlasna powloke, bez publicznego layoutu", () => {
 
 test.describe("POW-5: nawigacja panelu przy 360 px", () => {
   for (const [name, path] of panelViews) {
-    test(`${name} (${path}): wszystkie sekcje widoczne w obrebie ekranu`, async ({
-      page,
-    }) => {
+    test(`${name} (${path}): wszystkie sekcje widoczne w obrebie ekranu`, async () => {
       await page.setViewportSize({ width: PHONE_WIDTH, height: 900 });
-      await loginAsAdmin(page);
       const response = await page.goto(path);
       expect(response?.status()).toBe(200);
 
