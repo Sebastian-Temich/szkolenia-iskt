@@ -309,7 +309,9 @@ export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props
 
       <button
         type="submit"
-        disabled={isSubmitting || submitState === "submitting"}
+        // Techniczna bramka RODO (ISK-357 P1): bez zatwierdzonej klauzuli przycisk jest nieaktywny,
+        // wiec klikniecie nie wyzwala submitu i nie powstaje zadne POST /api/inquiries.
+        disabled={!clauseApproved || isSubmitting || submitState === "submitting"}
         className="bg-primary hover:bg-primary-hover w-fit rounded px-5 py-2 font-semibold text-white disabled:opacity-60"
       >
         Wyślij zgłoszenie
