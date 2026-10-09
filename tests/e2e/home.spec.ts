@@ -9,7 +9,7 @@ test("renders the local MVP foundation without detectable accessibility violatio
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Szkolenia, które przekładają wiedzę na działanie.",
+      name: "Kompetencje, które zmieniają wiedzę w działanie.",
     }),
   ).toBeVisible();
 
