@@ -130,7 +130,7 @@ w raporcie:
 ## 5. RWD
 
 `visual-evidence.spec.ts` generuje zrzuty w szerokosciach **360 / 768 / 1280 px**
-dla 7 widokow publicznych i 4 widokow panelu (33 zrzuty) po ustawieniu
+dla 6 widokow publicznych i 4 widokow panelu (30 zrzutow) po ustawieniu
 `EVIDENCE_DIR`.
 
 Zrzut sam w sobie nie jest asercja, dlatego kazdy przypadek sprawdza dodatkowo
