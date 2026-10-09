@@ -30,7 +30,7 @@ create table public.inquiries (
   rodo_clause_version    text   not null,          -- wersja klauzuli pokazanej uzytkownikowi
   status                 text   not null default 'nowe' check (status in ('nowe','w_toku','zamkniete')),
   admin_note             text   check (char_length(admin_note) <= 2000),
-  source_path            text   check (char_length(source_path) <= 200),
+  source_path            text   check (char_length(source_path) <= 200),  -- ISK-356 T11: pole zarezerwowane (sciezka strony zrodlowej formularza). Warstwa API (E3) obecnie go nie zapisuje => zawsze NULL; swiadomie zachowane dla przyszlej atrybucji zrodla, bez danych osobowych.
   notification_status    text   not null default 'pending'
                            check (notification_status in ('pending','sent','failed')),
   notification_sent_at   timestamptz,

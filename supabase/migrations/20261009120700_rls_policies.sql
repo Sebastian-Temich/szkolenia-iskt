@@ -68,7 +68,12 @@ grant select on public.admin_users            to authenticated;
 --   * is_admin() — ewaluowana w politykach RLS roli authenticated,
 --   * immutable_unaccent() — kolumna generowana search_tsv liczona przy zapisie trainings
 --     przez administratora (sesja authenticated).
--- Funkcje utrzymaniowe (purge_*) NIE sa udostepniane rolom klienckim — wylacznie service_role.
+-- Funkcje utrzymaniowe (purge_*) maja byc wylacznie dla service_role. UWAGA: sam brak
+-- `grant ... to anon/authenticated` tego NIE gwarantuje — PostgreSQL nadaje kazdej nowej
+-- funkcji domyslny `EXECUTE TO PUBLIC`, ktory obejmuje anon i authenticated. Faktyczne
+-- odebranie tego grantu (dla purge_* oraz pozostalych funkcji projektu) realizuje migracja
+-- 20261009120800_function_execute_grants.sql (ISK-356). `revoke all on all tables` powyzej
+-- dotyczy tabel, nie funkcji.
 grant execute on function public.is_admin()                  to authenticated;
 grant execute on function public.immutable_unaccent(text)    to authenticated;
 
