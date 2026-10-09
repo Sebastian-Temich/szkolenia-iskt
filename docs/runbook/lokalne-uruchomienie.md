@@ -9,12 +9,12 @@ Całość pracy odbywa się na **lokalnym stacku Supabase**. Istniejący projekt
 
 ## Wymagania
 
-| Narzędzie | Wersja minimalna | Sprawdzenie |
-| --- | --- | --- |
-| Node.js | 22 LTS (zgodnie z `.nvmrc`) | `node -v` |
-| npm | 10+ | `npm -v` |
-| Docker | działający demon | `docker info` |
-| Supabase CLI | 2.x | `supabase --version` |
+| Narzędzie    | Wersja minimalna            | Sprawdzenie          |
+| ------------ | --------------------------- | -------------------- |
+| Node.js      | 22 LTS (zgodnie z `.nvmrc`) | `node -v`            |
+| npm          | 10+                         | `npm -v`             |
+| Docker       | działający demon            | `docker info`        |
+| Supabase CLI | 2.x                         | `supabase --version` |
 
 ## Pierwsze uruchomienie
 
@@ -42,6 +42,8 @@ supabase db reset      # odtwarza wszystkie migracje od zera + supabase/seed.sql
 npm run dev            # http://localhost:3000
 ```
 
+Walidacja konfiguracji odbywa się w `lib/env.ts`. Zmienne publiczne i serwerowe mają osobne schematy Zod. Brak wymaganej zmiennej powoduje czytelny błąd z nazwą pola, bez wypisywania wartości. Klucze serwerowe są sprawdzane dopiero przy tworzeniu klienta, który ich wymaga, dlatego build i bramki jakości nie potrzebują sekretów.
+
 ## Konto administratora w środowisku lokalnym (Etap 2)
 
 Konto produkcyjne ustanawia ISKT. Lokalnie tworzysz własne konto testowe:
@@ -59,19 +61,29 @@ Hasła lokalnego konta nie zapisujemy w repozytorium, dokumentacji ani w zadania
 
 ## Codzienne komendy
 
-| Komenda | Działanie |
-| --- | --- |
-| `npm run dev` | serwer deweloperski |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run test:unit` | Vitest — testy jednostkowe |
-| `npm run test:integration` | Vitest + lokalny Supabase — RLS i zapis zgłoszeń |
-| `npm run test:e2e` | Playwright — krytyczne ścieżki + skan axe |
-| `npm run build` | build produkcyjny |
-| `supabase db reset` | odtworzenie schematu od zera i seed |
-| `supabase migration new <nazwa>` | nowy plik migracji |
-| `supabase stop` | zatrzymanie stacku (dane zachowane) |
-| `supabase stop --no-backup` | zatrzymanie i wyczyszczenie danych |
+| Komenda                          | Działanie                                        |
+| -------------------------------- | ------------------------------------------------ |
+| `npm run dev`                    | serwer deweloperski                              |
+| `npm run lint`                   | ESLint                                           |
+| `npm run typecheck`              | `tsc --noEmit`                                   |
+| `npm run test:unit`              | Vitest — testy jednostkowe                       |
+| `npm run test:integration`       | Vitest + lokalny Supabase — RLS i zapis zgłoszeń |
+| `npm run test:e2e`               | Playwright — krytyczne ścieżki + skan axe        |
+| `npm run build`                  | build produkcyjny                                |
+| `supabase db reset`              | odtworzenie schematu od zera i seed              |
+| `supabase migration new <nazwa>` | nowy plik migracji                               |
+| `supabase stop`                  | zatrzymanie stacku (dane zachowane)              |
+| `supabase stop --no-backup`      | zatrzymanie i wyczyszczenie danych               |
+
+## Testy Etapu 1
+
+```bash
+npm run test:unit        # testy bez usług zewnętrznych
+npm run test:integration # lokalny Supabase; w E1 dopuszcza brak testów
+npm run test:e2e         # uruchamia Next.js i Chromium, zawiera smoke + axe
+```
+
+CI pobiera URL i klucze wyłącznie z uruchomionego przez siebie stacku `supabase start`. Nie korzysta z sekretów GitHub Actions ani z projektu zdalnego.
 
 ## Podglądanie poczty
 
@@ -100,11 +112,11 @@ Harmonogram (`pg_cron`) nie jest włączony w MVP — wymaga decyzji ISKT (ADR-0
 
 ## Rozwiązywanie problemów
 
-| Objaw | Przyczyna i działanie |
-| --- | --- |
-| `supabase start` kończy się błędem portów | inny stack działa — `supabase stop`, sprawdź `docker ps` |
-| `supabase start` nie startuje | demon Dockera nie działa — uruchom Docker Desktop, potwierdź `docker info` |
+| Objaw                                          | Przyczyna i działanie                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `supabase start` kończy się błędem portów      | inny stack działa — `supabase stop`, sprawdź `docker ps`                      |
+| `supabase start` nie startuje                  | demon Dockera nie działa — uruchom Docker Desktop, potwierdź `docker info`    |
 | Aplikacja zwraca 401/403 na publicznych danych | brakuje polityki publicznego odczytu albo rekord nie ma `is_published = true` |
-| Zapis formularza zwraca 500 | brak `SUPABASE_SERVICE_ROLE_KEY` lub `FORM_TOKEN_SECRET` w `.env.local` |
-| Powiadomienie nie dociera | przy `MAIL_TRANSPORT=log` to oczekiwane — sprawdź log serwera |
-| `supabase db reset` zgłasza konflikt migracji | migracja była edytowana po scaleniu — przywróć plik i dodaj nową migrację |
+| Zapis formularza zwraca 500                    | brak `SUPABASE_SERVICE_ROLE_KEY` lub `FORM_TOKEN_SECRET` w `.env.local`       |
+| Powiadomienie nie dociera                      | przy `MAIL_TRANSPORT=log` to oczekiwane — sprawdź log serwera                 |
+| `supabase db reset` zgłasza konflikt migracji  | migracja była edytowana po scaleniu — przywróć plik i dodaj nową migrację     |
