@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <main className="max-w-container px-container py-section mx-auto flex min-h-screen items-center">
+    <main className="max-w-container px-gutter py-section mx-auto flex min-h-screen items-center">
       <section aria-labelledby="page-title" className="max-w-3xl">
         <p className="tracking-caps text-brand mb-4 text-sm font-semibold uppercase">
           ISKT Greenovation

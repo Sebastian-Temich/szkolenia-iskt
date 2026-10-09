@@ -23,7 +23,7 @@ export default function KontaktPage() {
   const rodoClauseVersion = getRodoClauseVersion();
 
   return (
-    <main className="max-w-container px-container py-section mx-auto min-h-screen">
+    <main className="max-w-container px-gutter py-section mx-auto min-h-screen">
       <section aria-labelledby="kontakt-title" className="max-w-2xl">
         <h1 id="kontakt-title" className="text-primary text-3xl font-bold tracking-tight sm:text-4xl">
           Zapytaj o szkolenie
