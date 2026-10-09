@@ -28,6 +28,8 @@ test-results/
 playwright-report/
 playwright/.cache/
 blob-report/
+# Zrzuty ekranu z testów trafiaja do zadania jako artefakt, nie do repozytorium.
+artifacts/
 
 # Narzędzia i logi
 *.log
