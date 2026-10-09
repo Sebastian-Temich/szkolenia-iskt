@@ -1,0 +1,43 @@
+# Zależności
+node_modules/
+.pnp
+.pnp.js
+
+# Build i cache
+.next/
+out/
+build/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Zmienne środowiskowe — żaden plik z wartościami nie trafia do repozytorium.
+# Wersjonowany jest wyłącznie .env.example.
+.env
+.env.*
+!.env.example
+
+# Supabase — lokalny stan CLI, w tym stan linkowania projektu
+supabase/.temp/
+supabase/.branches/
+
+# Testy
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# Narzędzia i logi
+*.log
+npm-debug.log*
+yarn-error.log*
+.eslintcache
+
+# System i edytory
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
