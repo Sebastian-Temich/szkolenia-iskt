@@ -9,7 +9,8 @@ import {
   type InquiryRepository,
 } from "@/lib/inquiries/service";
 import type { MailAdapter } from "@/lib/mail";
-import { extractClientIp, hashClientIp } from "@/lib/security/client-hash";
+import { getRodoClauseVersion } from "@/lib/rodo/clause";
+import { dailyThrottleSalt, extractClientIp, hashClientIp } from "@/lib/security/client-hash";
 import { verifyFormToken } from "@/lib/security/form-token";
 import { logServerEvent, safeErrorCode, type SafeLogger } from "@/lib/security/safe-log";
 import { inquirySchema } from "@/lib/validation/inquiry";
@@ -35,6 +36,8 @@ const MAX_BODY_BYTES = 16 * 1024;
 
 const SUCCESS_MESSAGE = "Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail.";
 const THROTTLE_MESSAGE = "Zbyt wiele zgłoszeń z tego połączenia. Spróbuj ponownie później.";
+const EXPIRED_MESSAGE =
+  "Formularz był otwarty zbyt długo i sesja wygasła. Odśwież formularz i wyślij zgłoszenie ponownie — nic nie zostało jeszcze zapisane.";
 const SERVER_ERROR_MESSAGE =
   "Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.";
 
@@ -77,17 +80,24 @@ export async function processInquiry(request: Request, deps: HandlerDeps): Promi
     return json(200, { message: SUCCESS_MESSAGE });
   }
 
-  // 4. Token czasowy — zbyt szybkie/przedawnione/podrobione odrzucamy jako "sukces".
+  // 4. Token czasowy. `honeypot`/`too_fast`/`bad_signature`/`malformed` to sygnaly bota —
+  // odrzucamy je jako ciche "sukces", zeby nie informowac o detekcji (ADR-0004 §6). WYJATEK:
+  // `expired` to realny scenariusz ludzki (formularz otwarty > 60 min) — cichy sukces oklamywalby
+  // osobe, ze dane sa przetwarzane (art. 5 ust. 1 lit. a RODO), a zgloszenie przepadaloby. Dla
+  // `expired` zwracamy uczciwy blad z prosba o ponowne wyslanie (ISK-357 T4).
   const token = typeof body.formToken === "string" ? body.formToken : "";
   const tokenResult = verifyFormToken(token, deps.tokenSecret, now().getTime());
   if (!tokenResult.ok) {
     logServerEvent(log, { event: "inquiry.rejected", requestId, layer: "token", outcome: tokenResult.reason });
+    if (tokenResult.reason === "expired") {
+      return json(422, { error: "form_expired", message: EXPIRED_MESSAGE });
+    }
     return json(200, { message: SUCCESS_MESSAGE });
   }
 
-  // 5. Limit czestosci na haszowanym IP.
+  // 5. Limit czestosci na haszowanym IP. Sol rotowana dobowo (ISK-357 T10).
   const ip = extractClientIp(request.headers) ?? "unknown";
-  const clientHash = hashClientIp(ip, deps.throttleSalt);
+  const clientHash = hashClientIp(ip, dailyThrottleSalt(deps.throttleSalt, now()));
   const decision = await evaluateThrottle(deps.throttleStore, clientHash, now());
   if (!decision.allowed) {
     await deps.throttleStore.record(clientHash, "rejected", now());
@@ -116,7 +126,10 @@ export async function processInquiry(request: Request, deps: HandlerDeps): Promi
       interestArea: data.interestArea,
       message: data.message,
       rodoAck: data.rodoAck,
-      rodoClauseVersion: data.rodoClauseVersion,
+      // Wersje klauzuli ustala serwer (ISK-357 T3) — pole z ciala zadania jest ignorowane, bo
+      // rekord ma dowodzic, KTORA klauzule faktycznie pokazano (rozliczalnosc, art. 5 ust. 2 RODO),
+      // a nie powtarzac wartosc dowolnie podmienialna przez skladajacego.
+      rodoClauseVersion: getRodoClauseVersion(),
       sourcePath: deps.sourcePath,
     };
     const outcome = await persistInquiry(

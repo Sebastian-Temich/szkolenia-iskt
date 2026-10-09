@@ -40,6 +40,18 @@ Obowiązują od Etapu 1:
 4. Brak zależności od storage, cache KV lub cron konkretnego dostawcy; zadania utrzymaniowe (retencja, czyszczenie liczników) to funkcje w bazie wywoływane ręcznie (ADR-0003 D8).
 5. `output` pozostaje domyślny — bez `standalone` i bez eksportu statycznego, które zawężałyby możliwości.
 
+## Założenie o zaufanym proxy (warunek wdrożenia — ISK-357 T8)
+
+Limit częstości formularza (ADR-0004 §3 warstwa 3) identyfikuje klienta przez `HMAC(IP, sól)`, a adres IP pochodzi z nagłówka `x-forwarded-for` (pierwszy element) lub `x-real-ip` — `lib/security/client-hash.ts`, `extractClientIp()`. **Poprawność tego mechanizmu zależy wyłącznie od tego, czy warstwa hostingowa (proxy/edge) nadpisuje `x-forwarded-for` adresem faktycznego połączenia, a nie przekazuje wartości dostarczonej przez klienta.**
+
+Jeśli platforma dopuści nagłówek pochodzący od klienta, atakujący może wysyłać każdy POST z innym `X-Forwarded-For` → za każdym razem inny `client_hash` → limit częstości nie działa wcale, a tabela `inquiries` zapełnia się spamem zawierającym dane osobowe (art. 32 RODO — integralność przetwarzania).
+
+Zobowiązania:
+
+- przy wyborze dostawcy **zweryfikować i udokumentować**, że platforma nadpisuje `x-forwarded-for` (Vercel i Netlify robią to domyślnie na swoich funkcjach brzegowych; należy to potwierdzić dla wybranego planu i ścieżki routingu);
+- jeśli między klientem a aplikacją stanie dodatkowe proxy (np. Cloudflare przed hostingiem), ustalić jednoznacznie, który nagłówek niesie zaufany adres, i w razie potrzeby dostosować `extractClientIp()`;
+- dopóki dostawca nie jest wybrany, założenie pozostaje otwartym warunkiem wejścia na produkcję (poniżej). Właściciel: architektura / E6.
+
 ## Warunki wejścia na produkcję (lista kontrolna przed deployem)
 
 Wszystkie pozycje po stronie ISKT, żadna nie jest realizowalna przez agenta:
@@ -55,6 +67,7 @@ Wszystkie pozycje po stronie ISKT, żadna nie jest realizowalna przez agenta:
 - [ ] finalne treści, ceny, terminy i materiały wizualne z prawami do wizerunku trenerów;
 - [ ] decyzja o retencji i trybie usuwania zgłoszeń (ręczny vs harmonogram);
 - [ ] plan kopii zapasowych i monitoringu;
+- [ ] zweryfikowane i udokumentowane założenie o zaufanym proxy (nadpisywanie `x-forwarded-for`) dla wybranego dostawcy — patrz sekcja wyżej;
 - [ ] branch protection na `main` z wymaganymi checkami CI.
 
 ## Konsekwencje

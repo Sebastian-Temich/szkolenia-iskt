@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 
-import {
-  RODO_CLAUSE_APPROVED,
-  RODO_CLAUSE_TEXT,
-  getRodoClauseVersion,
-} from "@/lib/rodo/clause";
+import { RODO_CLAUSE_APPROVED, RODO_CLAUSE_TEXT } from "@/lib/rodo/clause";
 import { issueFormToken } from "@/lib/security/form-token";
 
 import { InquiryForm } from "./inquiry-form";
@@ -20,7 +16,6 @@ export const dynamic = "force-dynamic";
 export default function KontaktPage() {
   const tokenSecret = process.env.FORM_TOKEN_SECRET;
   const formToken = tokenSecret ? issueFormToken(tokenSecret) : "";
-  const rodoClauseVersion = getRodoClauseVersion();
 
   return (
     <main className="max-w-container px-gutter py-section mx-auto min-h-screen">
@@ -42,11 +37,7 @@ export default function KontaktPage() {
           </p>
         ) : null}
 
-        <InquiryForm
-          formToken={formToken}
-          rodoClauseVersion={rodoClauseVersion}
-          rodoClauseText={RODO_CLAUSE_TEXT}
-        />
+        <InquiryForm formToken={formToken} rodoClauseText={RODO_CLAUSE_TEXT} />
       </section>
     </main>
   );

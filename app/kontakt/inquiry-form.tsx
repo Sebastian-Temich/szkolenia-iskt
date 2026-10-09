@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useState } from "react";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 
@@ -16,20 +17,21 @@ type FormValues = {
   interestArea: string;
   message: string;
   rodoAck: boolean;
-  rodoClauseVersion: string;
   company_website: string;
 };
 
 type Props = {
   formToken: string;
-  rodoClauseVersion: string;
   rodoClauseText: string;
 };
 
-type SubmitState = "idle" | "submitting" | "success" | "error";
+// "expired" to uczciwa reakcja na wygasly token (ISK-357 T4): formularz pozostaje wypelniony,
+// token zostaje odswiezony w tle, a osoba moze wyslac ponownie — zamiast cichego sukcesu.
+type SubmitState = "idle" | "submitting" | "success" | "error" | "expired";
 
-export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Props) {
+export function InquiryForm({ formToken, rodoClauseText }: Props) {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [token, setToken] = useState(formToken);
 
   const {
     register,
@@ -49,7 +51,6 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
       interestArea: "",
       message: "",
       rodoAck: false,
-      rodoClauseVersion,
       company_website: "",
     },
   });
@@ -71,17 +72,35 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
           interestArea: data.interestArea,
           message: data.message,
           rodoAck: data.rodoAck,
-          rodoClauseVersion,
-          formToken,
+          formToken: token,
           [HONEYPOT_FIELD]: getValues("company_website"),
         }),
       });
       if (response.ok) {
         setSubmitState("success");
         reset();
-      } else {
-        setSubmitState("error");
+        return;
       }
+      // Wygasly token: pobierz swiezy, zachowaj wpisane dane i popros o ponowne wyslanie.
+      const payload: unknown = await response.json().catch(() => null);
+      const errorCode =
+        payload && typeof payload === "object" && "error" in payload
+          ? (payload as { error?: unknown }).error
+          : undefined;
+      if (response.status === 422 && errorCode === "form_expired") {
+        try {
+          const refreshed = await fetch("/api/form-token", { cache: "no-store" });
+          if (refreshed.ok) {
+            const refreshedToken = (await refreshed.json()) as { formToken?: string };
+            if (refreshedToken.formToken) setToken(refreshedToken.formToken);
+          }
+        } catch {
+          // Brak odswiezenia nie jest krytyczny — komunikat i tak prosi o ponowne wyslanie.
+        }
+        setSubmitState("expired");
+        return;
+      }
+      setSubmitState("error");
     } catch {
       setSubmitState("error");
     }
@@ -107,6 +126,12 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
       {submitState === "error" ? (
         <div role="alert" className="bg-error-50 rounded p-3 text-sm">
           Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.
+        </div>
+      ) : null}
+      {submitState === "expired" ? (
+        <div role="alert" className="border-warning-500 bg-warning-50 rounded border-l-4 p-3 text-sm">
+          Formularz był otwarty zbyt długo i sesja wygasła. Twoje dane nie zostały jeszcze wysłane —
+          odświeżyliśmy formularz, kliknij „Wyślij zgłoszenie” ponownie.
         </div>
       ) : null}
 
@@ -252,6 +277,11 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
         </label>
         <p id="rodoAck-clause" className="text-secondary text-sm">
           {rodoClauseText}
+        </p>
+        <p className="text-sm">
+          <Link href="/polityka-prywatnosci" className="text-primary hover:underline">
+            Pełna informacja o przetwarzaniu danych (polityka prywatności)
+          </Link>
         </p>
         {errors.rodoAck ? (
           <p id="rodoAck-error" role="alert" className="text-error-500 text-sm">

@@ -31,7 +31,7 @@ supabase start
 cp .env.example .env.local
 #    wklej API URL, anon key i service_role key z wyjścia `supabase start`
 #    wygeneruj sekrety antyspamowe:
-openssl rand -hex 32   # -> FORM_THROTTLE_SALT
+openssl rand -hex 32   # -> FORM_THROTTLE_SALT (ustawiasz raz; aplikacja rotuje go dobowo, patrz niżej)
 openssl rand -hex 32   # -> FORM_TOKEN_SECRET
 #    pozostaw MAIL_TRANSPORT=log i puste RESEND_*
 
@@ -109,6 +109,10 @@ select public.purge_submission_throttle(); -- czyszczenie liczników antyspamowy
 ```
 
 Harmonogram (`pg_cron`) nie jest włączony w MVP — wymaga decyzji ISKT (ADR-0003 D8).
+
+### Rotacja soli liczników (`FORM_THROTTLE_SALT`)
+
+`client_hash` w licznikach częstości to `HMAC(IP, sól)` — **pseudonimizacja, nie anonimizacja**: kto ma sól, odtwarza adres IP przez enumerację. Aby ograniczyć trwałą powiązywalność haszy, aplikacja miesza `FORM_THROTTLE_SALT` z bieżącą datą UTC (`lib/security/client-hash.ts`, `dailyThrottleSalt()`), więc efektywna sól zmienia się co dobę — bez żadnego działania operatora. Konsekwencja: na granicy doby UTC liczniki zerują się (nieistotne dla okien 10 min / 24 h), a powiązywalność haszy spada do 24 h, pokrywając się z retencją liczników czyszczonych przez `purge_submission_throttle()`. Nie podmieniaj `FORM_THROTTLE_SALT` ręcznie — rotacja jest wbudowana.
 
 ## Rozwiązywanie problemów
 

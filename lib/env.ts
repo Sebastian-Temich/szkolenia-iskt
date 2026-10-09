@@ -1,10 +1,15 @@
 import { z } from "zod";
 
+// UWAGA (ISK-357 T5): zmienne Cloudflare Turnstile celowo NIE istnieja w schemacie. CAPTCHA nie
+// jest zaimplementowana — nie ma kodu weryfikacji tokenu. Deklarowanie flag (`TURNSTILE_ENABLED`
+// oraz kluczy), ktorych zaden kod nie odczytuje, wprowadzaloby operatora w blad co do stanu
+// zabezpieczen: ustawienie `TURNSTILE_ENABLED=true` nie wlaczaloby niczego. Gdy Turnstile zostanie
+// realnie wdrozony (po decyzji ISKT o nowym procesorze), zmienne wracaja tu RAZEM z logika
+// weryfikacji, nie wczesniej.
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
 });
 
 const sharedServerFields = {
@@ -12,8 +17,6 @@ const sharedServerFields = {
   INQUIRY_NOTIFICATION_TO: z.email().optional(),
   FORM_THROTTLE_SALT: z.string().min(32).optional(),
   FORM_TOKEN_SECRET: z.string().min(32).optional(),
-  TURNSTILE_ENABLED: z.enum(["true", "false"]).default("false"),
-  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
   RODO_CLAUSE_VERSION: z.string().min(1).optional(),
 };
 
@@ -64,7 +67,6 @@ export function getPublicEnv() {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
   });
 }
 
