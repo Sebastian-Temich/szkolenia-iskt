@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 
-import { getPublicEnv } from "@/lib/env";
+import { getPublicEnv, shouldPrerenderWithoutData } from "@/lib/env";
 
 function publicClient() {
   const env = getPublicEnv();
@@ -16,7 +16,7 @@ function publicClient() {
   );
 }
 
-export const getPublishedTrainings = unstable_cache(
+const cachedTrainings = unstable_cache(
   async () => {
     const { data } = await publicClient()
       .from("trainings")
@@ -30,7 +30,7 @@ export const getPublishedTrainings = unstable_cache(
   { revalidate: 3600, tags: ["catalog"] },
 );
 
-export const getPublishedTrainers = unstable_cache(
+const cachedTrainers = unstable_cache(
   async () => {
     const { data } = await publicClient()
       .from("trainers")
@@ -41,3 +41,18 @@ export const getPublishedTrainers = unstable_cache(
   ["published-trainers"],
   { revalidate: 3600, tags: ["catalog"] },
 );
+
+/**
+ * Build bez konfiguracji publicznej omija cache świadomie: pusta powłoka nie
+ * może trafić do cache danych ISR, bo przetrwałaby pierwsze żądania na
+ * poprawnie skonfigurowanym środowisku.
+ */
+export async function getPublishedTrainings() {
+  if (shouldPrerenderWithoutData()) return [];
+  return cachedTrainings();
+}
+
+export async function getPublishedTrainers() {
+  if (shouldPrerenderWithoutData()) return [];
+  return cachedTrainers();
+}

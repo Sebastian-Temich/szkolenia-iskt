@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getPublishedTrainings } from "@/lib/catalog/public";
+import { toOne } from "@/lib/supabase/embed";
 
 export const revalidate = 3600;
 
@@ -15,7 +16,7 @@ export default async function PublicTrainingsPage() {
           {trainings.map((training) => (
             <article className="panel-card" key={training.id}>
               <p className="panel-eyebrow">
-                {training.categories?.[0]?.name}
+                {toOne(training.categories)?.name}
               </p>
               <h2>{training.title}</h2>
               <p>{training.summary}</p>

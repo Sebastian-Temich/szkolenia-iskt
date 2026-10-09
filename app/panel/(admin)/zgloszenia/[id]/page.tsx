@@ -5,6 +5,7 @@ import {
   getAllowedInquiryTransitions,
   inquiryStatusSchema,
 } from "@/lib/panel/inquiry-status";
+import { toOne } from "@/lib/supabase/embed";
 
 import { changeInquiryStatus } from "../../actions";
 
@@ -34,9 +35,7 @@ export default async function InquiryDetails({
   if (!inquiry) notFound();
   const status = inquiryStatusSchema.parse(inquiry.status);
   const transitions = getAllowedInquiryTransitions(status);
-  const training = Array.isArray(inquiry.trainings)
-    ? inquiry.trainings[0]
-    : inquiry.trainings;
+  const training = toOne(inquiry.trainings);
   return (
     <section>
       <p className="panel-eyebrow">Zgłoszenie</p>

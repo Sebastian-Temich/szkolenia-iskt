@@ -51,6 +51,24 @@ export function parsePublicEnv(values: Environment) {
   return result.data;
 }
 
+/**
+ * Produkcyjny build nie zawsze widzi konfigurację publiczną: CI przechodzi bez
+ * kluczy Supabase, a nowe środowisko buduje się przed ich ustawieniem.
+ * Prerender katalogu musi wtedy wygenerować pustą powłokę zamiast wysadzać
+ * build — w czasie żądania brak konfiguracji nadal jest twardym błędem.
+ */
+export function isProductionBuildPhase(values: Environment = process.env) {
+  return values.NEXT_PHASE === "phase-production-build";
+}
+
+export function isPublicEnvConfigured(values: Environment = process.env) {
+  return publicEnvSchema.safeParse(values).success;
+}
+
+export function shouldPrerenderWithoutData(values: Environment = process.env) {
+  return isProductionBuildPhase(values) && !isPublicEnvConfigured(values);
+}
+
 export function parseServerEnv(values: Environment) {
   const result = serverEnvSchema.safeParse(values);
   if (!result.success) {

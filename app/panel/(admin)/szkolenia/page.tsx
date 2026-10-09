@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireAdmin } from "@/lib/panel/auth";
+import { toOne } from "@/lib/supabase/embed";
 
 import { deleteCatalogItem, setPublished } from "../actions";
 
@@ -47,9 +48,7 @@ export default async function TrainingsPage() {
                     <strong>{item.title}</strong>
                     <small>/{item.slug}</small>
                   </td>
-                  <td>
-                    {item.categories?.[0]?.name}
-                  </td>
+                  <td>{toOne(item.categories)?.name ?? "—"}</td>
                   <td>
                     <span
                       className={

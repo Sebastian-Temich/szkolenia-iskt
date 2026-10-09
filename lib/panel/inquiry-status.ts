@@ -15,3 +15,15 @@ export function getAllowedInquiryTransitions(
 ): readonly InquiryStatus[] {
   return transitions[status];
 }
+
+/**
+ * Jedyne źródło prawdy o cyklu statusów — używane zarówno przez widok panelu,
+ * jak i przez Server Action, żeby prezentacja i egzekwowanie nie mogły się
+ * rozjechać.
+ */
+export function isAllowedInquiryTransition(
+  current: InquiryStatus,
+  next: InquiryStatus,
+): boolean {
+  return getAllowedInquiryTransitions(current).includes(next);
+}

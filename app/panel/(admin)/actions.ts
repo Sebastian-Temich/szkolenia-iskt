@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/panel/auth";
 import { invalidatePublicCatalog } from "@/lib/panel/catalog-cache";
-import { inquiryStatusSchema } from "@/lib/panel/inquiry-status";
+import {
+  inquiryStatusSchema,
+  isAllowedInquiryTransition,
+} from "@/lib/panel/inquiry-status";
 import {
   categorySchema,
   idSchema,
@@ -161,13 +164,9 @@ export async function changeInquiryStatus(id: string, nextStatus: string) {
     .select("status")
     .eq("id", validId.data)
     .single();
-  const allowed =
-    inquiry?.status === "nowe"
-      ? "w_toku"
-      : inquiry?.status === "w_toku"
-        ? "zamkniete"
-        : null;
-  if (validStatus.data !== allowed)
+  const currentStatus = inquiryStatusSchema.safeParse(inquiry?.status);
+  if (!currentStatus.success) fail("Nie znaleziono zgłoszenia.");
+  if (!isAllowedInquiryTransition(currentStatus.data, validStatus.data))
     fail("Ta zmiana statusu nie jest dozwolona.");
 
   const { error } = await supabase

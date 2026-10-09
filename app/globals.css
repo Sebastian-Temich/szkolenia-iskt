@@ -76,7 +76,7 @@
   --tracking-caps: 0.08em;
   --spacing: 0.25rem;
   --spacing-section: clamp(4rem, 9vw, 7.5rem);
-  --spacing-container: clamp(1.25rem, 5vw, 3rem);
+  --spacing-gutter: clamp(1.25rem, 5vw, 3rem);
   --container-container: 75rem;
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
