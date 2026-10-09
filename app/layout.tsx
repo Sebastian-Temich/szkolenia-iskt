@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { SITE_URL } from "@/lib/seo";
 
 import "./globals.css";
@@ -14,16 +12,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * Layout wspolny dla calej aplikacji: wylacznie `<html>`, `<body>` i arkusz
+ * globalny. Naglowek i stopka marketingowa naleza do `app/(public)/layout.tsx`
+ * — panel administratora ma wlasna powloke (`app/panel/(admin)/layout.tsx`)
+ * i nie moze dziedziczyc publicznej nawigacji.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pl">
-      <body>
-        <SiteHeader />
-        {children}
-        <SiteFooter />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
