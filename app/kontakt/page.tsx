@@ -1,63 +1,52 @@
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Kontakt",
-  description: "Skontaktuj się z zespołem szkoleń ISKT.",
-  path: "/kontakt",
-});
+import {
+  RODO_CLAUSE_APPROVED,
+  RODO_CLAUSE_TEXT,
+  getRodoClauseVersion,
+} from "@/lib/rodo/clause";
+import { issueFormToken } from "@/lib/security/form-token";
 
-export default function ContactPage() {
+import { InquiryForm } from "./inquiry-form";
+
+export const metadata: Metadata = {
+  title: "Kontakt — Szkolenia ISKT",
+  description: "Formularz zgłoszeniowy — osoba indywidualna lub firma.",
+};
+
+// Token czasowy wydajemy przy renderze strony; dlatego strona jest dynamiczna.
+export const dynamic = "force-dynamic";
+
+export default function KontaktPage() {
+  const tokenSecret = process.env.FORM_TOKEN_SECRET;
+  const formToken = tokenSecret ? issueFormToken(tokenSecret) : "";
+  const rodoClauseVersion = getRodoClauseVersion();
+
   return (
-    <main>
-      <section className="page-hero">
-        <div className="page-shell">
-          <p className="eyebrow">Kontakt</p>
-          <h1>Porozmawiajmy o rozwoju Twojego zespołu</h1>
-          <p className="lead">
-            [DEMO] Opisz potrzeby, a wspólnie dobierzemy kierunek szkolenia.
-          </p>
-        </div>
-      </section>
-      <section className="section section-tight">
-        <div className="contact-grid page-shell">
-          <article>
-            <h2>Dane kontaktowe</h2>
-            <p>
-              To środowisko demonstracyjne. Finalne dane kontaktowe wymagają
-              decyzji ISKT.
-            </p>
-            <dl>
-              <div>
-                <dt>E-mail</dt>
-                <dd>kontakt@example.invalid</dd>
-              </div>
-              <div>
-                <dt>Dostępność</dt>
-                <dd>Poniedziałek–piątek, [DEMO]</dd>
-              </div>
-            </dl>
-          </article>
-          <section
-            id="contact-form-mount"
-            data-form-slot="inquiry-v1"
-            className="form-mount"
-            aria-labelledby="form-title"
+    <main className="max-w-container px-gutter py-section mx-auto min-h-screen">
+      <section aria-labelledby="kontakt-title" className="max-w-2xl">
+        <h1 id="kontakt-title" className="text-primary text-3xl font-bold tracking-tight sm:text-4xl">
+          Zapytaj o szkolenie
+        </h1>
+        <p className="text-secondary mt-4 text-lg leading-relaxed">
+          Wypełnij formularz jako osoba indywidualna lub firma. Odpowiemy na podany adres e-mail.
+        </p>
+
+        {!RODO_CLAUSE_APPROVED ? (
+          <p
+            role="note"
+            className="border-warning-500 bg-warning-50 mt-6 rounded border-l-4 p-3 text-sm"
           >
-            <p className="eyebrow">Formularz kontaktowy</p>
-            <h2 id="form-title">Miejsce integracji E4</h2>
-            <p>
-              Stabilny punkt montażu:{" "}
-              <code>
-                #contact-form-mount[data-form-slot=&quot;inquiry-v1&quot;]
-              </code>
-              .
-            </p>
-            <noscript>
-              Do wysłania formularza potrzebna będzie obsługa JavaScript.
-            </noscript>
-          </section>
-        </div>
+            Uwaga: treść klauzuli RODO jest obecnie placeholderem oczekującym na zatwierdzenie
+            przez ISKT. Formularz działa wyłącznie w środowisku lokalnym.
+          </p>
+        ) : null}
+
+        <InquiryForm
+          formToken={formToken}
+          rodoClauseVersion={rodoClauseVersion}
+          rodoClauseText={RODO_CLAUSE_TEXT}
+        />
       </section>
     </main>
   );

@@ -32,7 +32,7 @@ export function stackEnv(): StackEnv {
   const map = new Map<string, string>()
   for (const line of raw.split('\n')) {
     const m = line.match(/^([A-Z0-9_]+)="?([^"]*)"?$/)
-    if (m?.[1] && m[2] !== undefined) map.set(m[1], m[2])
+    if (m) map.set(m[1]!, m[2]!)
   }
   cached = {
     apiUrl: fromProcess.apiUrl ?? map.get('API_URL')!,
