@@ -370,8 +370,12 @@ Wszystko na lokalnym stacku Supabase CLI (`qa-isk348`, porty przesuniete na
 | Build | `npm run build` | zielone |
 | Testy jednostkowe | `npm run test:unit` | **93 testy / 18 plikow — zielone** |
 | Testy integracyjne | `./scripts/integration-local.sh` | **24 testy / 6 plikow — zielone** (16 wymaganych przypadkow RLS) |
-| E2E + axe | `PLAYWRIGHT_USE_BUILD=1 ./scripts/e2e-local.sh` | **52 testy — zielone, 14,9 s** (w tym 3 udokumentowane `test.fail()` dla POW-4) |
+| E2E + axe | `PLAYWRIGHT_USE_BUILD=1 ./scripts/e2e-local.sh` | **52 testy — zielone, 15,7 s** (w tym 3 udokumentowane `test.fail()` dla POW-4; 21 dowodow RWD pominietych bez `EVIDENCE_DIR`) |
 | Dowody RWD | `EVIDENCE_DIR=… …/visual-evidence.spec.ts` | **21 testow — zielone, 30 zrzutow** |
+
+Zestaw ma lacznie **73 testy w 8 plikach**. Przebieg weryfikacyjny wykonany
+po `supabase db reset`, czyli w tych samych warunkach co CI — swieza baza
+z samym seedem `[DEMO]`, bez danych pozostawionych przez wczesniejsze testy.
 
 Typecheck uruchamiany po usunieciu `.tsbuildinfo` i `.next` swiadomie:
 `tsconfig.json` ma `incremental: true`, wiec nieaktualny cache potrafi dac
