@@ -6,13 +6,14 @@ Publiczny serwis oferty szkoleń ISKT z panelem jednego administratora, formular
 
 ## Dokumentacja
 
-| Dokument | Zawartość |
-| --- | --- |
-| [Plan dostawy](docs/plan-dostawy.md) | etapy, właściciele, zależności, DoD, bramki, ryzyka, decyzje ISKT |
-| [Rejestr ADR](docs/adr/README.md) | decyzje architektoniczne ADR-0001…0006 |
-| [Model danych i RLS](docs/architektura/model-danych.md) | tabele, ograniczenia, macierz dostępu, wymagane testy |
-| [Runbook lokalnego uruchomienia](docs/runbook/lokalne-uruchomienie.md) | wymagania, pierwszy start, codzienne komendy, zmiana schematu |
-| [`.env.example`](.env.example) | zmienne środowiskowe z opisem i podziałem na publiczne i serwerowe |
+| Dokument                                                               | Zawartość                                                          |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [Plan dostawy](docs/plan-dostawy.md)                                   | etapy, właściciele, zależności, DoD, bramki, ryzyka, decyzje ISKT  |
+| [Rejestr ADR](docs/adr/README.md)                                      | decyzje architektoniczne ADR-0001…0006                             |
+| [Model danych i RLS](docs/architektura/model-danych.md)                | tabele, ograniczenia, macierz dostępu, wymagane testy              |
+| [Runbook lokalnego uruchomienia](docs/runbook/lokalne-uruchomienie.md) | wymagania, pierwszy start, codzienne komendy, zmiana schematu      |
+| [Tokeny design systemu](docs/design-system.md)                         | mapowanie tokenów ISKT na `@theme` Tailwind CSS v4                 |
+| [`.env.example`](.env.example)                                         | zmienne środowiskowe z opisem i podziałem na publiczne i serwerowe |
 
 ## Stack
 
@@ -26,6 +27,15 @@ supabase start
 cp .env.example .env.local   # wartości z wyjścia `supabase start`
 supabase db reset
 npm run dev
+```
+
+Etap 1 można zweryfikować bez zewnętrznych usług i bez sekretów:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run build
 ```
 
 Pełna procedura i rozwiązywanie problemów: [runbook](docs/runbook/lokalne-uruchomienie.md).
