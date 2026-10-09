@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { RODO_CLAUSE_APPROVED, RODO_CLAUSE_TEXT } from "@/lib/rodo/clause";
+import { RODO_CLAUSE_TEXT, isRodoClauseApproved } from "@/lib/rodo/clause";
 import { issueFormToken } from "@/lib/security/form-token";
 
 import { InquiryForm } from "./inquiry-form";
@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 export default function KontaktPage() {
   const tokenSecret = process.env.FORM_TOKEN_SECRET;
   const formToken = tokenSecret ? issueFormToken(tokenSecret) : "";
+  const clauseApproved = isRodoClauseApproved();
 
   return (
     <main className="max-w-container px-gutter py-section mx-auto min-h-screen">
@@ -27,17 +28,25 @@ export default function KontaktPage() {
           Wypełnij formularz jako osoba indywidualna lub firma. Odpowiemy na podany adres e-mail.
         </p>
 
-        {!RODO_CLAUSE_APPROVED ? (
+        {!clauseApproved ? (
           <p
-            role="note"
+            role="alert"
             className="border-warning-500 bg-warning-50 mt-6 rounded border-l-4 p-3 text-sm"
           >
-            Uwaga: treść klauzuli RODO jest obecnie placeholderem oczekującym na zatwierdzenie
-            przez ISKT. Formularz działa wyłącznie w środowisku lokalnym.
+            Treść klauzuli informacyjnej RODO nie została jeszcze zatwierdzona przez ISKT, dlatego
+            formularz jest wyłączony — nie można wysłać zgłoszenia. W pilnej sprawie napisz na{" "}
+            <a href="mailto:biuro@iskt.pl" className="text-primary underline">
+              biuro@iskt.pl
+            </a>
+            .
           </p>
         ) : null}
 
-        <InquiryForm formToken={formToken} rodoClauseText={RODO_CLAUSE_TEXT} />
+        <InquiryForm
+          formToken={formToken}
+          rodoClauseText={RODO_CLAUSE_TEXT}
+          clauseApproved={clauseApproved}
+        />
       </section>
     </main>
   );

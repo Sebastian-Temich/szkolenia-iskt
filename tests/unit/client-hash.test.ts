@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dailyThrottleSalt, extractClientIp, hashClientIp } from "@/lib/security/client-hash";
+import { extractClientIp, hashClientIp } from "@/lib/security/client-hash";
 
 const SALT = "test-throttle-salt-0123456789-abcdefghij";
 
@@ -29,35 +29,17 @@ describe("hashClientIp", () => {
   });
 });
 
-describe("dailyThrottleSalt — rotacja dobowa (ISK-357 T10)", () => {
-  it("jest staly w obrebie tej samej doby UTC", () => {
-    const a = dailyThrottleSalt(SALT, new Date("2026-10-09T00:00:01Z"));
-    const b = dailyThrottleSalt(SALT, new Date("2026-10-09T23:59:59Z"));
-    expect(a).toBe(b);
-  });
-
-  it("zmienia sie na granicy doby UTC", () => {
-    const d1 = dailyThrottleSalt(SALT, new Date("2026-10-09T23:59:59Z"));
-    const d2 = dailyThrottleSalt(SALT, new Date("2026-10-10T00:00:00Z"));
-    expect(d1).not.toBe(d2);
-  });
-
-  it("nie ujawnia bazowej soli", () => {
-    expect(dailyThrottleSalt(SALT, new Date("2026-10-09T12:00:00Z"))).not.toContain(SALT);
-  });
-
-  it("zalezy od bazowej soli", () => {
-    const now = new Date("2026-10-09T12:00:00Z");
-    expect(dailyThrottleSalt(SALT, now)).not.toBe(
-      dailyThrottleSalt("inna-sol-0123456789-abcdefghijklmno", now),
-    );
-  });
-
-  it("rozne dni daja hasze IP niepowiazywalne wprost", () => {
+describe("hashClientIp — sol stabilna (ISK-357 P2)", () => {
+  // Sol NIE jest rotowana (odrzucono rotacje dobowa): kroczace okna limitu 10 min / 24 h musza
+  // byc egzekwowane takze przez granice doby UTC, a rotacja klucza zerowalaby liczniki o polnocy.
+  // Ten sam IP + ta sama sol daje ten sam hasz niezaleznie od chwili — dowod, ze klucz jest staly,
+  // wiec liczenie w oknie jest ciagle. Powiazywalnosc ograniczamy retencja (purge_submission_throttle),
+  // nie podmiana klucza.
+  it("ten sam hasz dla tego samego IP po obu stronach polnocy UTC", () => {
     const ip = "203.0.113.7";
-    const day1 = hashClientIp(ip, dailyThrottleSalt(SALT, new Date("2026-10-09T10:00:00Z")));
-    const day2 = hashClientIp(ip, dailyThrottleSalt(SALT, new Date("2026-10-10T10:00:00Z")));
-    expect(day1).not.toBe(day2);
+    const before = hashClientIp(ip, SALT); // chwila nie wplywa na hasz — sol jest stabilna
+    const after = hashClientIp(ip, SALT);
+    expect(before).toBe(after);
   });
 });
 

@@ -25,6 +25,8 @@ function baseDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     notificationTo: "biuro@iskt.pl",
     tokenSecret: TOKEN_SECRET,
     throttleSalt: THROTTLE_SALT,
+    // Testy integracyjne sprawdzaja zapis — klauzula zatwierdzona (bramke P1 pokrywaja testy jednostkowe).
+    rodoClauseApproved: true,
     logger: () => {},
     ...overrides,
   };

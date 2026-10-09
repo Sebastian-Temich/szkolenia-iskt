@@ -40,6 +40,9 @@ function makeDeps(overrides?: Partial<HandlerDeps>): { deps: HandlerDeps; insert
     notificationTo: "biuro@example.invalid",
     tokenSecret: SECRET,
     throttleSalt: SALT,
+    // Domyslnie klauzula zatwierdzona, aby testy sciezek T3/T4 doszly do zapisu. Bramka P1 ma
+    // wlasny blok ponizej z rodoClauseApproved: false.
+    rodoClauseApproved: true,
     now: () => NOW,
     ...overrides,
   };
@@ -82,6 +85,43 @@ describe("processInquiry — wersja klauzuli RODO (ISK-357 T3)", () => {
     expect(inserted).toHaveLength(1);
     expect(inserted[0]?.rodoClauseVersion).toBe(getRodoClauseVersion());
     expect(inserted[0]?.rodoClauseVersion).not.toBe("v9-nieistniejaca");
+  });
+});
+
+describe("processInquiry — techniczna bramka RODO (ISK-357 P1)", () => {
+  it("odrzuca zapis gdy klauzula niezatwierdzona i NIC nie zapisuje", async () => {
+    const { deps, inserted } = makeDeps({ rodoClauseApproved: false });
+    const issuedAt = NOW.getTime() - 10_000; // poprawny, swiezy token
+    const response = await processInquiry(
+      postRequest({ ...validBody, formToken: issueFormToken(SECRET, issuedAt) }),
+      deps,
+    );
+    expect(response.status).toBe(503);
+    const payload = (await response.json()) as { error?: string };
+    expect(payload.error).toBe("clause_not_approved");
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("bramka dziala przed walidacja — poprawne cialo tez jest odrzucane bez zapisu", async () => {
+    const { deps, inserted } = makeDeps({ rodoClauseApproved: false });
+    const issuedAt = NOW.getTime() - 10_000;
+    const response = await processInquiry(
+      postRequest({ ...validBody, formToken: issueFormToken(SECRET, issuedAt) }),
+      deps,
+    );
+    expect(response.status).toBe(503);
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("gdy klauzula zatwierdzona, ta sama tresc jest zapisywana (kontrapunkt)", async () => {
+    const { deps, inserted } = makeDeps({ rodoClauseApproved: true });
+    const issuedAt = NOW.getTime() - 10_000;
+    const response = await processInquiry(
+      postRequest({ ...validBody, formToken: issueFormToken(SECRET, issuedAt) }),
+      deps,
+    );
+    expect(response.status).toBe(200);
+    expect(inserted).toHaveLength(1);
   });
 });
 

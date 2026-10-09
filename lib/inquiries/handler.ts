@@ -10,7 +10,7 @@ import {
 } from "@/lib/inquiries/service";
 import type { MailAdapter } from "@/lib/mail";
 import { getRodoClauseVersion } from "@/lib/rodo/clause";
-import { dailyThrottleSalt, extractClientIp, hashClientIp } from "@/lib/security/client-hash";
+import { extractClientIp, hashClientIp } from "@/lib/security/client-hash";
 import { verifyFormToken } from "@/lib/security/form-token";
 import { logServerEvent, safeErrorCode, type SafeLogger } from "@/lib/security/safe-log";
 import { inquirySchema } from "@/lib/validation/inquiry";
@@ -27,6 +27,9 @@ export type HandlerDeps = {
   notificationTo: string;
   tokenSecret: string;
   throttleSalt: string;
+  // Techniczna bramka RODO (ISK-357 P1): gdy false, serwer odrzuca kazdy zapis. Wstrzykiwane,
+  // aby przeplyw byl testowalny w obu stanach; runtime przekazuje tu `isRodoClauseApproved()`.
+  rodoClauseApproved: boolean;
   now?: () => Date;
   logger?: SafeLogger;
   sourcePath?: string;
@@ -40,6 +43,8 @@ const EXPIRED_MESSAGE =
   "Formularz był otwarty zbyt długo i sesja wygasła. Odśwież formularz i wyślij zgłoszenie ponownie — nic nie zostało jeszcze zapisane.";
 const SERVER_ERROR_MESSAGE =
   "Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.";
+const CLAUSE_NOT_APPROVED_MESSAGE =
+  "Formularz zgłoszeniowy jest chwilowo niedostępny. Napisz na biuro@iskt.pl — Twoja wiadomość nie została zapisana.";
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
@@ -52,6 +57,15 @@ export async function processInquiry(request: Request, deps: HandlerDeps): Promi
   const requestId = randomUUID();
   const log: SafeLogger = deps.logger ?? (() => {});
   const now = deps.now ?? (() => new Date());
+
+  // 0. Techniczna bramka RODO (ISK-357 P1). Dopoki klauzula nie jest zatwierdzona, endpoint jest
+  // zamkniety — zaden zapis nie powstaje. To uczciwy blad (nie cichy sukces, nie 200): osoba nie
+  // moze byc wprowadzona w blad, ze jej dane sa przetwarzane (art. 5 ust. 1 lit. a RODO). UI blokuje
+  // wyslanie rownolegle; serwer jest zrodlem prawdy i nie ufa klientowi.
+  if (!deps.rodoClauseApproved) {
+    logServerEvent(log, { event: "inquiry.rejected", requestId, layer: "clause_not_approved" });
+    return json(503, { error: "clause_not_approved", message: CLAUSE_NOT_APPROVED_MESSAGE });
+  }
 
   // 1. Content-Type.
   const contentType = request.headers.get("content-type") ?? "";
@@ -95,9 +109,13 @@ export async function processInquiry(request: Request, deps: HandlerDeps): Promi
     return json(200, { message: SUCCESS_MESSAGE });
   }
 
-  // 5. Limit czestosci na haszowanym IP. Sol rotowana dobowo (ISK-357 T10).
+  // 5. Limit czestosci na haszowanym IP. Sol jest STABILNA (ISK-357 P2): kroczace okna 10 min /
+  // 24 h musza byc egzekwowane bez przerwy, takze przez granice doby UTC — rotacja klucza zerowalaby
+  // liczniki o polnocy i otwierala obejscie limitu. Powiazywalnosc haszy ograniczamy niezaleznie:
+  // `purge_submission_throttle()` usuwa wiersze starsze niz 24 h, wiec w magazynie nie ma czego
+  // powiazac poza oknem retencji (pseudonimizacja ograniczona retencja, nie podmiana klucza).
   const ip = extractClientIp(request.headers) ?? "unknown";
-  const clientHash = hashClientIp(ip, dailyThrottleSalt(deps.throttleSalt, now()));
+  const clientHash = hashClientIp(ip, deps.throttleSalt);
   const decision = await evaluateThrottle(deps.throttleStore, clientHash, now());
   if (!decision.allowed) {
     await deps.throttleStore.record(clientHash, "rejected", now());

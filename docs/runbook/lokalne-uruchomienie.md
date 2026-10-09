@@ -31,7 +31,7 @@ supabase start
 cp .env.example .env.local
 #    wklej API URL, anon key i service_role key z wyjścia `supabase start`
 #    wygeneruj sekrety antyspamowe:
-openssl rand -hex 32   # -> FORM_THROTTLE_SALT (ustawiasz raz; aplikacja rotuje go dobowo, patrz niżej)
+openssl rand -hex 32   # -> FORM_THROTTLE_SALT (ustawiasz raz; sól jest stabilna, patrz niżej)
 openssl rand -hex 32   # -> FORM_TOKEN_SECRET
 #    pozostaw MAIL_TRANSPORT=log i puste RESEND_*
 
@@ -110,9 +110,11 @@ select public.purge_submission_throttle(); -- czyszczenie liczników antyspamowy
 
 Harmonogram (`pg_cron`) nie jest włączony w MVP — wymaga decyzji ISKT (ADR-0003 D8).
 
-### Rotacja soli liczników (`FORM_THROTTLE_SALT`)
+### Sól liczników (`FORM_THROTTLE_SALT`) — stabilna, retencja niezależna
 
-`client_hash` w licznikach częstości to `HMAC(IP, sól)` — **pseudonimizacja, nie anonimizacja**: kto ma sól, odtwarza adres IP przez enumerację. Aby ograniczyć trwałą powiązywalność haszy, aplikacja miesza `FORM_THROTTLE_SALT` z bieżącą datą UTC (`lib/security/client-hash.ts`, `dailyThrottleSalt()`), więc efektywna sól zmienia się co dobę — bez żadnego działania operatora. Konsekwencja: na granicy doby UTC liczniki zerują się (nieistotne dla okien 10 min / 24 h), a powiązywalność haszy spada do 24 h, pokrywając się z retencją liczników czyszczonych przez `purge_submission_throttle()`. Nie podmieniaj `FORM_THROTTLE_SALT` ręcznie — rotacja jest wbudowana.
+`client_hash` w licznikach częstości to `HMAC(IP, sól)` — **pseudonimizacja, nie anonimizacja**: kto ma sól, odtwarza adres IP przez enumerację. **Sól jest stabilna** (`lib/security/client-hash.ts`): NIE rotujemy jej dobowo. Odrzucono rotację dobową (ISK-357 P2), bo zerowałaby kroczące liczniki limitu (3/10 min, 10/24 h) na granicy doby UTC i otwierała obejście limitu — ktoś mógłby wyczerpać limit tuż przed północą i od razu po niej. Okna liczymy względnie od chwili żądania (`evaluateThrottle`), więc limit działa bez przerwy, także przez północ UTC.
+
+Powiązywalność haszy ograniczamy **niezależnie, przez retencję**: `purge_submission_throttle()` usuwa wiersze starsze niż 24 h, więc w magazynie nie ma czego powiązać poza oknem retencji (pokrywa się z zadeklarowaną retencją liczników), a liczenie w kroczącym oknie pozostaje poprawne, bo klucz haszujący się nie zmienia. Nie podmieniaj `FORM_THROTTLE_SALT` ręcznie podczas normalnej pracy — zmiana wyzeruje bieżące liczniki.
 
 ## Rozwiązywanie problemów
 

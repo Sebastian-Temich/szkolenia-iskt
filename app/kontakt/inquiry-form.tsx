@@ -23,13 +23,16 @@ type FormValues = {
 type Props = {
   formToken: string;
   rodoClauseText: string;
+  // Techniczna bramka RODO (ISK-357 P1): gdy false, wysłanie jest zablokowane w UI (przycisk
+  // nieaktywny, submit nie wywołuje żądania). Serwer i tak odrzuca zapis — to druga warstwa.
+  clauseApproved: boolean;
 };
 
 // "expired" to uczciwa reakcja na wygasly token (ISK-357 T4): formularz pozostaje wypelniony,
 // token zostaje odswiezony w tle, a osoba moze wyslac ponownie — zamiast cichego sukcesu.
 type SubmitState = "idle" | "submitting" | "success" | "error" | "expired";
 
-export function InquiryForm({ formToken, rodoClauseText }: Props) {
+export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props) {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [token, setToken] = useState(formToken);
 
@@ -58,6 +61,8 @@ export function InquiryForm({ formToken, rodoClauseText }: Props) {
   const kind = useWatch({ control, name: "kind" });
 
   async function onValid(data: FormValues) {
+    // Bramka RODO (ISK-357 P1): bez zatwierdzonej klauzuli nie wysyłamy nic — serwer i tak odrzuci.
+    if (!clauseApproved) return;
     setSubmitState("submitting");
     try {
       const response = await fetch("/api/inquiries", {
