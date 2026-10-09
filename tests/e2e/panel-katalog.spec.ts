@@ -46,10 +46,14 @@ test.describe("D5.7 — administrator tworzy, publikuje i wycofuje szkolenie", (
     await page.getByLabel("Slug", { exact: true }).fill(slug);
     await page
       .getByLabel("Podsumowanie")
-      .fill("Fikcyjne szkolenie na potrzeby sciezki D5.7 (tworzenie w panelu).");
+      .fill(
+        "Fikcyjne szkolenie na potrzeby sciezki D5.7 (tworzenie w panelu).",
+      );
     await page
       .getByLabel("Opis")
-      .fill("Opis fikcyjnego szkolenia utworzonego przez panel administratora.");
+      .fill(
+        "Opis fikcyjnego szkolenia utworzonego przez panel administratora.",
+      );
     await page.getByLabel("Kategoria").selectOption({ label: categoryName });
     await page.getByLabel("Czas (godz.)").fill("6");
     await page.getByLabel("Cena netto PLN").fill("900");
@@ -77,9 +81,9 @@ test.describe("D5.7 — administrator tworzy, publikuje i wycofuje szkolenie", (
     await expect(page.getByRole("heading", { level: 1 })).toContainText(title);
 
     await page.goto("/szkolenia");
-    await expect(
-      page.getByRole("link", { name: title }).first(),
-    ).toBeVisible({ timeout: actionTimeout });
+    await expect(page.getByRole("link", { name: title }).first()).toBeVisible({
+      timeout: actionTimeout,
+    });
 
     // --- Wycofanie ---
     await page.goto("/panel/szkolenia");

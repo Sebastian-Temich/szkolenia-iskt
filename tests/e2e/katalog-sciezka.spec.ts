@@ -44,7 +44,10 @@ test.describe("D5.1 — przejscie od strony glownej do szczegolu szkolenia", () 
     );
 
     // 2. Przejscie do katalogu linkiem ze strony glownej (nie przez adres).
-    await page.getByRole("link", { name: /Pełny katalog/ }).first().click();
+    await page
+      .getByRole("link", { name: /Pełny katalog/ })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/szkolenia$/);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Znajdź szkolenie",

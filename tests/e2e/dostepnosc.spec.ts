@@ -13,7 +13,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { clearThrottle } from "./helpers/data";
+import { clearThrottle, createInquiry } from "./helpers/data";
 import { awaitFormTokenMaturity } from "./helpers/form";
 
 const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -66,6 +66,14 @@ for (const [name, path] of views) {
 // zostaje udokumentowany w kodzie, bramka jest zielona, a w chwili naprawy
 // kontrastu Playwright zglosi „expected to fail but passed” i wymusi
 // zdjecie adnotacji. Pominiecie (`skip`) po cichu straciloby ten sygnal.
+//
+// Warunek konieczny: tabela musi miec wiersze. Pusta lista nie renderuje ani
+// `th`, ani `td small`, wiec naruszenia nie ma i `test.fail()` sam staje sie
+// czerwony. `/panel/szkolenia` i `/panel/trenerzy` maja dane z seeda [DEMO],
+// ale `inquiries` seed celowo nie zawiera — zgloszenie dla widoku
+// `/panel/zgloszenia` zakladamy wiec sami w `beforeAll`. Bez tego bramka jest
+// zielona lokalnie (gdzie zgloszenia zostaly po innych testach) i czerwona
+// w CI na swiezej bazie.
 const panelViews: Array<
   [name: string, path: string, hasKnownContrastDefect: boolean]
 > = [
@@ -76,6 +84,10 @@ const panelViews: Array<
 ];
 
 test.describe("axe: panel administratora (poza wymaganym minimum ADR-0005 D4)", () => {
+  test.beforeAll(async () => {
+    await createInquiry();
+  });
+
   for (const [name, path, hasKnownContrastDefect] of panelViews) {
     test(`${name} bez naruszen krytycznych`, async ({ page }) => {
       test.fail(
@@ -84,6 +96,12 @@ test.describe("axe: panel administratora (poza wymaganym minimum ADR-0005 D4)", 
       );
       await loginAsAdmin(page);
       await page.goto(path);
+
+      // Skan pustej tabeli nie dowodzi niczego — upewniamy sie, ze jest tresc.
+      if (hasKnownContrastDefect) {
+        await expect(page.locator("tbody tr").first()).toBeVisible();
+      }
+
       const results = await scan(page);
       const critical = results.violations.filter(
         (v) => v.impact === "critical" || v.impact === "serious",
@@ -147,7 +165,10 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
     // Pola filtra musza byc osiagalne z klawiatury, w kolejnosci dokumentu.
     const q = order.findIndex((o) => o === "input:q");
     const category = order.findIndex((o) => o === "select:category");
-    expect(q, `Nie dotarlem Tabem do pola szukania. Kolejnosc: ${order.join(" > ")}`).toBeGreaterThanOrEqual(0);
+    expect(
+      q,
+      `Nie dotarlem Tabem do pola szukania. Kolejnosc: ${order.join(" > ")}`,
+    ).toBeGreaterThanOrEqual(0);
     expect(category).toBeGreaterThan(q);
   });
 

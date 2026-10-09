@@ -288,6 +288,20 @@ defektu, a nie pominiete: bramka jest zielona, defekt zostaje widoczny w kodzie,
 a po naprawie kontrastu Playwright zglosi „expected to fail but passed”
 i wymusi zdjecie adnotacji.
 
+**Pulapka przy tej konstrukcji — warta zapamietania.** Naruszenie kontrastu
+istnieje tylko wtedy, gdy tabela ma wiersze: pusta lista nie renderuje ani
+`th`, ani `td small`. Seed `[DEMO]` nie zawiera zadnych zgloszen, wiec na
+swiezej bazie `/panel/zgloszenia` przechodzil skan — i to `test.fail()`
+stawal sie czerwony („expected to fail, but passed”). Bramka byla zielona
+lokalnie, gdzie zgloszenia zostawaly po wczesniejszych testach, a czerwona
+w CI. Test zaklada teraz wlasne zgloszenie w `beforeAll` i przed skanem
+sprawdza, ze tabela ma co najmniej jeden wiersz — skan pustej tabeli i tak
+niczego by nie dowodzil.
+
+Przy okazji wyszlo, ze helper `createInquiry()` w `tests/e2e/helpers/data.ts`
+nigdy wczesniej nie byl wywolany i lamal CHECK `inquiries_has_subject`
+(brakowalo `interest_area`). Poprawione.
+
 **Dlaczego ten defekt nie zostalby znalezany w zakresie z ADR-0005 D4:** lista
 siedmiu widokow do skanu nie obejmuje panelu. Skan panelu dodalem ponad
 wymagane minimum.

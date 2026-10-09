@@ -83,6 +83,9 @@ export async function createInquiry(): Promise<{ id: string; email: string }> {
       full_name: `[TEST] Zglaszajacy ${sfx()}`,
       email,
       phone: "+48 600 000 000",
+      // Wymagane przez CHECK `inquiries_has_subject`: zgloszenie musi wskazywac
+      // albo konkretne szkolenie (`training_id`), albo obszar zainteresowania.
+      interest_area: "[TEST] Obszar zainteresowania",
       message: "Fikcyjna tresc zgloszenia na potrzeby testow E2E.",
       rodo_ack: true,
       rodo_clause_version: "draft-2026-10",
