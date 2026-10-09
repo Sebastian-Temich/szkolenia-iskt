@@ -118,7 +118,15 @@ test("administrator zarządza katalogiem i widzi zgłoszenia", async ({
     path: "artifacts/isk-345/02-lista-szkolen.png",
     fullPage: true,
   });
-  await page.getByRole("link", { name: "Edytuj" }).first().click();
+  // Selektor musi byc zakotwiczony we WLASNYM wierszu. `.first()` bral
+  // pierwszy wiersz tabeli, a inne pliki testowe (fullyParallel) wstawiaja
+  // i usuwaja swoje szkolenia — klikniecie trafialo wtedy w obcy, czasem juz
+  // usuniety rekord. Test przechodzil w izolacji i padal w pelnym przebiegu.
+  await page
+    .getByRole("row")
+    .filter({ hasText: trainingTitle })
+    .getByRole("link", { name: "Edytuj" })
+    .click();
   await expect(page.getByRole("heading", { name: trainingTitle })).toBeVisible({
     timeout: actionTimeout,
   });
@@ -135,7 +143,14 @@ test("administrator zarządza katalogiem i widzi zgłoszenia", async ({
     path: "artifacts/isk-345/04-lista-zgloszen.png",
     fullPage: true,
   });
-  await page.getByRole("link", { name: "Zobacz szczegóły" }).first().click();
+  // Tak samo dla zgloszen: wchodzimy w szczegol wiersza nalezacego do tego
+  // testu, a nie w pierwszy wiersz listy.
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Jan Testowy" })
+    .first()
+    .getByRole("link", { name: "Zobacz szczegóły" })
+    .click();
   await expect(page.getByText("Treść jest niezmienna")).toBeVisible({
     timeout: actionTimeout,
   });

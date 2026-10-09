@@ -106,7 +106,16 @@ jobs:
       - name: Install browser system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
+      # Testujemy artefakt builda zrobionego wyzej, zgodnie z ADR-0005 D2.
+      # Bez tej zmiennej `playwright.config.ts` startuje `npm run dev`, czyli
+      # build byl nieuzywany, a bramka E2E sprawdzala kod w trybie
+      # deweloperskim. Nie jest to tylko marnotrawstwo: w trybie dev kazda
+      # nieskompilowana trasa kompiluje sie na zadanie, a przy kilku workerach
+      # rownoczesne wejscia w trasy panelu konczyly sie `net::ERR_ABORTED`
+      # i przerwanymi nawigacjami — testy padaly, mimo ze aplikacja byla sprawna.
       - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_USE_BUILD: "1"
       - name: Collect local Supabase diagnostics
         if: failure()
         run: |

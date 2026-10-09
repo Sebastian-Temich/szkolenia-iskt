@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 import {
@@ -6,12 +5,16 @@ import {
   type DraftTraining,
 } from "./helpers/draft-training";
 
+// Skany axe dla tych samych widokow mieszkaja w `dostepnosc.spec.ts` — tutaj
+// zostaje wylacznie dowod, ze widok sie renderuje i zwraca poprawny status.
+// Wczesniej ta sama strona byla skanowana trzykrotnie (home/kontakt/public).
 const pages = [
   ["/", "Kompetencje, które zmieniają"],
   ["/szkolenia", "Znajdź szkolenie"],
   ["/szkolenia/wprowadzenie-do-ai", "[DEMO] Wprowadzenie do AI"],
   ["/trenerzy", "Ekspertki i eksperci"],
-  ["/kontakt", "Porozmawiajmy"],
+  // Strone /kontakt dostarcza E4 (hostuje formularz) — stad jej naglowek.
+  ["/kontakt", "Zapytaj o szkolenie"],
 ] as const;
 
 for (const [path, heading] of pages) {
@@ -21,12 +24,6 @@ for (const [path, heading] of pages) {
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       heading,
     );
-  });
-
-  test(`${path} nie ma wykrywalnych naruszeń dostępności`, async ({ page }) => {
-    await page.goto(path);
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations).toEqual([]);
   });
 }
 

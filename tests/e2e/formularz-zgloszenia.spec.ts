@@ -3,6 +3,7 @@
 import { expect, test } from "@playwright/test";
 
 import { clearThrottle, sfx } from "./helpers/data";
+import { awaitFormTokenMaturity } from "./helpers/form";
 import { serviceClient } from "./helpers/stack";
 
 // Limit czestosci to 3 przyjete zgloszenia / 10 min na klienta. Kazdy test
@@ -10,6 +11,15 @@ import { serviceClient } from "./helpers/stack";
 test.beforeEach(async () => {
   await clearThrottle();
 });
+
+// UWAGA dla czytajacego te testy.
+//
+// Warstwy antyspamowe (ADR-0004 §3) odrzucaja zgloszenie, zwracajac HTTP 200
+// z komunikatem sukcesu — bot nie ma sie dowiedziec, ze go wykryto. Skutek dla
+// testow: *ekran potwierdzenia nie dowodzi niczego*. Pojawia sie identycznie
+// przy zapisie i przy cichym odrzuceniu (honeypot, zly/za szybki token).
+// Dlatego kazda sciezka "wyslanie sie udalo" MUSI dodatkowo potwierdzic wiersz
+// w bazie — asercja na samym `role="status"` jest pusta.
 
 async function fillCommonFields(
   page: import("@playwright/test").Page,
@@ -40,6 +50,7 @@ test.describe("D5.3 — zgloszenie jako osoba indywidualna", () => {
         name: /Potwierdzam zapoznanie się z informacją RODO/,
       })
       .check();
+    await awaitFormTokenMaturity(page);
     await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
 
     await expect(page.getByRole("status")).toContainText(
@@ -75,6 +86,7 @@ test.describe("D5.4 — zgloszenie jako firma", () => {
         name: /Potwierdzam zapoznanie się z informacją RODO/,
       })
       .check();
+    await awaitFormTokenMaturity(page);
     await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
 
     await expect(page.getByRole("status")).toContainText(
