@@ -4,6 +4,12 @@ import { defineConfig } from 'vitest/config'
 // stacku Supabase. Nazwa pliku celowo odrebna od przyszlej konfiguracji testow
 // jednostkowych z E1 (vitest.config.ts) — scalenie nastapi w PR E1/E2.
 export default defineConfig({
+  // Alias "@" zgodny z tsconfig (paths) — testy integracyjne E4 importuja z lib/ przez "@/...".
+  resolve: {
+    alias: {
+      '@': new URL('.', import.meta.url).pathname,
+    },
+  },
   // Testy integracyjne nie dotykaja CSS; pusta konfiguracja PostCSS wylacza
   // automatyczne wyszukiwanie postcss.config.* (izolacja od warstwy frontendu E1).
   css: { postcss: { plugins: [] } },

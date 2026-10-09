@@ -16,6 +16,11 @@ permissions:
 env:
   MAIL_TRANSPORT: log
   NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+  # Wartosci wylacznie dla CI — NIE sa sekretami ISKT (token/sol generowane lokalnie, ADR-0004).
+  # Bez prefiksu NEXT_PUBLIC_, nie trafiaja do klienta. Adresat to adres testowy (transport log).
+  FORM_TOKEN_SECRET: ci-only-form-token-secret-0123456789-abcdef
+  FORM_THROTTLE_SALT: ci-only-form-throttle-salt-0123456789-abcdef
+  INQUIRY_NOTIFICATION_TO: biuro@example.invalid
 
 jobs:
   quality:

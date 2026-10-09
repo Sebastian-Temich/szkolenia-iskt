@@ -117,7 +117,7 @@ describe("inquirySchema — temat zgloszenia", () => {
     delete rest.interestArea;
     const result = inquirySchema.safeParse({
       ...rest,
-      trainingId: "11111111-1111-1111-1111-111111111111",
+      trainingId: "123e4567-e89b-42d3-a456-426614174000",
     });
     expect(result.success).toBe(true);
   });
