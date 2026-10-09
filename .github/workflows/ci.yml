@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MAIL_TRANSPORT: log
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+  # Wartosci wylacznie dla CI — NIE sa sekretami ISKT (token/sol generowane lokalnie, ADR-0004).
+  # Bez prefiksu NEXT_PUBLIC_, nie trafiaja do klienta. Adresat to adres testowy (transport log).
+  FORM_TOKEN_SECRET: ci-only-form-token-secret-0123456789-abcdef
+  FORM_THROTTLE_SALT: ci-only-form-throttle-salt-0123456789-abcdef
+  INQUIRY_NOTIFICATION_TO: biuro@example.invalid
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run build
+
+  database:
+    name: database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - run: npm ci
+      - name: Initialize temporary local configuration for E1
+        run: test -f supabase/config.toml || supabase init
+      - name: Start local Supabase
+        run: supabase start
+      - name: Export local-only Supabase variables
+        run: ./scripts/ci-export-supabase-env.sh
+      - run: supabase db reset
+      - run: npm run test:integration
+      - name: Collect local Supabase diagnostics
+        if: failure()
+        run: |
+          mkdir -p test-results/supabase
+          supabase status > test-results/supabase/status.log 2>&1 || true
+          docker ps -a > test-results/supabase/containers.log 2>&1 || true
+      - name: Upload Supabase diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-database-logs
+          path: test-results/supabase
+          if-no-files-found: ignore
+
+  e2e:
+    name: e2e
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - run: npm ci
+      - name: Initialize temporary local configuration for E1
+        run: test -f supabase/config.toml || supabase init
+      - name: Start local Supabase
+        run: supabase start
+      - name: Export local-only Supabase variables
+        run: ./scripts/ci-export-supabase-env.sh
+      - run: npm run build
+      - name: Restore Playwright browser cache
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install browser system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run test:e2e
+      - name: Collect local Supabase diagnostics
+        if: failure()
+        run: |
+          mkdir -p test-results/supabase
+          supabase status > test-results/supabase/status.log 2>&1 || true
+          docker ps -a > test-results/supabase/containers.log 2>&1 || true
+      - name: Upload Playwright and Supabase failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-artifacts
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
