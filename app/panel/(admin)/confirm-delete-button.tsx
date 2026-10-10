@@ -73,33 +73,38 @@ export function ConfirmDeleteButton({
           triggerRef.current?.focus();
         }}
       >
-        <p className="panel-confirm-text" id={titleId}>
-          Usunąć {itemKindLabel} <strong>{itemName}</strong>? Tej operacji nie
-          można cofnąć.
-        </p>
-        <div className="panel-confirm-actions">
-          {/* Pole potwierdzenia renderujemy TYLKO przy otwartym pytaniu —
-              zamkniety formularz nie ma czym potwierdzic, wiec przypadkowe
-              wyslanie (np. Enter w innym miejscu wiersza) nic nie usuwa. */}
-          {open ? (
-            <input
-              type="hidden"
-              name={CONFIRM_DELETE_FIELD}
-              value={itemId}
-              readOnly
-            />
-          ) : null}
-          <button type="submit" className="danger">
-            Tak, usuń trwale
-          </button>
-          <button
-            type="button"
-            onClick={() => dialogRef.current?.close()}
-            formNoValidate
-          >
-            Anuluj
-          </button>
-        </div>
+        {/* Zawartosc renderujemy TYLKO przy otwartym pytaniu. Zamkniety
+            `<dialog>` trzyma swoje dzieci w DOM, wiec nazwa pozycji
+            wystepowalaby dwa razy na stronie (raz w wierszu tabeli, raz tutaj)
+            — zapytania po tekscie trafialyby w dwa elementy. Przy okazji
+            zamkniety formularz nie ma czym potwierdzic, wiec przypadkowe
+            wyslanie (np. Enter w innym miejscu wiersza) nic nie usuwa. */}
+        {open ? (
+          <>
+            <p className="panel-confirm-text" id={titleId}>
+              Usunąć {itemKindLabel} <strong>{itemName}</strong>? Tej operacji
+              nie można cofnąć.
+            </p>
+            <div className="panel-confirm-actions">
+              <input
+                type="hidden"
+                name={CONFIRM_DELETE_FIELD}
+                value={itemId}
+                readOnly
+              />
+              <button type="submit" className="danger">
+                Tak, usuń trwale
+              </button>
+              <button
+                type="button"
+                onClick={() => dialogRef.current?.close()}
+                formNoValidate
+              >
+                Anuluj
+              </button>
+            </div>
+          </>
+        ) : null}
       </dialog>
     </form>
   );
