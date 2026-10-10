@@ -19,3 +19,13 @@ export function getRodoClauseVersion(): string {
   const fromEnv = process.env.RODO_CLAUSE_VERSION;
   return fromEnv && fromEnv.length > 0 ? fromEnv : RODO_CLAUSE_VERSION;
 }
+
+// Techniczna bramka zgody (ISK-357 P1). Dopoki klauzula nie jest zatwierdzona, formularz NIE moze
+// przyjmowac zgloszen — to nie tylko ostrzezenie w UI. Serwer odrzuca zapis, a UI blokuje wyslanie
+// (rzetelnosc i przejrzystosc, art. 5 ust. 1 lit. a RODO: osoba nie moze byc wprowadzona w blad, ze
+// jej dane sa przetwarzane). Stala pozostaje `false` — ISKT nie zatwierdzilo tresci. Operator wlacza
+// formularz dopiero po wstawieniu realnej klauzuli, ustawiajac RODO_CLAUSE_APPROVED=true w srodowisku
+// (dev/CI uzywa tego do przetestowania sciezki zapisu). Sam placeholder tresci nie wystarcza.
+export function isRodoClauseApproved(): boolean {
+  return RODO_CLAUSE_APPROVED || process.env.RODO_CLAUSE_APPROVED === "true";
+}

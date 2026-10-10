@@ -21,6 +21,10 @@ env:
   FORM_TOKEN_SECRET: ci-only-form-token-secret-0123456789-abcdef
   FORM_THROTTLE_SALT: ci-only-form-throttle-salt-0123456789-abcdef
   INQUIRY_NOTIFICATION_TO: biuro@example.invalid
+  # Techniczna bramka RODO (ISK-357 P1): produkcyjnie klauzula pozostaje NIEzatwierdzona
+  # (RODO_CLAUSE_APPROVED=false, dopoki ISKT nie dostarczy tresci). W CI wlaczamy sciezke zapisu,
+  # by e2e happy-path i route /api/inquiries dzialaly — to wartosc wylacznie testowa, nie decyzja ISKT.
+  RODO_CLAUSE_APPROVED: "true"
 
 jobs:
   quality:

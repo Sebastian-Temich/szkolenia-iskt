@@ -71,7 +71,9 @@ export const inquirySchema = z
     rodoAck: z.literal(true, {
       message: "Potwierdzenie zapoznania się z informacją RODO jest wymagane.",
     }),
-    rodoClauseVersion: z.string().min(1, { message: "Brak wersji klauzuli RODO." }),
+    // UWAGA: `rodoClauseVersion` celowo NIE jest polem wejsciowym (ISK-357 T3). Wersje klauzuli
+    // ustala serwer z `getRodoClauseVersion()` — wartosc z ciala zadania bylaby dowolnie
+    // podmienialna i podkopywalaby rozliczalnosc (art. 5 ust. 2 RODO).
   })
   .superRefine((value, ctx) => {
     if (value.kind === "firma" && !value.companyName) {

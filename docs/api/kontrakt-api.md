@@ -4,7 +4,7 @@
 - **Decyzje:** [ADR-0004](../adr/ADR-0004-formularze-antyspam-resend.md) (formularz i antyspam), [ADR-0001](../adr/ADR-0001-stack-aplikacji.md) (granice warstw)
 - **Schemat bazy:** [`../architektura/model-danych.md`](../architektura/model-danych.md)
 
-Aplikacja wystawia **jeden** publiczny punkt JSON (`POST /api/inquiries`), dwa punkty metadanych generowane przez Next.js, oraz zestaw **server actions** panelu, które nie są publicznym API i nie mają stabilnego kontraktu HTTP.
+Aplikacja wystawia **dwa** publiczne punkty JSON — `POST /api/inquiries` (zgłoszenie) i `GET /api/form-token` (odświeżenie tokenu po przedawnieniu, sekcja 1.7) — dwa punkty metadanych generowane przez Next.js, oraz zestaw **server actions** panelu, które nie są publicznym API i nie mają stabilnego kontraktu HTTP.
 
 ---
 
@@ -75,7 +75,9 @@ Krok 7 jest źródłem prawdy: zgłoszenie zostaje zapisane ze statusem `nowe` i
 | --------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Sukces (zapis wykonany)                                                                 | `200` | `{"message":"Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail."}`                                                                 |
 | Honeypot wypełniony                                                                     | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                     |
-| Token nieprawidłowy, zbyt szybki (< 3 s), przedawniony (> 60 min) lub o złej sygnaturze | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                     |
+| Token nieprawidłowy, zbyt szybki (< 3 s) lub o złej sygnaturze                          | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                     |
+| Token przedawniony (> 60 min) — sygnał ludzki, nie bot (ISK-357 T4 / ISK-363)           | `422` | `{"error":"form_expired","message":"Formularz był otwarty zbyt długo…"}` — **uczciwy błąd, bez zapisu**; klient pobiera świeży token z `GET /api/form-token` i wysyła ponownie bez utraty treści |
+| Klauzula RODO niezatwierdzona (`RODO_CLAUSE_APPROVED` ≠ `true`) — bramka P1             | `503` | `{"error":"clause_not_approved","message":"Formularz zgłoszeniowy jest chwilowo niedostępny…"}` — **bez zapisu**; endpoint zamknięty, dopóki ISKT nie zatwierdzi treści |
 | Brak / inny `Content-Type`                                                              | `415` | `{"error":"unsupported_media_type"}`                                                                                                        |
 | Ciało > 16 KiB                                                                          | `413` | `{"error":"payload_too_large"}`                                                                                                             |
 | Ciało nie jest obiektem JSON                                                            | `400` | `{"error":"invalid_json"}`                                                                                                                  |
@@ -90,7 +92,7 @@ Krok 7 jest źródłem prawdy: zgłoszenie zostaje zapisane ze statusem `nowe` i
 
 > **Dlaczego odrzucenie antyspamowe zwraca 200 — i co z tego wynika dla testów.** Nie informujemy bota o detekcji ([ADR-0004](../adr/ADR-0004-formularze-antyspam-resend.md) sekcja 6). Konsekwencja, na którą nadepnęła bramka QA: **asercja na samym ekranie potwierdzenia jest pusta.** `MIN_FILL_MS = 3 s` sprawia, że test wysyłający formularz natychmiast widzi `200` i ekran sukcesu przy **zerowym zapisie**. Każdy test ścieżki „wysłanie się udało" musi potwierdzać wiersz w bazie; w zestawie E2E robi to `awaitFormTokenMaturity()`.
 
-> **Ustalenie otwarte (E8 T4):** odpowiedź `200` obejmuje również powód `expired`. Osoba, która zostawiła otwarty formularz na dłużej niż 60 minut i wysłała go w dobrej wierze, widzi potwierdzenie, a zgłoszenie nie zostaje zapisane.
+> **Ustalenie E8 T4 — ZAMKNIĘTE (ISK-357 → ISK-363).** Wcześniej odpowiedź `200` obejmowała również powód `expired`: osoba, która zostawiła otwarty formularz na dłużej niż 60 minut i wysłała go w dobrej wierze, widziała potwierdzenie, a zgłoszenie nie było zapisywane (cichy fałszywy sukces). Po poprawce `expired` zwraca `422 { "error":"form_expired" }` — uczciwy błąd. Formularz pozostaje wypełniony, klient odświeża token przez `GET /api/form-token` i prosi o ponowne wysłanie. `honeypot`/`too_fast`/`bad_signature` nadal zwracają ciche `200` (nie informujemy bota o detekcji).
 
 ### 1.4 Antyspam — parametry
 
@@ -104,7 +106,7 @@ Krok 7 jest źródłem prawdy: zgłoszenie zostaje zapisane ze statusem `nowe` i
 | Limity treści     | rozmiar ciała              | `16 KiB` (`MAX_BODY_BYTES`)                                             | `lib/inquiries/handler.ts`   |
 | Heurystyka linków | próg                       | `> 2` odnośniki → wpis `inquiry.suspected_spam`, **bez blokady zapisu** | `lib/antispam/links.ts`      |
 
-Token jest wydawany przy renderze `/kontakt` (strona ma `dynamic = "force-dynamic"` właśnie dlatego) i wstrzykiwany do formularza jako wartość ukrytego pola — **nie ma osobnego punktu HTTP wydającego token**.
+Token jest wydawany przy renderze `/kontakt` (strona ma `dynamic = "force-dynamic"` właśnie dlatego) i wstrzykiwany do formularza jako wartość ukrytego pola. Istnieje **dodatkowo** punkt `GET /api/form-token` (sekcja 1.7) — służy **wyłącznie** do odświeżenia tokenu po jego przedawnieniu (ścieżka `422 form_expired`, ISK-357 T4), aby osoba mogła wysłać zgłoszenie ponownie bez utraty wpisanej treści. Zwykły render strony nie korzysta z tego punktu.
 
 Identyfikator klienta do limitu częstości to `HMAC-SHA256(adres_IP, FORM_THROTTLE_SALT)`; surowy adres IP nie jest nigdzie zapisywany.
 
@@ -124,6 +126,17 @@ Dwa pola, które w praktyce są zawsze `NULL`:
 Logowane są wyłącznie pola z białej listy (`lib/security/safe-log.ts`): `event`, `requestId`, `inquiryId`, `transport`, `outcome`, `layer`, `status`, `notificationStatus`, `errorCode`, `httpStatus`. Biała lista, nie czarna — pole dodane przez pomyłkę nie przecieka, bo nie jest wymienione. `safeErrorCode()` nigdy nie zwraca komunikatu wyjątku. Potwierdzone w bramkach E7 i E8.
 
 Zdarzenia: `inquiry.rejected` (z polem `layer`), `inquiry.accepted`, `inquiry.notification`, `inquiry.error`, `inquiry.audit_failed`, `inquiry.mark_failed`, `mail.sent`, `mail.retry`, `mail.failed`.
+
+### 1.7 `GET /api/form-token`
+
+Wydaje świeży token czasowy formularza (`lib/security/form-token.ts`, `app/api/form-token/route.ts`). Istnieje **wyłącznie** dla ścieżki odzyskania po przedawnieniu tokenu (ISK-357 T4): gdy `POST /api/inquiries` zwróci `422 form_expired`, klient pobiera stąd nowy token i pozwala wysłać zgłoszenie ponownie **bez utraty wpisanej treści**. Render `/kontakt` nie korzysta z tego punktu — token wstrzykuje po stronie serwera.
+
+| Sytuacja               | HTTP  | Ciało                                   |
+| ---------------------- | ----- | --------------------------------------- |
+| Sukces                 | `200` | `{"formToken":"<token>"}`               |
+| Brak `FORM_TOKEN_SECRET` | `500` | `{"error":"server_misconfigured"}`     |
+
+`runtime = "nodejs"`, `dynamic = "force-dynamic"`, `cache-control: no-store`. Token jest podpisywany wyłącznie sekretem serwerowym; endpoint nie przyjmuje żadnych danych wejściowych i nie zapisuje niczego.
 
 ---
 
@@ -179,9 +192,9 @@ Dwa ustalenia otwarte dotyczące tych warstw:
 
 - **Żadnego RPC PostgREST** dla ról klienckich. Funkcje projektu w schemacie `public` mają odebrane `EXECUTE` dla `PUBLIC`, `anon` i `authenticated`; funkcje `purge_*` są wykonywalne wyłącznie przez `service_role` ([`model-danych.md` §4.2](../architektura/model-danych.md#42-funkcje--macierz-której-pierwotna-specyfikacja-nie-zawierała)).
 - **Żadnego punktu zapisu do `inquiries` innego niż `POST /api/inquiries`.** Tabela nie ma polityki `INSERT` dla `anon` ani `authenticated`.
-- **Żadnego punktu wydającego token formularza** — token powstaje przy renderze strony `/kontakt`.
+- **Żadnego punktu wydającego token przy zwykłym renderze** — token do formularza powstaje po stronie serwera przy renderze `/kontakt`. Istnieje osobny `GET /api/form-token` (sekcja 1.7), ale **wyłącznie** do odświeżenia tokenu po przedawnieniu (ścieżka `422 form_expired`, ISK-357 T4); nie przyjmuje danych wejściowych i nic nie zapisuje.
 - **Żadnego eksportu zgłoszeń** z panelu (potwierdzone w bramce E8).
-- **Żadnej weryfikacji CAPTCHA.** Zmienne `TURNSTILE_*` istnieją w schemacie środowiska, ale **żadna logika ich nie odczytuje** — szczegóły w [ADR-0004, sekcja 4 stanu implementacji](../adr/ADR-0004-formularze-antyspam-resend.md#4-captcha--korekta-stanu-nie-jest-zaimplementowana-w-ogóle).
+- **Żadnej weryfikacji CAPTCHA.** Zmienne `TURNSTILE_*` **nie istnieją już w schemacie środowiska** (`lib/env.ts`, usunięte w ISK-357 T5): deklarowanie flag, których żaden kod nie odczytuje, wprowadzałoby operatora w błąd co do stanu zabezpieczeń. W `.env.example` pozostają wyłącznie jako **zarezerwowane, nieaktywne** placeholdery z ostrzeżeniem — szczegóły w [ADR-0004, sekcja 4 stanu implementacji](../adr/ADR-0004-formularze-antyspam-resend.md#4-captcha--korekta-stanu-nie-jest-zaimplementowana-w-ogóle).
 - **Żadnych nagłówków bezpieczeństwa.** `next.config.ts` nie definiuje `headers()` (E7 W1).
 
 ---

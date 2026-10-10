@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useState } from "react";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 
@@ -16,20 +17,24 @@ type FormValues = {
   interestArea: string;
   message: string;
   rodoAck: boolean;
-  rodoClauseVersion: string;
   company_website: string;
 };
 
 type Props = {
   formToken: string;
-  rodoClauseVersion: string;
   rodoClauseText: string;
+  // Techniczna bramka RODO (ISK-357 P1): gdy false, wysłanie jest zablokowane w UI (przycisk
+  // nieaktywny, submit nie wywołuje żądania). Serwer i tak odrzuca zapis — to druga warstwa.
+  clauseApproved: boolean;
 };
 
-type SubmitState = "idle" | "submitting" | "success" | "error";
+// "expired" to uczciwa reakcja na wygasly token (ISK-357 T4): formularz pozostaje wypelniony,
+// token zostaje odswiezony w tle, a osoba moze wyslac ponownie — zamiast cichego sukcesu.
+type SubmitState = "idle" | "submitting" | "success" | "error" | "expired";
 
-export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Props) {
+export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props) {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [token, setToken] = useState(formToken);
 
   const {
     register,
@@ -49,7 +54,6 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
       interestArea: "",
       message: "",
       rodoAck: false,
-      rodoClauseVersion,
       company_website: "",
     },
   });
@@ -57,6 +61,8 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
   const kind = useWatch({ control, name: "kind" });
 
   async function onValid(data: FormValues) {
+    // Bramka RODO (ISK-357 P1): bez zatwierdzonej klauzuli nie wysyłamy nic — serwer i tak odrzuci.
+    if (!clauseApproved) return;
     setSubmitState("submitting");
     try {
       const response = await fetch("/api/inquiries", {
@@ -71,17 +77,35 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
           interestArea: data.interestArea,
           message: data.message,
           rodoAck: data.rodoAck,
-          rodoClauseVersion,
-          formToken,
+          formToken: token,
           [HONEYPOT_FIELD]: getValues("company_website"),
         }),
       });
       if (response.ok) {
         setSubmitState("success");
         reset();
-      } else {
-        setSubmitState("error");
+        return;
       }
+      // Wygasly token: pobierz swiezy, zachowaj wpisane dane i popros o ponowne wyslanie.
+      const payload: unknown = await response.json().catch(() => null);
+      const errorCode =
+        payload && typeof payload === "object" && "error" in payload
+          ? (payload as { error?: unknown }).error
+          : undefined;
+      if (response.status === 422 && errorCode === "form_expired") {
+        try {
+          const refreshed = await fetch("/api/form-token", { cache: "no-store" });
+          if (refreshed.ok) {
+            const refreshedToken = (await refreshed.json()) as { formToken?: string };
+            if (refreshedToken.formToken) setToken(refreshedToken.formToken);
+          }
+        } catch {
+          // Brak odswiezenia nie jest krytyczny — komunikat i tak prosi o ponowne wyslanie.
+        }
+        setSubmitState("expired");
+        return;
+      }
+      setSubmitState("error");
     } catch {
       setSubmitState("error");
     }
@@ -107,6 +131,12 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
       {submitState === "error" ? (
         <div role="alert" className="bg-error-50 rounded p-3 text-sm">
           Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.
+        </div>
+      ) : null}
+      {submitState === "expired" ? (
+        <div role="alert" className="border-warning-500 bg-warning-50 rounded border-l-4 p-3 text-sm">
+          Formularz był otwarty zbyt długo i sesja wygasła. Twoje dane nie zostały jeszcze wysłane —
+          odświeżyliśmy formularz, kliknij „Wyślij zgłoszenie” ponownie.
         </div>
       ) : null}
 
@@ -253,6 +283,11 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
         <p id="rodoAck-clause" className="text-secondary text-sm">
           {rodoClauseText}
         </p>
+        <p className="text-sm">
+          <Link href="/polityka-prywatnosci" className="text-primary hover:underline">
+            Pełna informacja o przetwarzaniu danych (polityka prywatności)
+          </Link>
+        </p>
         {errors.rodoAck ? (
           <p id="rodoAck-error" role="alert" className="text-error-500 text-sm">
             {errors.rodoAck.message}
@@ -274,7 +309,9 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
 
       <button
         type="submit"
-        disabled={isSubmitting || submitState === "submitting"}
+        // Techniczna bramka RODO (ISK-357 P1): bez zatwierdzonej klauzuli przycisk jest nieaktywny,
+        // wiec klikniecie nie wyzwala submitu i nie powstaje zadne POST /api/inquiries.
+        disabled={!clauseApproved || isSubmitting || submitState === "submitting"}
         className="bg-primary hover:bg-primary-hover w-fit rounded px-5 py-2 font-semibold text-white disabled:opacity-60"
       >
         Wyślij zgłoszenie
