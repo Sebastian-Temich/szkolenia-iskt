@@ -183,9 +183,11 @@ Dwa dalsze ustalenia otwarte wokół tych warstw:
 
 ### 4. CAPTCHA — korekta stanu: **nie jest zaimplementowana w ogóle**
 
-Decyzja mówiła „Turnstile zostaje **zaimplementowany** jako opcjonalna warstwa za flagą”. Bramka RODO (E8 §4b) zmierzyła stan faktyczny: **żadnej logiki weryfikacji Turnstile nie ma**. Jedyne ślady to trzy zmienne w `lib/env.ts` i `.env.example` (`TURNSTILE_ENABLED` z domyślną wartością `"false"`, `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), a `grep -ri turnstile` po `app/` i `lib/` nie znajduje nic więcej.
+Decyzja mówiła „Turnstile zostaje **zaimplementowany** jako opcjonalna warstwa za flagą”. Bramka RODO (E8 §4b) zmierzyła stan faktyczny: **żadnej logiki weryfikacji Turnstile nie ma**. Jedyne ślady były wówczas w `lib/env.ts` i `.env.example` (`TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), a `grep -ri turnstile` po `app/` i `lib/` nie znajdował nic więcej.
 
-Z punktu widzenia minimalizacji danych E8 oceniła ten stan jako **lepszy** niż zadeklarowany — nie ma uśpionej ścieżki, którą można włączyć bez przeglądu. Ale wprowadza w błąd co do stanu zabezpieczeń: operator, który ustawi `TURNSTILE_ENABLED=true`, będzie przekonany, że CAPTCHA działa, a nie zadziała nic. **Dlatego `.env.example` oznacza te trzy zmienne jawnie jako zarezerwowane i nieodczytywane przez żadną logikę** (E8 T5). Rekomendacja bramki pozostaje: nie włączać w MVP — trzy działające warstwy nie dodają ani jednego procesora danych.
+Z punktu widzenia minimalizacji danych E8 oceniła ten stan jako **lepszy** niż zadeklarowany — nie ma uśpionej ścieżki, którą można włączyć bez przeglądu. Ale wprowadzał w błąd co do stanu zabezpieczeń: operator, który ustawiłby `TURNSTILE_ENABLED=true`, byłby przekonany, że CAPTCHA działa, a nie zadziałałoby nic.
+
+**Poprawka T5 — zrealizowana na linii integracyjnej (ISK-357 → ISK-363).** Zmienne `TURNSTILE_*` **usunięto ze schematu środowiska `lib/env.ts`** — kod nie deklaruje już flag, których nie odczytuje. W `.env.example` pozostają wyłącznie jako **zarezerwowane, nieaktywne** placeholdery z jawnym ostrzeżeniem, że ich ustawienie niczego nie włącza. Gdy Turnstile zostanie realnie wdrożony (po decyzji ISKT o nowym procesorze), zmienne wracają do schematu **razem** z logiką weryfikacji, nie wcześniej. Rekomendacja bramki pozostaje: nie włączać w MVP — trzy działające warstwy nie dodają ani jednego procesora danych.
 
 ### 5. Adapter poczty — zrealizowany zgodnie z decyzją
 
@@ -197,7 +199,7 @@ Z punktu widzenia minimalizacji danych E8 oceniła ten stan jako **lepszy** niż
 
 Tabela komunikatów jest zaimplementowana w `lib/inquiries/handler.ts`; odpowiedzi nie odbijają danych wejściowych, szczegóły idą wyłącznie do logu skorelowanego przez `requestId`. Potwierdzone w E7 i E8.
 
-**Ustalenie otwarte (E8 T4):** „token czasowy → 200 sukces” obejmuje **wszystkie** powody odrzucenia tokenu, w tym `expired`. Osoba, która zostawiła otwarty formularz na dłużej niż 60 minut i wysłała go w dobrej wierze, widzi ekran potwierdzenia, a zgłoszenie nie zostaje zapisane. Honeypot i `bad_signature` powinny zostać jak są (nie informujemy bota), ale `expired` powinien dawać uczciwy błąd albo token powinien być odświeżany po stronie klienta.
+**Ustalenie E8 T4 — ZAMKNIĘTE na linii integracyjnej (ISK-357 → ISK-363).** Wcześniej „token czasowy → 200 sukces” obejmował **wszystkie** powody odrzucenia tokenu, w tym `expired` — osoba, która zostawiła otwarty formularz na dłużej niż 60 minut i wysłała go w dobrej wierze, widziała ekran potwierdzenia, a zgłoszenie nie było zapisywane. Po poprawce: `honeypot`/`too_fast`/`bad_signature` zostają jak były (ciche `200`, nie informujemy bota), a `expired` zwraca **uczciwy błąd `422 form_expired`**. Formularz pozostaje wypełniony, klient odświeża token przez `GET /api/form-token` i prosi o ponowne wysłanie bez utraty treści (`lib/inquiries/handler.ts`, `app/(public)/kontakt/inquiry-form.tsx`).
 
 **Pułapka weryfikacyjna, którą ta decyzja tworzy — do zapamiętania (E6 §4).** `MIN_FILL_MS = 3 s` plus „odrzucenie zwraca 200 z ekranem sukcesu” sprawia, że **naiwny test formularza przechodzi, nie zapisując nic**. Ścieżki E2E wysyłały formularz natychmiast, widziały potwierdzenie i były zielone przy zerowym zapisie. Wniosek: asercja na samym ekranie potwierdzenia jest pusta — każda ścieżka „wysłanie się udało” musi potwierdzać wiersz w bazie. W testach rozwiązuje to `awaitFormTokenMaturity()`.
 
@@ -205,9 +207,11 @@ Tabela komunikatów jest zaimplementowana w `lib/inquiries/handler.ts`; odpowied
 
 `inquiries.rodo_clause_version` jest zapisywana przy każdym zgłoszeniu. `lib/rodo/clause.ts` zawiera jawny placeholder: `RODO_CLAUSE_APPROVED = false`, `RODO_CLAUSE_VERSION = "DRAFT-0-niezatwierdzona"`, a `/kontakt` wyświetla ostrzeżenie, że treść nie jest zatwierdzona. Bramka RODO oceniła to podejście jako właściwe — agent nie wymyślił treści prawnej.
 
-**Ustalenie otwarte (E8 §1a):** wartość `rodoClauseVersion` przychodzi **w ciele żądania POST** i jest przyjmowana bez weryfikacji (`z.string().min(1)`). Pole istnieje po to, żeby udowodnić, _którą_ klauzulę zobaczyła osoba — a w tej formie jest dowolnie podmienialne przez składającego żądanie, co podkopuje rozliczalność z art. 5 ust. 2 RODO. Poprawka: serwer ustawia wartość sam z `getRodoClauseVersion()` i ignoruje pole z ciała (albo wiąże wersję w podpisanym `formToken`).
+**Bramka techniczna P1 (ISK-357 → ISK-363).** Niezatwierdzona klauzula to nie tylko ostrzeżenie w UI: `isRodoClauseApproved()` steruje twardą bramką. Dopóki `RODO_CLAUSE_APPROVED` ≠ `true`, serwer odrzuca każdy zapis (`503 clause_not_approved`), a UI blokuje przycisk wysyłki — osoba nie może być wprowadzona w błąd, że jej dane są przetwarzane (art. 5 ust. 1 lit. a RODO). W dev/CI ścieżkę zapisu włącza się wartością testową `RODO_CLAUSE_APPROVED=true`; w produkcji operator włącza formularz dopiero po wstawieniu realnej, zatwierdzonej klauzuli.
 
-**Ustalenie otwarte (E8 §1b):** nie istnieje trwała, linkowalna strona z klauzulą/polityką prywatności. Treść jest renderowana wyłącznie jako akapit obok checkboxa na `/kontakt`, więc osoba, która już wysłała zgłoszenie, nie ma gdzie wrócić po informację o swoich prawach.
+**Ustalenie E8 §1a (T3) — ZAMKNIĘTE na linii integracyjnej (ISK-357 → ISK-363).** Wcześniej `rodoClauseVersion` przychodziła **w ciele żądania POST** i była przyjmowana bez weryfikacji — wartość dowodząca, _którą_ klauzulę zobaczyła osoba, była dowolnie podmienialna przez składającego żądanie (podkopanie rozliczalności z art. 5 ust. 2 RODO). Po poprawce pole **nie jest już wejściem** (`lib/validation/inquiry.ts`): serwer ustawia wersję sam z `getRodoClauseVersion()` w `lib/inquiries/handler.ts` i ignoruje wartość z ciała.
+
+**Ustalenie E8 §1b (T6) — ZAMKNIĘTE na linii integracyjnej (ISK-357 → ISK-363).** Istnieje trwała, linkowalna trasa `app/(public)/polityka-prywatnosci/page.tsx` (`/polityka-prywatnosci`) z odnośnikiem w stopce (`components/site-footer.tsx`) i przy checkboxie formularza. Strona to **wyłącznie** szkielet klauzuli (nagłówki art. 13/14 RODO z placeholderami) — treść prawną dostarcza ISKT (pozycje I1, I4); agent nie zatwierdza treści prawnych.
 
 ### 8. Testy — zrealizowane
 
