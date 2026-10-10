@@ -29,6 +29,20 @@ describe("hashClientIp", () => {
   });
 });
 
+describe("hashClientIp — sol stabilna (ISK-357 P2)", () => {
+  // Sol NIE jest rotowana (odrzucono rotacje dobowa): kroczace okna limitu 10 min / 24 h musza
+  // byc egzekwowane takze przez granice doby UTC, a rotacja klucza zerowalaby liczniki o polnocy.
+  // Ten sam IP + ta sama sol daje ten sam hasz niezaleznie od chwili — dowod, ze klucz jest staly,
+  // wiec liczenie w oknie jest ciagle. Powiazywalnosc ograniczamy retencja (purge_submission_throttle),
+  // nie podmiana klucza.
+  it("ten sam hasz dla tego samego IP po obu stronach polnocy UTC", () => {
+    const ip = "203.0.113.7";
+    const before = hashClientIp(ip, SALT); // chwila nie wplywa na hasz — sol jest stabilna
+    const after = hashClientIp(ip, SALT);
+    expect(before).toBe(after);
+  });
+});
+
 describe("extractClientIp", () => {
   it("preferuje x-real-ip ustawiany przez platforme", () => {
     const headers = new Headers({

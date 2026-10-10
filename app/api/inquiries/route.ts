@@ -3,6 +3,7 @@ import { getServerEnv } from "@/lib/env";
 import { processInquiry, type HandlerDeps } from "@/lib/inquiries/handler";
 import { createSupabaseInquiryRepository } from "@/lib/inquiries/repository";
 import { createMailAdapterFromEnv } from "@/lib/mail/factory";
+import { isRodoClauseApproved } from "@/lib/rodo/clause";
 import { safeLogPayload } from "@/lib/security/safe-log";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -36,6 +37,7 @@ export async function POST(request: Request): Promise<Response> {
     tokenSecret: env.FORM_TOKEN_SECRET,
     throttleSalt: env.FORM_THROTTLE_SALT,
     trustedProxyCount: env.FORM_TRUSTED_PROXY_COUNT,
+    rodoClauseApproved: isRodoClauseApproved(),
     logger: (payload) => console.info(JSON.stringify(safeLogPayload(payload))),
   };
 

@@ -35,6 +35,10 @@ export SUPABASE_ANON_KEY="$ANON_KEY"
 export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
 export SUPABASE_DB_URL="$DB_URL"
 export MAIL_TRANSPORT=log
+# Techniczna bramka RODO (ISK-357 P1): bez tego serwer odrzuca kazdy zapis (503), a przycisk
+# wysylki jest nieaktywny — happy-path E2E nie moze wtedy wyslac zgloszenia. To wartosc wylacznie
+# testowa (jak w CI), nie decyzja ISKT o zatwierdzeniu tresci klauzuli.
+export RODO_CLAUSE_APPROVED=true
 export E2E_PORT="${E2E_PORT:-4273}"
 export NEXT_PUBLIC_SITE_URL="http://localhost:${E2E_PORT}"
 
