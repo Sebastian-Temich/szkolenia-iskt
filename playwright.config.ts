@@ -7,6 +7,15 @@ import { defineConfig, devices } from "@playwright/test";
 const port = Number(process.env.E2E_PORT ?? 4173);
 const baseURL = `http://localhost:${port}`;
 
+// Czas na wstanie serwera aplikacji. Domyslne 60 s Playwrighta wystarcza na
+// bezczynnej maszynie, ale `next dev` przy kilku worktree i kilku stackach
+// Supabase na jednym hoscie nie zdazy — caly przebieg konczy sie wtedy
+// komunikatem `Timed out waiting 60000ms from config.webServer`, ktory czyta
+// sie jak awaria aplikacji, a jest brakiem zasobow (ISK-369).
+// `|| ` zamiast `??`, zeby pusty lub niepoprawny napis nie dawal NaN.
+const webServerTimeout =
+  Number(process.env.E2E_WEBSERVER_TIMEOUT_MS) || 180_000;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   // Bramka hermetycznosci (ADR-0005 D7) + lokalne konta testowe. Bez tego
@@ -34,5 +43,6 @@ export default defineConfig({
       : `npm run dev -- --port ${port}`,
     url: baseURL,
     reuseExistingServer: false,
+    timeout: webServerTimeout,
   },
 });
