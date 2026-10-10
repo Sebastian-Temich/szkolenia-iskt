@@ -222,8 +222,15 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-# ISK-362 (E7 W3): rejestracja przez e-mail wylaczona (patrz [auth].enable_signup).
-enable_signup = false
+# ISK-362 (E7 W3): MUSI pozostac `true`. W Supabase CLI/GoTrue `[auth.email].enable_signup`
+# przelacza CALY provider e-mail, nie tylko rejestracje — ustawienie `false` zwraca
+# `email_provider_disabled` ("Email logins are disabled") dla signInWithPassword, czyli
+# odcina logowanie takze jedynemu kontu administratora (a `config push` propaguje
+# `external_email_enabled=false` na projekt zdalny). Otwarta rejestracja jest blokowana
+# WYLACZNIE przez `[auth].enable_signup = false` powyzej (GOTRUE_DISABLE_SIGNUP), ktore
+# blokuje POST /auth/v1/signup, a nie logowanie istniejacych kont ani admin.createUser
+# (service_role omija ten flag). Zrodla: supabase/supabase#40582, supabase/cli#7055.
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
