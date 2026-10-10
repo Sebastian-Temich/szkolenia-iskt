@@ -182,7 +182,8 @@ Dwa ustalenia otwarte dotyczące tych warstw:
 - **Żadnego punktu wydającego token formularza** — token powstaje przy renderze strony `/kontakt`.
 - **Żadnego eksportu zgłoszeń** z panelu (potwierdzone w bramce E8).
 - **Żadnej weryfikacji CAPTCHA.** Zmienne `TURNSTILE_*` istnieją w schemacie środowiska, ale **żadna logika ich nie odczytuje** — szczegóły w [ADR-0004, sekcja 4 stanu implementacji](../adr/ADR-0004-formularze-antyspam-resend.md#4-captcha--korekta-stanu-nie-jest-zaimplementowana-w-ogóle).
-- **Żadnych nagłówków bezpieczeństwa.** `next.config.ts` nie definiuje `headers()` (E7 W1).
+
+> **Zmiana od 2026-10-10 (ISK-360).** Była tu pozycja „żadnych nagłówków bezpieczeństwa" (E7 W1). Każda odpowiedź — w tym `POST /api/inquiries` — niesie dziś `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` i `Cross-Origin-Opener-Policy: same-origin`; trasy `/panel/*` dostają CSP z nonce na żądanie. Opis: [ADR-0006, „Nagłówki bezpieczeństwa"](../adr/ADR-0006-hosting.md#nagłówki-bezpieczeństwa--reguła-3-dotrzymana-e7-w1-naprawione-isk-360).
 
 ---
 
