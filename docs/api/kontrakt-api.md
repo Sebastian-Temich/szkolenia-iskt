@@ -108,7 +108,7 @@ Token jest wydawany przy renderze `/kontakt` (strona ma `dynamic = "force-dynami
 
 Identyfikator klienta do limitu częstości to `HMAC-SHA256(adres_IP, FORM_THROTTLE_SALT)`; surowy adres IP nie jest nigdzie zapisywany.
 
-> **Ustalenie otwarte, istotne dla skuteczności całego zestawu (E7 W2 / E8 §5c):** `extractClientIp()` czyta `x-forwarded-for[0]`, czyli wartość kontrolowaną przez klienta, i dopiero potem `x-real-ip`. Podmiana nagłówka daje nowe wiadro limitu przy każdym żądaniu, co unieważnia warstwę 3 i w konsekwencji cały zestaw blokujący. Brak obu nagłówków oznacza wspólne wiadro `"unknown"` dla wszystkich klientów. Warunek wdrożenia i poprawka: [ADR-0006, „Nowy warunek wdrożenia: zaufane proxy"](../adr/ADR-0006-hosting.md#nowy-warunek-wdrożenia-zaufane-proxy-e8-t8-e7-w2).
+> **Zaufane źródło adresu klienta (E7 W2 / E8 §5c) — naprawione (ISK-361):** `extractClientIp()` ufa `x-real-ip` w pierwszej kolejności, a z `x-forwarded-for` bierze wpis odliczony od **końca** listy o `FORM_TRUSTED_PROXY_COUNT` (konfiguracja, domyślnie `1`) — lewy skraj listy jest kontrolowany przez klienta i ignorowany. Gdy adresu nie da się ustalić w sposób godny zaufania, handler **odrzuca** żądanie (`429`) zamiast używać wspólnego wiadra `"unknown"`. **Warunek wdrożenia pozostaje otwarty:** `FORM_TRUSTED_PROXY_COUNT` musi odpowiadać topologii platformy, zweryfikowanej empirycznie na preview — [ADR-0006, „Nowy warunek wdrożenia: zaufane proxy"](../adr/ADR-0006-hosting.md#nowy-warunek-wdrożenia-zaufane-proxy-e8-t8-e7-w2).
 
 ### 1.5 Co trafia do bazy
 
