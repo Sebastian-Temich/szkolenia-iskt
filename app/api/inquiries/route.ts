@@ -35,6 +35,7 @@ export async function POST(request: Request): Promise<Response> {
     notificationTo: env.INQUIRY_NOTIFICATION_TO,
     tokenSecret: env.FORM_TOKEN_SECRET,
     throttleSalt: env.FORM_THROTTLE_SALT,
+    trustedProxyCount: env.FORM_TRUSTED_PROXY_COUNT,
     logger: (payload) => console.info(JSON.stringify(safeLogPayload(payload))),
   };
 

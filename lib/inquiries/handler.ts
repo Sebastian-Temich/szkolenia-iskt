@@ -26,6 +26,7 @@ export type HandlerDeps = {
   notificationTo: string;
   tokenSecret: string;
   throttleSalt: string;
+  trustedProxyCount: number;
   now?: () => Date;
   logger?: SafeLogger;
   sourcePath?: string;
@@ -85,8 +86,14 @@ export async function processInquiry(request: Request, deps: HandlerDeps): Promi
     return json(200, { message: SUCCESS_MESSAGE });
   }
 
-  // 5. Limit czestosci na haszowanym IP.
-  const ip = extractClientIp(request.headers) ?? "unknown";
+  // 5. Limit czestosci na haszowanym IP. Adresu kontrolowanego przez klienta NIE uzywamy
+  // (E7 W2): bez godnego zaufania adresu odrzucamy zadanie, zamiast wrzucac wszystkich do
+  // wspolnego wiadra "unknown" (ktore bylo trywialnym DoS-em i obejsciem limitu naraz).
+  const ip = extractClientIp(request.headers, { trustedProxyCount: deps.trustedProxyCount });
+  if (ip === null) {
+    logServerEvent(log, { event: "inquiry.rejected", requestId, layer: "throttle", outcome: "no_client_ip" });
+    return json(429, { error: "too_many_requests", message: THROTTLE_MESSAGE });
+  }
   const clientHash = hashClientIp(ip, deps.throttleSalt);
   const decision = await evaluateThrottle(deps.throttleStore, clientHash, now());
   if (!decision.allowed) {

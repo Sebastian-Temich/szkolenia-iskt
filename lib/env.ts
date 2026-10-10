@@ -12,6 +12,11 @@ const sharedServerFields = {
   INQUIRY_NOTIFICATION_TO: z.email().optional(),
   FORM_THROTTLE_SALT: z.string().min(32).optional(),
   FORM_TOKEN_SECRET: z.string().min(32).optional(),
+  // Liczba zaufanych proxy (hopow) przed aplikacja (E7 W2 / ADR-0006). Semantyka jak
+  // `trust proxy = N` w Express: zaufany blok to OSTATNIE N wpisow `x-forwarded-for`, realny
+  // klient to pierwszy wpis bloku (patrz lib/security/client-hash.ts). MUSI odpowiadac topologii
+  // wybranej platformy, potwierdzonej empirycznie na preview. Domyslnie 1 (pojedynczy edge proxy).
+  FORM_TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).default(1),
   TURNSTILE_ENABLED: z.enum(["true", "false"]).default("false"),
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
   RODO_CLAUSE_VERSION: z.string().min(1).optional(),
