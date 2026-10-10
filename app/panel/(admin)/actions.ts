@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/panel/auth";
 import { invalidatePublicCatalog } from "@/lib/panel/catalog-cache";
+import { isDeleteConfirmed } from "@/lib/panel/confirm-delete";
 import {
   inquiryStatusSchema,
   isAllowedInquiryTransition,
@@ -109,12 +110,24 @@ export async function saveTraining(formData: FormData) {
   redirect("/panel/szkolenia");
 }
 
+/**
+ * Usuniecie jest nieodwracalne, a przycisk stoi w jednym rzedzie z „Wycofaj",
+ * wiec potwierdzenie jest wymagane po stronie SERWERA, nie tylko w UI
+ * (ISK-364 / B6). Klient dokleja `confirmDeleteId` dopiero po jawnym
+ * potwierdzeniu w okienku — zadanie bez tego pola konczy sie bledem i nie
+ * dotyka bazy. Kolejnosc jest istotna: sprawdzenie potwierdzenia poprzedza
+ * jakiekolwiek wywolanie do bazy.
+ */
 export async function deleteCatalogItem(
   kind: "training" | "trainer" | "category",
   id: string,
+  formData?: FormData,
 ) {
   const validId = idSchema.safeParse(id);
   if (!validId.success) fail("Niepoprawny identyfikator.");
+  if (!isDeleteConfirmed(formData, validId.data)) {
+    fail("Usunięcie wymaga potwierdzenia.");
+  }
   const { supabase } = await requireAdmin();
   const table =
     kind === "training"

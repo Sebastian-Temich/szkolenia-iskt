@@ -2,9 +2,12 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    # Linia integracyjna jest bramkowana tak samo jak `main`. Bez tego PR-y celujace
+    # w `integration/**` nie uruchamialy zadnego zadania — tak przeszedl bez CI
+    # PR #7 (ISK-357), ktorego poprawki RODO nie dotarly na linie integracyjna.
+    branches: [main, "integration/**"]
   push:
-    branches: [main]
+    branches: [main, "integration/**"]
 
 concurrency:
   group: ci-${{ github.ref }}

@@ -20,19 +20,32 @@ type FormValues = {
   company_website: string;
 };
 
+/** Szkolenie wskazane przez `?szkolenie=<slug>`, rozwiazane na serwerze. */
+export type SelectedTraining = {
+  id: string;
+  title: string;
+  slug: string;
+};
+
 type Props = {
   formToken: string;
   rodoClauseText: string;
   // Techniczna bramka RODO (ISK-357 P1): gdy false, wysłanie jest zablokowane w UI (przycisk
   // nieaktywny, submit nie wywołuje żądania). Serwer i tak odrzuca zapis — to druga warstwa.
   clauseApproved: boolean;
+  training?: SelectedTraining | null;
 };
 
 // "expired" to uczciwa reakcja na wygasly token (ISK-357 T4): formularz pozostaje wypelniony,
 // token zostaje odswiezony w tle, a osoba moze wyslac ponownie — zamiast cichego sukcesu.
 type SubmitState = "idle" | "submitting" | "success" | "error" | "expired";
 
-export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props) {
+export function InquiryForm({
+  formToken,
+  rodoClauseText,
+  clauseApproved,
+  training = null,
+}: Props) {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [token, setToken] = useState(formToken);
 
@@ -51,7 +64,10 @@ export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props
       email: "",
       phone: "",
       companyName: "",
-      interestArea: "",
+      // Nazwa szkolenia trafia tez do pola tekstowego: `training_id` jest
+      // powiazaniem w bazie, a `interest_area` zostaje czytelnym tematem w
+      // liscie zgloszen i w powiadomieniu e-mail.
+      interestArea: training?.title ?? "",
       message: "",
       rodoAck: false,
       company_website: "",
@@ -74,6 +90,8 @@ export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props
           email: data.email,
           phone: data.phone,
           companyName: data.kind === "firma" ? data.companyName : undefined,
+          // ISK-364 / P4: bez tego pola `inquiries.training_id` bylo zawsze NULL.
+          trainingId: training?.id,
           interestArea: data.interestArea,
           message: data.message,
           rodoAck: data.rodoAck,
@@ -138,6 +156,19 @@ export function InquiryForm({ formToken, rodoClauseText, clauseApproved }: Props
           Formularz był otwarty zbyt długo i sesja wygasła. Twoje dane nie zostały jeszcze wysłane —
           odświeżyliśmy formularz, kliknij „Wyślij zgłoszenie” ponownie.
         </div>
+      ) : null}
+
+      {training ? (
+        <p
+          data-testid="selected-training"
+          data-training-id={training.id}
+          className="bg-success-50 rounded p-3 text-sm"
+        >
+          Zapytanie dotyczy szkolenia: <strong>{training.title}</strong>.{" "}
+          <a className="underline" href={`/szkolenia/${training.slug}`}>
+            Wróć do opisu
+          </a>
+        </p>
       ) : null}
 
       <fieldset className="flex flex-col gap-2">
