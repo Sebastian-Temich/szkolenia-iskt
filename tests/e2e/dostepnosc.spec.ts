@@ -54,29 +54,24 @@ for (const [name, path] of views) {
 }
 
 // Panelu nie ma na liscie siedmiu widokow z ADR-0005 D4, ale administrator tez
-// korzysta z klawiatury i czytnika ekranu — a panel jest renderowany wewnatrz
-// publicznego layoutu, co jest realnym zrodlem problemow z landmarkami.
-// `hasKnownContrastDefect` = widok z tabela, czyli z `th` i `td small`
-// malowanymi `--color-text-muted` (#7e857a). Na bialym tle daje to ~3.8:1,
-// a WCAG 2.1 AA wymaga 4.5:1 dla tekstu tej wielkosci — patrz defekt POW-4
-// w `docs/qa/raport-e6.md`. Naprawa nalezy do E5 (wystarczy
-// `--color-text-secondary`, #5b6157 ≈ 6.4:1).
+// korzysta z klawiatury i czytnika ekranu.
 //
-// Te trzy przypadki sa oznaczone `test.fail()`, a nie pominiete: defekt
-// zostaje udokumentowany w kodzie, bramka jest zielona, a w chwili naprawy
-// kontrastu Playwright zglosi „expected to fail but passed” i wymusi
-// zdjecie adnotacji. Pominiecie (`skip`) po cichu straciloby ten sygnal.
+// Te trzy widoki z tabela byly do ISK-359 oznaczone `test.fail()` z powodu
+// defektu POW-4 (`docs/qa/raport-e6.md`): `th` i `td small` malowane
+// `--color-text-muted` (#7e857a) daly ~3.8:1 na bialym tle, a WCAG 2.1 AA
+// wymaga 4.5:1. Po przejsciu na `--color-text-secondary` (#5b6157 ≈ 6.4:1)
+// adnotacja jest zdjeta — te przypadki musza przechodzic normalnie, inaczej
+// bramka nie pilnuje niczego.
 //
-// Warunek konieczny: tabela musi miec wiersze. Pusta lista nie renderuje ani
-// `th`, ani `td small`, wiec naruszenia nie ma i `test.fail()` sam staje sie
-// czerwony. `/panel/szkolenia` i `/panel/trenerzy` maja dane z seeda [DEMO],
-// ale `inquiries` seed celowo nie zawiera — zgloszenie dla widoku
+// `hasTable` zostaje, bo pilnuje czegos innego: skan pustej tabeli nie
+// dowodzi niczego. Pusta lista nie renderuje ani `th`, ani `td small`, wiec
+// test przeszedlby bez sprawdzenia kontrastu, ktorego dotyczy.
+// `/panel/szkolenia` i `/panel/trenerzy` maja dane z seeda [DEMO], ale
+// `inquiries` seed celowo nie zawiera — zgloszenie dla widoku
 // `/panel/zgloszenia` zakladamy wiec sami w `beforeAll`. Bez tego bramka jest
 // zielona lokalnie (gdzie zgloszenia zostaly po innych testach) i czerwona
 // w CI na swiezej bazie.
-const panelViews: Array<
-  [name: string, path: string, hasKnownContrastDefect: boolean]
-> = [
+const panelViews: Array<[name: string, path: string, hasTable: boolean]> = [
   ["panel — start", "/panel", false],
   ["panel — szkolenia", "/panel/szkolenia", true],
   ["panel — trenerzy", "/panel/trenerzy", true],
@@ -88,17 +83,13 @@ test.describe("axe: panel administratora (poza wymaganym minimum ADR-0005 D4)", 
     await createInquiry();
   });
 
-  for (const [name, path, hasKnownContrastDefect] of panelViews) {
+  for (const [name, path, hasTable] of panelViews) {
     test(`${name} bez naruszen krytycznych`, async ({ page }) => {
-      test.fail(
-        hasKnownContrastDefect,
-        "POW-4: kontrast `th` / `td small` w tabelach panelu to ~3.8:1 (wymagane 4.5:1)",
-      );
       await loginAsAdmin(page);
       await page.goto(path);
 
       // Skan pustej tabeli nie dowodzi niczego — upewniamy sie, ze jest tresc.
-      if (hasKnownContrastDefect) {
+      if (hasTable) {
         await expect(page.locator("tbody tr").first()).toBeVisible();
       }
 

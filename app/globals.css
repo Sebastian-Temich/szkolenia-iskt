@@ -187,10 +187,13 @@
   .panel-form textarea {
     resize: vertical;
   }
+  /* Kontrast AA (POW-4): `--color-text-muted` (#7e857a) to ~3.8:1 na bialym
+     tle, a WCAG 2.1 AA wymaga 4.5:1. `--color-text-secondary` (#5b6157) daje
+     ~6.4:1 i jest w palecie od E1. */
   .panel-form small,
   td small {
     display: block;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-weight: 400;
   }
   .panel-fields {
@@ -278,8 +281,10 @@
     grid-template-columns: 7rem 1fr;
     gap: 0.65rem;
   }
+  /* Etykiety w kartach szczegolu to ten sam defekt kontrastu co POW-4 —
+     tabele i karty panelu musza czytac sie jednakowo. */
   .panel-card dt {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
   .panel-card dd {
     margin: 0;
@@ -307,8 +312,10 @@
     text-align: left;
     vertical-align: top;
   }
+  /* Naglowki kolumn sa dodatkowo male (`--text-xs`), wiec AA liczy je jako
+     tekst zwykly — 4.5:1, nie 3:1. Patrz POW-4. */
   th {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-size: var(--text-xs);
     text-transform: uppercase;
   }
@@ -370,10 +377,16 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
+  /* POW-5: `overflow-x: auto` chowalo trzecia sekcje za prawa krawedzia
+     ekranu przy 360 px. Link byl osiagalny (nawigacja przewijala sie), ale
+     bez zadnego afordansu — na telefonie "Zgloszenia" wygladalo na
+     nieistniejace. Zawijamy zamiast przewijac: kazda sekcja jest widoczna
+     i osiagalna Tabem bez dodatkowego widgetu rozwijania. */
   .panel-header nav {
     order: 3;
+    flex-wrap: wrap;
     width: 100%;
-    overflow-x: auto;
+    row-gap: 0.5rem;
   }
   .panel-fields,
   .panel-grid,
