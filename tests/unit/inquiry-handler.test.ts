@@ -40,6 +40,7 @@ function makeDeps(overrides?: Partial<HandlerDeps>): { deps: HandlerDeps; insert
     notificationTo: "biuro@example.invalid",
     tokenSecret: SECRET,
     throttleSalt: SALT,
+    trustedProxyCount: 1,
     // Domyslnie klauzula zatwierdzona, aby testy sciezek T3/T4 doszly do zapisu. Bramka P1 ma
     // wlasny blok ponizej z rodoClauseApproved: false.
     rodoClauseApproved: true,
@@ -52,7 +53,9 @@ function makeDeps(overrides?: Partial<HandlerDeps>): { deps: HandlerDeps; insert
 function postRequest(body: Record<string, unknown>): Request {
   return new Request("http://localhost/api/inquiries", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    // Godny zaufania adres klienta (E7 W2 / ISK-361): bez niego handler odrzuca 429 zanim
+    // dojdzie do testowanych warstw T3/T4. `x-real-ip` ma pierwszeństwo, niezależne od proxy.
+    headers: { "content-type": "application/json", "x-real-ip": "203.0.113.10" },
     body: JSON.stringify(body),
   });
 }
