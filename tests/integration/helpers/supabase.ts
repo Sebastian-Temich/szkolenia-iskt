@@ -15,35 +15,112 @@ type StackEnv = {
 
 let cached: StackEnv | null = null
 
-export function stackEnv(): StackEnv {
-  if (cached) return cached
-  const fromProcess = {
-    apiUrl: process.env.SUPABASE_URL ?? process.env.API_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY ?? process.env.ANON_KEY,
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SERVICE_ROLE_KEY,
-    dbUrl: process.env.SUPABASE_DB_URL ?? process.env.DB_URL,
+// Hosty uznawane za lokalny stack Supabase. Wszystko inne (w szczegolnosci
+// `https://<ref>.supabase.co`) jest traktowane jako projekt zdalny/hostowany.
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]', '0.0.0.0'])
+
+function hostnameOf(url: string | undefined): string | null {
+  if (!url) return null
+  try {
+    // URL radzi sobie zarowno z http(s):// jak i postgres(ql)://.
+    return new URL(url).hostname.replace(/^\[|\]$/g, '')
+  } catch {
+    return null
   }
-  if (fromProcess.apiUrl && fromProcess.anonKey && fromProcess.serviceRoleKey && fromProcess.dbUrl) {
-    cached = fromProcess as StackEnv
-    return cached
+}
+
+function isLocalUrl(url: string | undefined): boolean {
+  const host = hostnameOf(url)
+  return host != null && LOCAL_HOSTS.has(host)
+}
+
+// Bramka hermetycznosci (krok 1): twardy zakaz hostowanych zmiennych SUPABASE_*.
+// Czyta wylacznie `process.env` — nie wykonuje zadnego zapytania do bazy, API ani
+// `supabase status`, dzieki czemu moze przerwac przebieg zanim powstanie jakikolwiek
+// klient. ADR-0002 i ramy zlecenia zabraniaja dotykania produkcyjnego projektu Supabase.
+export function assertNoHostedSupabaseEnv(): void {
+  for (const name of ['SUPABASE_URL', 'SUPABASE_DB_URL'] as const) {
+    const value = process.env[name]
+    if (value && !isLocalUrl(value)) {
+      throw new Error(
+        `Hermetycznosc testow integracyjnych: ${name}=${value} wskazuje na host inny niz lokalny. ` +
+          `npm run test:integration dziala WYLACZNIE przeciw lokalnemu stackowi Supabase (supabase status). ` +
+          `Hostowane zmienne SUPABASE_* nie moga byc uzyte — odznacz je w srodowisku ` +
+          `(np. uruchom przez scripts/integration-local.sh) i sprobuj ponownie.`,
+      )
+    }
   }
-  // Fallback: odczyt z CLI uruchomionego stacku.
+}
+
+function assertResolvedLocal(env: StackEnv): void {
+  if (!isLocalUrl(env.apiUrl)) {
+    throw new Error(
+      `Hermetycznosc testow integracyjnych: rozwiazane API_URL=${env.apiUrl} nie jest lokalne ` +
+        `(oczekiwano 127.0.0.1/localhost). Przerwano przed jakimkolwiek requestem.`,
+    )
+  }
+  if (!isLocalUrl(env.dbUrl)) {
+    throw new Error(
+      `Hermetycznosc testow integracyjnych: rozwiazane DB_URL wskazuje na host inny niz lokalny ` +
+        `(oczekiwano 127.0.0.1/localhost). Przerwano przed jakimkolwiek polaczeniem z baza.`,
+    )
+  }
+}
+
+// Rozwiazuje parametry LOKALNEGO stacku. Pierwszenstwo maja jawnie lokalne zmienne
+// API_URL/ANON_KEY/SERVICE_ROLE_KEY/DB_URL (ustawiane m.in. przez skrypty opakowujace
+// i CI z `supabase status`); w braku kompletu czytamy je bezposrednio z `supabase status`.
+// Hostowanych SUPABASE_* NIE czytamy w ogole — nie moga trafic do testow przez przypadek.
+function resolveLocalEnv(): StackEnv {
+  const direct = {
+    apiUrl: process.env.API_URL,
+    anonKey: process.env.ANON_KEY,
+    serviceRoleKey: process.env.SERVICE_ROLE_KEY,
+    dbUrl: process.env.DB_URL,
+  }
+  if (direct.apiUrl && direct.anonKey && direct.serviceRoleKey && direct.dbUrl) {
+    return direct as StackEnv
+  }
+  // Fallback: odczyt z CLI uruchomionego stacku (nie dotyka zadnego zdalnego projektu).
   const raw = execFileSync('supabase', ['status', '-o', 'env'], { encoding: 'utf8' })
   const map = new Map<string, string>()
   for (const line of raw.split('\n')) {
     const m = line.match(/^([A-Z0-9_]+)="?([^"]*)"?$/)
     if (m?.[1] && m[2] !== undefined) map.set(m[1], m[2])
   }
-  cached = {
-    apiUrl: fromProcess.apiUrl ?? map.get('API_URL')!,
-    anonKey: fromProcess.anonKey ?? map.get('ANON_KEY')!,
-    serviceRoleKey: fromProcess.serviceRoleKey ?? map.get('SERVICE_ROLE_KEY')!,
-    dbUrl: fromProcess.dbUrl ?? map.get('DB_URL')!,
+  const resolved = {
+    apiUrl: direct.apiUrl ?? map.get('API_URL'),
+    anonKey: direct.anonKey ?? map.get('ANON_KEY'),
+    serviceRoleKey: direct.serviceRoleKey ?? map.get('SERVICE_ROLE_KEY'),
+    dbUrl: direct.dbUrl ?? map.get('DB_URL'),
   }
-  if (!cached.apiUrl || !cached.anonKey || !cached.serviceRoleKey || !cached.dbUrl) {
+  if (!resolved.apiUrl || !resolved.anonKey || !resolved.serviceRoleKey || !resolved.dbUrl) {
     throw new Error('Nie udalo sie ustalic parametrow lokalnego stacku Supabase (supabase start?)')
   }
+  return resolved as StackEnv
+}
+
+export function stackEnv(): StackEnv {
+  // Bramka hermetycznosci dziala przy KAZDYM wywolaniu, przed odczytem cache — hostowane
+  // SUPABASE_* ustawione pozniej (np. w tescie) tez zostana wychwycone, bez requestu.
+  assertNoHostedSupabaseEnv()
+  if (cached) return cached
+  const resolved = resolveLocalEnv()
+  assertResolvedLocal(resolved)
+  cached = resolved
   return cached
+}
+
+// Pelna bramka hermetycznosci do wywolania na starcie (global-setup) — rzuca, zanim
+// powstanie jakikolwiek klient Supabase czy polaczenie z baza.
+export function assertLocalStack(): void {
+  stackEnv()
+}
+
+// Wylacznie na potrzeby testow bramki: zeruje cache, zeby kolejne wywolania ponownie
+// rozwiazaly srodowisko.
+export function resetStackEnvCache(): void {
+  cached = null
 }
 
 const noPersist = { auth: { persistSession: false, autoRefreshToken: false } }
