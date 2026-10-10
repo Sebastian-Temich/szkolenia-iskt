@@ -70,21 +70,45 @@ Sekcja dopisana w etapie E9T. Porównanie i rekomendacja powyżej pozostają bez
 
 ### Reguły neutralności dostawcy — weryfikacja
 
-| #   | Reguła                                                                                    | Stan 2026-10-10                                                                                                                                                                                                                    |
-| --- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Zero API specyficznego dla dostawcy (brak `@vercel/*`, `@netlify/*`)                      | **dotrzymana** — `package.json` nie zawiera żadnej zależności dostawcy                                                                                                                                                             |
-| 2   | Konfiguracja wyłącznie przez zmienne środowiskowe z `.env.example`, bez wartości w kodzie | **dotrzymana** — potwierdzone w bramce E7 (skan historii wszystkich gałęzi)                                                                                                                                                        |
-| 3   | Nagłówki bezpieczeństwa i przekierowania w `next.config.ts`, nie w plikach dostawcy       | **NIEDOTRZYMANA** — `next.config.ts` zawiera wyłącznie `reactStrictMode`; nie ma `async headers()`, nie ma plików dostawcy, `proxy.ts` nie ustawia żadnego nagłówka. Ustalenie **W1 z bramki E7**, priorytet wysoki (patrz niżej). |
-| 4   | Brak zależności od storage, cache KV ani cron konkretnego dostawcy                        | **dotrzymana** — zadania utrzymaniowe to funkcje w bazie wywoływane ręcznie                                                                                                                                                        |
-| 5   | `output` pozostaje domyślny                                                               | **dotrzymana** — `next.config.ts` nie ustawia `output`                                                                                                                                                                             |
+| #   | Reguła                                                                                    | Stan 2026-10-10                                                                                                                                                                                                   |
+| --- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Zero API specyficznego dla dostawcy (brak `@vercel/*`, `@netlify/*`)                      | **dotrzymana** — `package.json` nie zawiera żadnej zależności dostawcy                                                                                                                                            |
+| 2   | Konfiguracja wyłącznie przez zmienne środowiskowe z `.env.example`, bez wartości w kodzie | **dotrzymana** — potwierdzone w bramce E7 (skan historii wszystkich gałęzi)                                                                                                                                       |
+| 3   | Nagłówki bezpieczeństwa i przekierowania w `next.config.ts`, nie w plikach dostawcy       | **dotrzymana od 2026-10-10** — `next.config.ts` ma `async headers()`, wartości pochodzą z `lib/security/headers.ts`; nadal zero plików dostawcy. Ustalenie **W1 z bramki E7** naprawione w ISK-360 (patrz niżej). |
+| 4   | Brak zależności od storage, cache KV ani cron konkretnego dostawcy                        | **dotrzymana** — zadania utrzymaniowe to funkcje w bazie wywoływane ręcznie                                                                                                                                       |
+| 5   | `output` pozostaje domyślny                                                               | **dotrzymana** — `next.config.ts` nie ustawia `output`                                                                                                                                                            |
 
-### Nagłówki bezpieczeństwa — reguła 3 niedotrzymana (E7 W1)
+### Nagłówki bezpieczeństwa — reguła 3 dotrzymana (E7 W1 naprawione, ISK-360)
 
-Skan całego drzewa nie znalazł **żadnego** z: `Content-Security-Policy`, `X-Frame-Options` / `frame-ancestors`, `Referrer-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`.
+**Stan do 2026-10-10:** skan całego drzewa nie znajdował **żadnego** z: `Content-Security-Policy`, `X-Frame-Options` / `frame-ancestors`, `Referrer-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`.
 
-Konkretny scenariusz z bramki: atakujący osadza adres szczegółu zgłoszenia w panelu w przezroczystym `<iframe>`. Zalogowany administrator wchodzi na podstawioną stronę — brak `X-Frame-Options` / `frame-ancestors` pozwala na clickjacking przycisków zmiany statusu (to zwykłe `<form action={…}>` z server action), a panel z pełnymi danymi osobowymi renderuje się w kontekście obcej strony. Brak CSP oznacza, że dowolny przyszły XSS ma pełną swobodę eksfiltracji danych osobowych i tokenu sesji.
+Scenariusz z bramki, który to otwierało: atakujący osadza adres szczegółu zgłoszenia w panelu w przezroczystym `<iframe>`. Zalogowany administrator wchodzi na podstawioną stronę — brak `X-Frame-Options` / `frame-ancestors` pozwala na clickjacking przycisków zmiany statusu (to zwykłe `<form action={…}>` z server action), a panel z pełnymi danymi osobowymi renderuje się w kontekście obcej strony. Brak CSP oznacza, że dowolny przyszły XSS ma pełną swobodę eksfiltracji danych osobowych i tokenu sesji.
 
-Rekomendowana poprawka (należy do właściciela warstwy aplikacji, nie do tej bramki): `headers()` w `next.config.ts` z CSP (`default-src 'self'`, `frame-ancestors 'none'`, nonce dla skryptów Next), `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff` oraz `Strict-Transport-Security` po potwierdzeniu HTTPS na całej domenie. Definicja **musi** powstać w `next.config.ts`, nie w konfiguracji dostawcy — inaczej reguła 1 i 3 tego ADR przestają obowiązywać.
+**Stan od 2026-10-10 (ISK-360).** Wartości nagłówków powstają w jednym module `lib/security/headers.ts`, a reguły są deklarowane w `next.config.ts` (`async headers()`) — nie w `vercel.json` ani `netlify.toml`, więc reguła 3 obowiązuje niezależnie od wyboru dostawcy.
+
+Na każdej odpowiedzi: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera/microphone/geolocation/payment/usb wyłączone), `Cross-Origin-Opener-Policy: same-origin`.
+
+CSP ma **dwa profile**, bo dwa rodzaje tras renderują się inaczej:
+
+| Profil    | Trasy                    | `script-src`                  | Gdzie ustawiany                           |
+| --------- | ------------------------ | ----------------------------- | ----------------------------------------- |
+| statyczny | wszystko poza `/panel/*` | `'self' 'unsafe-inline'`      | `next.config.ts`                          |
+| z nonce   | `/panel/*`               | `'self' 'nonce-<na żądanie>'` | `proxy.ts` (wartość z tego samego modułu) |
+
+Wspólne dla obu: `default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `style-src 'self' 'unsafe-inline'`, `connect-src 'self'` (+ origin Supabase, gdy skonfigurowany), `upgrade-insecure-requests` poza trybem dev. W trybie deweloperskim dochodzą `'unsafe-eval'` i `ws:`, bez których webpack i HMR nie działają.
+
+**Dlaczego nie jeden profil z nonce dla całej witryny.** Nonce jest wartością na żądanie, a trasy publiczne są prerenderowane (`revalidate = 300`, ADR-0001). W zapisanym HTML nonce byłby stały, czyli bezwartościowy, a przy niezgodności z nagłówkiem przeglądarka zablokowałaby wszystkie skrypty. Jedyną alternatywą byłoby zrezygnowanie z ISR na stronach publicznych — co zabrałoby korzyść, dla której wybrano ten model renderowania. Dlatego nonce dostaje panel: to tam renderują się dane osobowe i tam siedzi sesja administratora, czyli dokładnie cel ze scenariusza bramki.
+
+Reguła ta wymusiła jedną zmianę poza konfiguracją: `app/panel/brak-dostepu/page.tsx` dostało `export const dynamic = "force-dynamic"`. Była to jedyna strona panelu nieczytająca sesji, więc Next prerenderował ją statycznie — a prerender ze skryptami bez atrybutu `nonce` zostałby przez przeglądarkę zablokowany. W trybie dev nie byłoby tego widać, bo tam każde żądanie renderuje się od nowa; wyłapuje to bramka E2E działająca na artefakcie builda (ADR-0005 D2).
+
+**Co pozostaje otwarte i dlaczego:**
+
+- `Strict-Transport-Security` jest **wyłączony domyślnie** i włączany wyłącznie przez `SECURITY_HSTS_ENABLED=true` (`.env.example`). Wartość to `max-age=63072000; includeSubDomains`. Dwuletni `max-age` z `includeSubDomains` jest trudno odwracalny, więc warunkiem włączenia jest potwierdzone HTTPS na całej domenie `iskt.pl` wraz z subdomenami — pozycja na liście kontrolnej niżej.
+- `script-src` na trasach publicznych zawiera `'unsafe-inline'` (powód wyżej). CSP ogranicza tam eksfiltrację (`connect-src 'self'`, `form-action 'self'`, `base-uri 'self'`), ale nie blokuje wykonania wstrzykniętego skryptu. Strony publiczne renderują wyłącznie dane z katalogu edytowanego w panelu i jedyne `dangerouslySetInnerHTML` w drzewie to JSON-LD w `app/(public)/szkolenia/[slug]/page.tsx`.
+- Strona 404 pod adresem w obrębie `/panel/*` to prerenderowany `_not-found`, więc jej skrypty nie mają nonce i przeglądarka je blokuje. Treść i odnośniki działają (HTML renderuje serwer), traci tylko nawigacja po stronie klienta. Świadomie nie dodano trasy catch-all tylko po to, żeby strona 404 hydratowała się pod CSP.
+- Włączenie Turnstile (`TURNSTILE_ENABLED`, dziś tylko obsługa po stronie serwera) będzie wymagało dopisania `challenges.cloudflare.com` do `script-src` i `frame-src`. Bez tego widget zostanie zablokowany.
+
+Pokrycie testami: `tests/unit/security-headers.test.ts` (treść polityki i to, że reguły są deklarowane w `next.config.ts`, w tym wyłączenie `/panel/*` z profilu statycznego) oraz `tests/e2e/naglowki-bezpieczenstwa.spec.ts` (odpowiedzi uruchomionego serwera, pojedynczy nagłówek CSP, nonce na każdym skrypcie panelu, przejście administratora przez panel bez naruszeń CSP).
 
 ### Nowy warunek wdrożenia: zaufane proxy (E8 T8, E7 W2)
 
@@ -101,7 +125,7 @@ Limit częstości opiera się na adresie klienta odczytanym z nagłówków (`lib
 
 Do listy kontrolnej powyżej dochodzą pozycje zmierzone w bramkach E7 i E8:
 
-- [ ] **nagłówki bezpieczeństwa w `next.config.ts`** (E7 W1) — dziś brak jakichkolwiek;
+- [ ] **włączenie HSTS** (`SECURITY_HSTS_ENABLED=true`) — po potwierdzeniu HTTPS na całej domenie `iskt.pl` wraz z subdomenami; same nagłówki bezpieczeństwa są już w `next.config.ts` (E7 W1 naprawione w ISK-360);
 - [ ] **zaufane proxy dla limitu częstości** (cztery punkty powyżej);
 - [ ] **wyłączenie otwartej rejestracji w Supabase Auth** (E7 W3): `supabase/config.toml` ma `enable_signup = true` w `[auth]` i `[auth.email]`, `enable_confirmations = false`, `minimum_password_length = 6`, puste `password_requirements`, wyłączone MFA i brak sekcji `[auth.sessions]`. Dowolna osoba może utworzyć konto i przejść `proxy.ts` (zatrzymuje ją dopiero `requireAdmin()` i RLS, więc dane nie wyciekają — ale middleware przestaje być bramką, a projekt dostaje zalew `auth.users` i nadużycie wysyłki maili transakcyjnych). Ten plik konfiguruje również projekt zdalny, więc ustawienia należy zweryfikować po wdrożeniu;
 - [ ] **jawne atrybuty ciasteczek sesji** (E7 S5): `httpOnly`, `secure`, `sameSite` zależą dziś od domyślnych wartości `@supabase/ssr@0.12.7`, nieprzypiętych w kodzie i nieobjętych testem;
