@@ -1,0 +1,63 @@
+# Workflow tymczasowy Etapu 2 (E2) — tylko zadanie `database`.
+#
+# Powod istnienia: branch E2 wychodzi od `main`, ktory nie ma jeszcze harnessu z E1
+# (package.json, vitest.config.ts, pelny ci.yml). Zeby PR E2 mial zielone CI z zadaniem
+# `database` niezaleznie, dowozimy minimalny, samowystarczalny workflow uruchamiajacy
+# lokalny stack Supabase i testy integracyjne RLS. Zgodnie z ADR-0005 D2: zero sekretow
+# ISKT, caly przebieg na lokalnym stacku Supabase CLI.
+#
+# Po scaleniu E1 (feat/isk-340-repository-foundation) do `main` ten plik mozna usunac —
+# pelny `.github/workflows/ci.yml` z E1 zawiera rownowazne zadanie `database`
+# (patrz komentarz koordynacyjny na ISK-341). Osobna nazwa pliku celowo unika konfliktu
+# scalania z ci.yml E1.
+name: E2 Database CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-e2-database-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MAIL_TRANSPORT: log
+
+jobs:
+  database:
+    name: database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - run: npm ci
+      - name: Start local Supabase
+        run: supabase start
+      - name: Reproduce schema from scratch
+        run: supabase db reset
+      - name: Integration tests (RLS + zapis zgloszen)
+        run: npm run test:integration
+      - name: Collect Supabase diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p test-results/supabase
+          supabase status > test-results/supabase/status.log 2>&1 || true
+          docker ps -a > test-results/supabase/containers.log 2>&1 || true
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2-database-diagnostics
+          path: test-results/supabase
+          if-no-files-found: ignore
