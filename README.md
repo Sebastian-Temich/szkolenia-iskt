@@ -6,14 +6,19 @@ Publiczny serwis oferty szkoleń ISKT z panelem jednego administratora, formular
 
 ## Dokumentacja
 
-| Dokument                                                               | Zawartość                                                          |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [Plan dostawy](docs/plan-dostawy.md)                                   | etapy, właściciele, zależności, DoD, bramki, ryzyka, decyzje ISKT  |
-| [Rejestr ADR](docs/adr/README.md)                                      | decyzje architektoniczne ADR-0001…0006                             |
-| [Model danych i RLS](docs/architektura/model-danych.md)                | tabele, ograniczenia, macierz dostępu, wymagane testy              |
-| [Runbook lokalnego uruchomienia](docs/runbook/lokalne-uruchomienie.md) | wymagania, pierwszy start, codzienne komendy, zmiana schematu      |
-| [Tokeny design systemu](docs/design-system.md)                         | mapowanie tokenów ISKT na `@theme` Tailwind CSS v4                 |
-| [`.env.example`](.env.example)                                         | zmienne środowiskowe z opisem i podziałem na publiczne i serwerowe |
+| Dokument                                                               | Zawartość                                                                                          |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [Plan dostawy](docs/plan-dostawy.md)                                   | etapy, właściciele, zależności, DoD, bramki, ryzyka                                                |
+| [Rejestr ADR](docs/adr/README.md)                                      | decyzje architektoniczne ADR-0001…0006 wraz ze stanem wobec implementacji                          |
+| [Model danych i RLS](docs/architektura/model-danych.md)                | tabele, ograniczenia, macierz dostępu (tabele **i funkcje**), mapowanie wymaganych testów na pliki |
+| [Migracje](docs/architektura/migracje.md)                              | wersjonowanie, odtworzenie schematu od zera, dodanie nowej migracji                                |
+| [Kontrakt API](docs/api/kontrakt-api.md)                               | `POST /api/inquiries`, punkty metadanych, server actions panelu                                    |
+| [Runbook lokalnego uruchomienia](docs/runbook/lokalne-uruchomienie.md) | wymagania, pierwszy start, codzienne komendy, rozwiązywanie problemów                              |
+| [Tokeny design systemu](docs/design-system.md)                         | mapowanie tokenów ISKT na `@theme` Tailwind CSS v4                                                 |
+| [Rejestr procesorów danych](docs/zgodnosc/procesorzy.md)               | kto przetwarza jakie dane i stan umów powierzenia                                                  |
+| [**Braki i decyzje ISKT**](docs/odbior/braki-i-decyzje-iskt.md)        | skonsolidowana lista wszystkiego, co czeka na ISKT                                                 |
+| [Raport QA (E6)](docs/qa/raport-e6.md)                                 | wyniki bramki jakości: E2E, WCAG 2.1 AA, RWD, lista defektów                                       |
+| [`.env.example`](.env.example)                                         | zmienne środowiskowe: wyłącznie nazwy i opisy, bez wartości                                        |
 
 ## Stack
 
@@ -22,14 +27,14 @@ Next.js 16 (App Router) · TypeScript strict · Tailwind CSS v4 · Supabase (Pos
 ## Szybki start
 
 ```bash
-nvm use && npm ci
+npm ci                       # Node 22 (.nvmrc); na nowszym Node ostrzeżenia EBADENGINE są oczekiwane
 supabase start
-cp .env.example .env.local   # wartości z wyjścia `supabase start`
-supabase db reset
+cp .env.example .env.local   # wartości z wyjścia `supabase status`
+supabase db reset            # 8 migracji od zera + seed demonstracyjny
 npm run dev
 ```
 
-Etap 1 można zweryfikować bez zewnętrznych usług i bez sekretów:
+Bramki jakości bez zewnętrznych usług i **bez żadnych sekretów**:
 
 ```bash
 npm run lint
@@ -38,7 +43,15 @@ npm run test:unit
 npm run build
 ```
 
-Pełna procedura i rozwiązywanie problemów: [runbook](docs/runbook/lokalne-uruchomienie.md).
+Testy wymagające bazy uruchamiaj **przez skrypty**, nie bezpośrednio — wymuszają lokalny stack
+Supabase i chronią przed przypadkowym celowaniem w projekt hostowany:
+
+```bash
+./scripts/integration-local.sh
+./scripts/e2e-local.sh
+```
+
+Pełna procedura, kolizje portów i rozwiązywanie problemów: [runbook](docs/runbook/lokalne-uruchomienie.md).
 
 ## Zasady bezpieczeństwa obowiązujące w repozytorium
 
