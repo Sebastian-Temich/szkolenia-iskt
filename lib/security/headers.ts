@@ -44,6 +44,13 @@ export type BaselineOptions = {
  * wartosci zaszyte w kodzie). Powod: `includeSubDomains` z dwuletnim `max-age` jest
  * trudno odwracalny i wolno go wlaczyc tylko po potwierdzeniu HTTPS na calej domenie
  * `iskt.pl` wraz z subdomenami. Zakres ISK-360 pkt 2.
+ *
+ * MOMENT ODCZYTU. Wywolywane z `headers()` w `next.config.ts`, a te Next uruchamia
+ * podczas `next build` i zapisuje wynik w `.next/routes-manifest.json`. `next start`
+ * serwuje naglowki z manifestu i tej funkcji wiecej nie wola, wiec zmiana zmiennej
+ * bez ponownego builda nie ma zadnego efektu — i nie zglasza bledu. Jesli HSTS
+ * ma kiedys byc przelaczalny bez builda, musi przeniesc sie do `proxy.ts` (runtime),
+ * co wymaga rozszerzenia `matcher` na wszystkie trasy. Szczegoly: ADR-0006.
  */
 export const HSTS_VALUE = "max-age=63072000; includeSubDomains";
 

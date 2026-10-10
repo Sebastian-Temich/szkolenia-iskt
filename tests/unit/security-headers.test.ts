@@ -177,6 +177,46 @@ describe("next.config.ts", () => {
       expect(patterns.some((pattern) => pattern.test(path))).toBe(true);
     }
   });
+
+  // Ten test pilnuje POLACZENIA miedzy zmienna srodowiskowa a naglowkiem, a nie
+  // samej funkcji `isHstsEnabled` (ta ma wlasny przypadek wyzej). Bez tego
+  // przypadku mozna bylo zepsuc przekazanie `hsts:` w `next.config.ts` i caly
+  // zestaw testow nadal byl zielony.
+  //
+  // UWAGA O MOMENCIE ODCZYTU. `headers()` jest wywolywane przez `next build` i
+  // jego wynik zapisany w `.next/routes-manifest.json`; `next start` serwuje
+  // naglowki z manifestu i NIE wola tej funkcji ponownie. SECURITY_HSTS_ENABLED
+  // jest wiec zmienna BUDOWANIA: ustawiona dopiero przy starcie serwera nie
+  // doda zadnego naglowka. Zmierzone na artefakcie builda (ISK-360) —
+  // konsekwencje operacyjne opisuje ADR-0006 i `.env.example`.
+  it("przekazuje SECURITY_HSTS_ENABLED z env do naglowka Strict-Transport-Security", async () => {
+    const before = process.env.SECURITY_HSTS_ENABLED;
+    const baselineOf = async () => {
+      const rules = await nextConfig.headers!();
+      return rules.find((rule) => rule.source === "/:path*")!.headers;
+    };
+
+    try {
+      delete process.env.SECURITY_HSTS_ENABLED;
+      expect(
+        (await baselineOf()).some((h) => h.key === "Strict-Transport-Security"),
+      ).toBe(false);
+
+      process.env.SECURITY_HSTS_ENABLED = "1";
+      expect(
+        (await baselineOf()).some((h) => h.key === "Strict-Transport-Security"),
+      ).toBe(false);
+
+      process.env.SECURITY_HSTS_ENABLED = "true";
+      expect(
+        (await baselineOf()).find((h) => h.key === "Strict-Transport-Security")
+          ?.value,
+      ).toBe(HSTS_VALUE);
+    } finally {
+      if (before === undefined) delete process.env.SECURITY_HSTS_ENABLED;
+      else process.env.SECURITY_HSTS_ENABLED = before;
+    }
+  });
 });
 
 /**
