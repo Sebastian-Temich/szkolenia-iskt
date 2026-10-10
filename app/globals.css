@@ -54,7 +54,14 @@
   --color-border-default: var(--color-neutral-300);
   --color-border-strong: var(--color-neutral-400);
   --color-border-brand: var(--color-green-700);
-  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* `--font-inter` ustawia `next/font/local` przez klase na `<html>`
+     (`app/fonts/index.ts`, `app/layout.tsx`). Przed ISK-364 stalo tu samo
+     `Inter`, ktorego nikt nie wczytywal — cala aplikacja leciala krojem
+     systemowym. Nazwa `Inter` zostaje w stosie jako ostatnia szansa na kroj
+     zainstalowany lokalnie u uzytkownika. */
+  --font-sans:
+    var(--font-inter), Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -241,6 +248,31 @@
     font: inherit;
     cursor: pointer;
   }
+  /* ISK-364 / P5: akcje w tabelach i chipach byly golym tekstem — bramka UX
+     zmierzyla 60x20 i 114x18 px wobec minimum 44x44 (WCAG 2.1 AA, 2.5.5).
+     Powiekszamy sam obszar klikalny (padding + `min-height`), nie krój: układ
+     wizualny zostaje, zmienia się wysokość trafienia. */
+  .panel-actions a,
+  .panel-actions button,
+  .panel-chip a,
+  .panel-chip button,
+  .panel-link-button,
+  .panel-header nav a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    border-radius: var(--radius-xs);
+  }
+  /* Marka nie jest celem dotykowym w sensie 2.5.5 bardziej niz zwykly link do
+     strony glownej, ale siedzi w tym samym rzedzie — wyrownujemy wysokosc. */
+  .panel-header .panel-brand {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
   .panel-error {
     padding: 0.75rem;
     border-radius: var(--radius-sm);
@@ -295,11 +327,42 @@
   .panel-message p {
     white-space: pre-wrap;
   }
+  /* ISK-364 / P8: `overflow-x: auto` chowalo kolumne „Akcje" za prawa
+     krawedzia bez zadnego afordansu — na telefonie wygladalo to na brak
+     kolumny, nie na tresc do przewiniecia. Dwie warstwy tla: biale „przykrycia"
+     przypiete do tresci (`local`) i cienie przypiete do kadru (`scroll`).
+     Gdy nie ma czego przewijac, przykrycie zakrywa cien i krawedz jest czysta;
+     gdy jest — cien pojawia sie dokladnie z tej strony, w ktora mozna
+     przewinac. Dodatkowo region jest `tabindex=0` z etykieta, zeby dal sie
+     przewinac z klawiatury (WCAG 2.1.1). */
   .panel-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
-    background: white;
+    background:
+      linear-gradient(to right, white 40%, rgb(255 255 255 / 0)) left center /
+        3rem 100% no-repeat local,
+      linear-gradient(to left, white 40%, rgb(255 255 255 / 0)) right center /
+        3rem 100% no-repeat local,
+      radial-gradient(
+          farthest-side at 0 50%,
+          rgb(23 31 20 / 0.2),
+          rgb(23 31 20 / 0)
+        )
+        left center / 1rem 100% no-repeat scroll,
+      radial-gradient(
+          farthest-side at 100% 50%,
+          rgb(23 31 20 / 0.2),
+          rgb(23 31 20 / 0)
+        )
+        right center / 1rem 100% no-repeat scroll,
+      white;
+  }
+  .panel-table-hint {
+    display: none;
+    margin: 0 0 0.6rem;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
   }
   table {
     width: 100%;
@@ -330,6 +393,53 @@
   }
   .panel-actions .danger {
     color: var(--color-error-500);
+  }
+  /* ISK-364 / B6: modalne pytanie o potwierdzenie usuniecia. `<dialog>` jest
+     w drzewie formularza, bo ukryte pole potwierdzenia musi trafic do tego
+     samego zadania; `showModal()` wynosi je do `top layer`, wiec kontener
+     tabeli z `overflow-x: auto` go nie przycina. */
+  .panel-delete {
+    display: contents;
+  }
+  .panel-confirm {
+    width: min(26rem, calc(100vw - 2.5rem));
+    margin: auto;
+    padding: 1.25rem;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    background: white;
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-lg);
+  }
+  .panel-confirm::backdrop {
+    background: rgb(23 31 20 / 0.45);
+  }
+  .panel-confirm-text {
+    margin: 0 0 0.75rem;
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    text-transform: none;
+  }
+  .panel-confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .panel-confirm-actions button {
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--color-neutral-100);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .panel-confirm-actions .danger {
+    background: var(--color-error-500);
+    color: white;
   }
   .panel-status {
     display: inline-flex;
@@ -397,6 +507,31 @@
     align-items: flex-start;
     flex-direction: column;
   }
+  .panel-table-hint {
+    display: block;
+  }
+  /* ISK-364 / P10: bramka UX zmierzyla `scrollWidth 390 > clientWidth 360` na
+     szczegole zgloszenia. Zrodlem byla lista definicji o stalej kolumnie
+     etykiet (`7rem`) obok nielamliwego adresu e-mail — 112 px + ~190 px +
+     padding karty nie mieszczy sie w 360 px. Na waskim ekranie etykieta idzie
+     nad wartosc, a dlugie ciagi bez spacji (e-mail, URL) lamia sie w obrebie
+     slowa. */
+  .panel-card dl {
+    grid-template-columns: 1fr;
+    gap: 0.25rem 0;
+  }
+  .panel-card dt {
+    margin-top: 0.65rem;
+    font-size: var(--text-sm);
+  }
+  .panel-card dt:first-child {
+    margin-top: 0;
+  }
+  .panel-card dd,
+  .panel-card dd a,
+  .panel-message p {
+    overflow-wrap: anywhere;
+  }
 }
 
 @layer base {
@@ -444,6 +579,43 @@
   p {
     margin-top: 0;
   }
+
+  /* ISK-364 / B2: preflight Tailwinda v4 zeruje `font-size` i `font-weight`
+     naglowkow, a jedyna regula bazowa ustawiala tu wczesniej sam `margin-top`.
+     Kazdy naglowek bez jawnego `text-*`/`font-*` wychodzil 16px/400, wiec
+     tytul strony byl mniej wyrazisty niz eyebrow nad nim. Skala siedzi w
+     `@layer base`, czyli ponizej `components` i `utilities` — istniejace
+     reguly `.page-hero h1`, `.prose h2` i utility `text-3xl` nadal wygrywaja,
+     a widoki bez zadnej reguly (panel, kontakt) dostaja poprawna hierarchie. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 750;
+    line-height: var(--leading-snug);
+    letter-spacing: var(--tracking-tight);
+    text-wrap: balance;
+  }
+  h1 {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tighter);
+  }
+  h2 {
+    font-size: var(--text-2xl);
+  }
+  h3 {
+    font-size: var(--text-xl);
+  }
+  h4 {
+    font-size: var(--text-lg);
+  }
+  h5,
+  h6 {
+    font-size: var(--text-base);
+  }
 }
 
 @layer components {
@@ -465,10 +637,15 @@
     align-items: center;
     gap: 2rem;
   }
+  /* Link do strony glownej mial 200x35 px — ponizej minimum 44x44 z WCAG 2.1
+     AA (2.5.5). Krazek `.brand-mark` ma 2.2rem, wiec sam link byl nizszy od
+     progu; `min-height` podnosi obszar trafienia bez zmiany wygladu
+     (ISK-364 / P5). */
   .brand {
     display: inline-flex;
     align-items: center;
     gap: 0.7rem;
+    min-height: 2.75rem;
     margin-right: auto;
     font-size: 0.78rem;
     font-weight: 750;
@@ -517,10 +694,21 @@
     transform: translateY(-2px);
     background: var(--color-primary-hover);
   }
+  /* 2.65rem = 42.4 px, czyli ponizej minimum 44x44 z WCAG 2.1 AA (2.5.5).
+     Roznica byla niewidoczna wizualnie, ale mierzalna — ISK-364 / P5. */
   .button-small {
-    min-height: 2.65rem;
+    min-height: 2.75rem;
     padding: 0.6rem 1rem;
     font-size: 0.82rem;
+  }
+  /* Linki glownej nawigacji byly golym tekstem (~20 px wysokosci trafienia).
+     Powiekszamy obszar klikalny, nie krój — ISK-364 / P5. */
+  .nav-shell nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding-inline: 0.35rem;
+    border-radius: var(--radius-xs);
   }
   .button-ghost {
     border: 1px solid var(--color-border-default);
@@ -950,8 +1138,14 @@
     border-top: 1px solid var(--color-border-subtle);
     padding-top: 0.7rem;
   }
+  /* ISK-364 / P6: `display: none` ukrywalo glowne CTA „Zapytaj o szkolenie"
+     ponizej 800 px — czyli na kazdym telefonie. Zamiast chowac, przenosimy je
+     do pelnej szerokosci pod nawigacje: zostaje widoczne i jest celem
+     dotykowym o wysokosci 44 px (WCAG 2.1 AA, 2.5.5). */
   .nav-shell > .button {
-    display: none;
+    order: 4;
+    width: 100%;
+    min-height: 2.75rem;
   }
   .hero-grid,
   .detail-grid,

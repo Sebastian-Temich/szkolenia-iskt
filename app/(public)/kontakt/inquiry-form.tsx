@@ -20,15 +20,28 @@ type FormValues = {
   company_website: string;
 };
 
+/** Szkolenie wskazane przez `?szkolenie=<slug>`, rozwiazane na serwerze. */
+export type SelectedTraining = {
+  id: string;
+  title: string;
+  slug: string;
+};
+
 type Props = {
   formToken: string;
   rodoClauseVersion: string;
   rodoClauseText: string;
+  training?: SelectedTraining | null;
 };
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
 
-export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Props) {
+export function InquiryForm({
+  formToken,
+  rodoClauseVersion,
+  rodoClauseText,
+  training = null,
+}: Props) {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
 
   const {
@@ -46,7 +59,10 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
       email: "",
       phone: "",
       companyName: "",
-      interestArea: "",
+      // Nazwa szkolenia trafia tez do pola tekstowego: `training_id` jest
+      // powiazaniem w bazie, a `interest_area` zostaje czytelnym tematem w
+      // liscie zgloszen i w powiadomieniu e-mail.
+      interestArea: training?.title ?? "",
       message: "",
       rodoAck: false,
       rodoClauseVersion,
@@ -68,6 +84,8 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
           email: data.email,
           phone: data.phone,
           companyName: data.kind === "firma" ? data.companyName : undefined,
+          // ISK-364 / P4: bez tego pola `inquiries.training_id` bylo zawsze NULL.
+          trainingId: training?.id,
           interestArea: data.interestArea,
           message: data.message,
           rodoAck: data.rodoAck,
@@ -108,6 +126,19 @@ export function InquiryForm({ formToken, rodoClauseVersion, rodoClauseText }: Pr
         <div role="alert" className="bg-error-50 rounded p-3 text-sm">
           Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.
         </div>
+      ) : null}
+
+      {training ? (
+        <p
+          data-testid="selected-training"
+          data-training-id={training.id}
+          className="bg-success-50 rounded p-3 text-sm"
+        >
+          Zapytanie dotyczy szkolenia: <strong>{training.title}</strong>.{" "}
+          <a className="underline" href={`/szkolenia/${training.slug}`}>
+            Wróć do opisu
+          </a>
+        </p>
       ) : null}
 
       <fieldset className="flex flex-col gap-2">
