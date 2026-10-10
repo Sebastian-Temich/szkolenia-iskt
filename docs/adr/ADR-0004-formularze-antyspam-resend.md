@@ -1,8 +1,9 @@
 # ADR-0004 — Przepływ formularza, ochrona antyspamowa i powiadomienia Resend
 
-- **Status:** proponowany (wymaga zatwierdzenia ISKT w bramce planu)
-- **Data:** 2026-10-09
+- **Status:** **zatwierdzony przez ISKT 2026-10-09** (bramka planu zamknięta). Zweryfikowany wobec kodu 2026-10-10 w etapie E9T — patrz „Stan implementacji (E9T)” na końcu dokumentu.
+- **Data:** 2026-10-09 (decyzja), 2026-10-10 (weryfikacja wobec implementacji)
 - **Autor:** Koordynator Techniczny / Intake Lead
+- **Kontrakt API:** [`docs/api/kontrakt-api.md`](../api/kontrakt-api.md)
 - **Powiązane:** [ADR-0001](ADR-0001-stack-aplikacji.md), [ADR-0003](ADR-0003-model-danych-migracje-rls.md), `04_Ryzyka/Bezpieczenstwo.md`, `04_Ryzyka/RODO i dane osobowe.md`
 
 ## Kontekst
@@ -37,30 +38,30 @@ POST /api/inquiries           (Route Handler, runtime "nodejs")
 
 Jeden plik `lib/validation/inquiry.ts` eksportuje schemat Zod używany przez React Hook Form i przez Route Handler. Reguły pokrywają się z ograniczeniami `CHECK` w bazie (trzecia warstwa obrony):
 
-| Pole | Reguła |
-| --- | --- |
-| `kind` | `'osoba' \| 'firma'` |
-| `fullName` | 2–120 znaków po `trim` |
-| `email` | poprawny adres, ≤ 254 znaki, normalizacja do małych liter |
-| `phone` | 6–20 znaków, dozwolone cyfry, spacje, `+`, `-`, `(`, `)` |
-| `companyName` | wymagane i niepuste, gdy `kind = 'firma'` |
-| `trainingId` \| `interestArea` | wymagane co najmniej jedno |
-| `message` | 10–2000 znaków po `trim` |
-| `rodoAck` | musi być `true` |
-| `rodoClauseVersion` | stała wersja klauzuli renderowanej na stronie |
+| Pole                           | Reguła                                                    |
+| ------------------------------ | --------------------------------------------------------- |
+| `kind`                         | `'osoba' \| 'firma'`                                      |
+| `fullName`                     | 2–120 znaków po `trim`                                    |
+| `email`                        | poprawny adres, ≤ 254 znaki, normalizacja do małych liter |
+| `phone`                        | 6–20 znaków, dozwolone cyfry, spacje, `+`, `-`, `(`, `)`  |
+| `companyName`                  | wymagane i niepuste, gdy `kind = 'firma'`                 |
+| `trainingId` \| `interestArea` | wymagane co najmniej jedno                                |
+| `message`                      | 10–2000 znaków po `trim`                                  |
+| `rodoAck`                      | musi być `true`                                           |
+| `rodoClauseVersion`            | stała wersja klauzuli renderowanej na stronie             |
 
 Komunikaty walidacji po polsku, przypisane do pól, ogłaszane czytnikom ekranu (`aria-describedby`, `aria-invalid`, `role="alert"` dla podsumowania) — wymóg WCAG 2.1 AA.
 
 ### 3. Ochrona antyspamowa — warstwy włączone w MVP
 
-| # | Mechanizm | Działanie | Dlaczego |
-| --- | --- | --- | --- |
-| 1 | **Honeypot** | Ukryte pole `company_website` (ukryte stylem, nie `type="hidden"`, `tabindex="-1"`, `aria-hidden="true"`, `autocomplete="off"`). Wypełnione → odrzucenie z odpowiedzią „sukces”. | Eliminuje większość prostych botów, zero kosztu, zero wpływu na dostępność i prywatność. |
-| 2 | **Token czasowy** | Przy renderze formularza serwer wydaje podpisany HMAC-em znacznik czasu. Odrzucenie, gdy wypełnienie zajęło < 3 s albo token jest starszy niż 60 min / ma złą sygnaturę. | Boty wypełniają natychmiast; podpis uniemożliwia podrobienie znacznika. |
-| 3 | **Limit częstości** | Maks. 3 przyjęte zgłoszenia / 10 min i 10 / 24 h na `client_hash` = HMAC-SHA256(IP, `FORM_THROTTLE_SALT`). Licznik w tabeli `form_submission_throttle`, retencja 24 h. | Ogranicza zalewanie formularza; hash zamiast IP realizuje minimalizację danych. |
-| 4 | **Limity treści** | Maksymalny rozmiar żądania (16 KB), limity długości pól, odrzucenie znaków sterujących, normalizacja białych znaków. | Chroni bazę i powiadomienia przed nadużyciem. |
-| 5 | **Heurystyka linków** | Więcej niż 2 adresy URL w `message` → zgłoszenie **zapisane** i oznaczone w `admin_audit_log` jako `inquiry.suspected_spam`, bez blokady. | Spam treściowy nie powinien kosztować utraty prawdziwego zapytania; decyzję podejmuje człowiek. |
-| 6 | **Brak zapisu PII technicznej** | Nie zapisujemy IP, User-Agenta ani nagłówków referera w `inquiries`. | `04_Ryzyka/RODO i dane osobowe.md` — minimalizacja danych. |
+| #   | Mechanizm                       | Działanie                                                                                                                                                                        | Dlaczego                                                                                        |
+| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1   | **Honeypot**                    | Ukryte pole `company_website` (ukryte stylem, nie `type="hidden"`, `tabindex="-1"`, `aria-hidden="true"`, `autocomplete="off"`). Wypełnione → odrzucenie z odpowiedzią „sukces”. | Eliminuje większość prostych botów, zero kosztu, zero wpływu na dostępność i prywatność.        |
+| 2   | **Token czasowy**               | Przy renderze formularza serwer wydaje podpisany HMAC-em znacznik czasu. Odrzucenie, gdy wypełnienie zajęło < 3 s albo token jest starszy niż 60 min / ma złą sygnaturę.         | Boty wypełniają natychmiast; podpis uniemożliwia podrobienie znacznika.                         |
+| 3   | **Limit częstości**             | Maks. 3 przyjęte zgłoszenia / 10 min i 10 / 24 h na `client_hash` = HMAC-SHA256(IP, `FORM_THROTTLE_SALT`). Licznik w tabeli `form_submission_throttle`, retencja 24 h.           | Ogranicza zalewanie formularza; hash zamiast IP realizuje minimalizację danych.                 |
+| 4   | **Limity treści**               | Maksymalny rozmiar żądania (16 KB), limity długości pól, odrzucenie znaków sterujących, normalizacja białych znaków.                                                             | Chroni bazę i powiadomienia przed nadużyciem.                                                   |
+| 5   | **Heurystyka linków**           | Więcej niż 2 adresy URL w `message` → zgłoszenie **zapisane** i oznaczone w `admin_audit_log` jako `inquiry.suspected_spam`, bez blokady.                                        | Spam treściowy nie powinien kosztować utraty prawdziwego zapytania; decyzję podejmuje człowiek. |
+| 6   | **Brak zapisu PII technicznej** | Nie zapisujemy IP, User-Agenta ani nagłówków referera w `inquiries`.                                                                                                             | `04_Ryzyka/RODO i dane osobowe.md` — minimalizacja danych.                                      |
 
 ### 4. CAPTCHA — przygotowana, wyłączona
 
@@ -92,13 +93,13 @@ MAIL_TRANSPORT=resend   → realna wysyłka przez Resend; wymaga RESEND_API_KEY
 
 Odpowiedź serwera nigdy nie odsyła danych wejściowych ani szczegółów technicznych:
 
-| Sytuacja | HTTP | Treść dla użytkownika |
-| --- | --- | --- |
-| Sukces | 200 | „Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail.” |
-| Błąd walidacji | 400 | Lista błędów przypisana do pól, bez echa wartości |
-| Honeypot / token czasowy | 200 | Ten sam komunikat sukcesu (nie informujemy bota o detekcji) |
-| Przekroczony limit | 429 | „Zbyt wiele zgłoszeń z tego połączenia. Spróbuj ponownie później.” |
-| Błąd serwera | 500 | „Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.” + `requestId` |
+| Sytuacja                 | HTTP | Treść dla użytkownika                                                                           |
+| ------------------------ | ---- | ----------------------------------------------------------------------------------------------- |
+| Sukces                   | 200  | „Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail.”                                   |
+| Błąd walidacji           | 400  | Lista błędów przypisana do pól, bez echa wartości                                               |
+| Honeypot / token czasowy | 200  | Ten sam komunikat sukcesu (nie informujemy bota o detekcji)                                     |
+| Przekroczony limit       | 429  | „Zbyt wiele zgłoszeń z tego połączenia. Spróbuj ponownie później.”                              |
+| Błąd serwera             | 500  | „Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.” + `requestId` |
 
 Szczegóły trafiają wyłącznie do logu serwera, skorelowane przez `requestId`.
 
@@ -123,3 +124,91 @@ Szczegóły trafiają wyłącznie do logu serwera, skorelowane przez `requestId`
 2. Termin przekazania `RESEND_API_KEY` oraz potwierdzenie zweryfikowanej domeny nadawcy.
 3. Potwierdzenie `biuro@iskt.pl` jako jedynego odbiorcy powiadomień.
 4. Zatwierdzenie wersji klauzuli RODO prezentowanej przy formularzu (obecnie szkic `04_Ryzyka/Robocza klauzula informacyjna formularza.md` — do czasu zatwierdzenia formularz pozostaje tylko w środowisku lokalnym).
+
+> **Rozstrzygnięcie:** punkt 1 zatwierdzony przez ISKT 2026-10-09. Punkty 2, 3 i 4 pozostają **otwarte** — zebrane w [skonsolidowanej liście ISKT](../odbior/braki-i-decyzje-iskt.md) jako pozycje I14, I16 i I1–I2.
+
+---
+
+## Stan implementacji (E9T, 2026-10-10)
+
+Sekcja dopisana w etapie E9T. Decyzja powyżej pozostaje bez zmian; poniżej stan faktyczny po E4, bramce RODO (E8) i security review (E7). Pełny kontrakt wejścia/wyjścia: [`docs/api/kontrakt-api.md`](../api/kontrakt-api.md).
+
+### 1. Przepływ zgłoszenia — zrealizowany, z poprawioną kolejnością i inną odpowiedzią
+
+Faktyczna kolejność warstw w `lib/inquiries/handler.ts` (`processInquiry`):
+
+```
+Content-Type → rozmiar ciała → honeypot → token czasowy → limit częstości → walidacja Zod → zapis → powiadomienie
+```
+
+**Odstępstwo od tekstu decyzji:** sekcja 1 podawała odpowiedź sukcesu jako `200 { ok: true }`. Faktycznie serwer zwraca `200 { "message": "Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail." }` — zgodnie z tabelą komunikatów z sekcji 6 tego samego ADR, która była wewnętrznie niespójna z diagramem. Wiążąca jest tabela z sekcji 6; kontrakt API opisuje stan faktyczny.
+
+**Kluczowa reguła „niepowodzenie wysyłki nie unieważnia zapisu” — zrealizowana i zweryfikowana.** `lib/inquiries/service.ts` wstawia zgłoszenie, dopiero potem woła `mail.send()` w `try/catch`; błąd poczty ustawia `notification_status = 'failed'` i **nie kasuje** zgłoszenia ani nie zwraca 5xx. Potwierdzone w bramce E7 oraz testem integracyjnym `inquiries-flow.test.ts`.
+
+**Niezrealizowane z tej sekcji:** „panel administratora pokazuje to jako ostrzeżenie **z możliwością ponowienia**”. Panel pokazuje `notification_status`, ale **nie ma akcji ponowienia wysyłki** — jedyną ścieżką jest ponowne wywołanie po stronie serwera. Pozycja otwarta.
+
+### 2. Walidacja — zrealizowana, z jedną luką pokrycia
+
+Jeden schemat `lib/validation/inquiry.ts` jest używany przez React Hook Form i przez Route Handler. Wszystkie reguły z tabeli są zaimplementowane i pokrywają się z ograniczeniami `CHECK` w bazie. Limity w `INQUIRY_LIMITS`; telefon przez `PHONE_PATTERN = /^[0-9+\-()\s]+$/`.
+
+**Ustalenie otwarte (E7 S3):** kontrola znaków sterujących (`hasControlChars`) jest nałożona **tylko na `message`**. `fullName`, `companyName` i `interestArea` mają jedynie limity długości — tak samo jak ograniczenia `CHECK` w bazie. Ponieważ `lib/inquiries/notification.ts` wkleja `fullName` do tematu i do treści powiadomienia, znak LF w tym polu pozwala wstrzyknąć do powiadomienia podrobione linie kontaktowe („E-mail: …", „Telefon: …"), pod które biuro odpisze. Dziś łagodzi to JSON-owe API Resend, ale **nie nasza walidacja** — zmiana transportu na SMTP otwiera klasyczny wektor wstrzyknięcia nagłówka. Poprawka: zastosować kontrolę znaków sterujących (bez LF i CR) do wszystkich pól jednoliniowych.
+
+### 3. Warstwy antyspamowe — wszystkie zaimplementowane, jedna obchodzona
+
+| #   | Mechanizm                   | Stan                                                                                                  | Gdzie                                                        |
+| --- | --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 1   | Honeypot `company_website`  | zrealizowany; wypełnienie → `200` z komunikatem sukcesu                                               | `lib/antispam/honeypot.ts`                                   |
+| 2   | Token czasowy HMAC          | zrealizowany; `MIN_FILL_MS = 3000`, `MAX_TOKEN_AGE_MS = 3600000`, porównanie `timingSafeEqual`        | `lib/security/form-token.ts`                                 |
+| 3   | Limit częstości             | zrealizowany; `3 / 10 min` i `10 / 24 h` na `client_hash`                                             | `lib/antispam/throttle.ts`, `lib/antispam/throttle-store.ts` |
+| 4   | Limity treści               | zrealizowany; `MAX_BODY_BYTES = 16 KiB` + limity pól + odrzucenie znaków sterujących w `message`      | `lib/inquiries/handler.ts`                                   |
+| 5   | Heurystyka linków           | zrealizowany; `> 2` odnośniki → wpis `inquiry.suspected_spam` w `admin_audit_log`, bez blokady zapisu | `lib/antispam/links.ts`, `lib/inquiries/service.ts`          |
+| 6   | Brak zapisu PII technicznej | zrealizowany i potwierdzony w E7 i E8 — w całym schemacie nie ma kolumny na IP ani User-Agenta        | `supabase/migrations/…120600`                                |
+
+**Ustalenie krytyczne dla skuteczności całego zestawu (E7 W2, powtórzone jako E8 §5c) — otwarte.** `extractClientIp()` w `lib/security/client-hash.ts` czyta `x-forwarded-for` **jako pierwszy wybór** i bierze z niego **element [0]**. Platformy proxujące _dopisują_ prawdziwy adres do nagłówka przysłanego przez klienta, więc indeks 0 jest wartością kontrolowaną przez atakującego; zaufany `x-real-ip` jest sprawdzany dopiero w dalszej kolejności, czyli nigdy, gdy XFF jest obecny. Kolejność jest odwrotna niż powinna. Zmierzone:
+
+```
+x-forwarded-for: "10.0.0.<i>, 203.0.113.9"   x-real-ip: "203.0.113.9"
+→ 5 prób = 5 różnych client_hash dla JEDNEGO realnego klienta
+```
+
+W efekcie upadają wszystkie cztery blokujące warstwy jednocześnie: honeypot (pominąć pole), token czasowy (pobrać świeży i odczekać 3 s), limit częstości (podmienić XFF), heurystyka linków (z założenia nie blokuje). Dodatkowo `ip ?? "unknown"` oznacza, że przy braku obu nagłówków **wszyscy klienci dzielą jedno wiadro** — 3 zgłoszenia / 10 min globalnie, czyli trywialny DoS formularza.
+
+Poprawka: ufać wyłącznie wartości ustawianej przez platformę (`x-real-ip` pierwszy, z `x-forwarded-for` brać **ostatni** wpis), z liczbą zaufanych proxy jako konfiguracją; brak ustalonego adresu traktować jako odrzucenie albo osobny, ostrzejszy limit, nie jako wspólne wiadro. **Założenie o zaufanym proxy musi być warunkiem wdrożenia w [ADR-0006](ADR-0006-hosting.md)** (E8 T8).
+
+Dwa dalsze ustalenia otwarte wokół tych warstw:
+
+- **E7 S4 — wyścig w limicie częstości.** `countAcceptedSince()` i `record()` to dwie osobne operacje bez transakcji ani blokady; równoległe żądania z jednego wiadra wszystkie odczytają licznik `0` i wszystkie przejdą.
+- **E7 S6 — token nie jest powiązany z klientem ani jednorazowy.** Podpisywany jest wyłącznie znacznik czasu, więc jeden token obsługuje dowolną liczbę zgłoszeń przez 60 minut. Sam HMAC i okno czasowe są poprawne; realną obronę miał dawać limit częstości.
+- **E7 S2 — limit rozmiaru sprawdzany po wczytaniu całego ciała** (`await request.text()` przed porównaniem), a `raw.length` liczy jednostki UTF-16, nie bajty, więc znakami wielobajtowymi realny payload sięga ~4× deklarowanych 16 KiB.
+
+### 4. CAPTCHA — korekta stanu: **nie jest zaimplementowana w ogóle**
+
+Decyzja mówiła „Turnstile zostaje **zaimplementowany** jako opcjonalna warstwa za flagą”. Bramka RODO (E8 §4b) zmierzyła stan faktyczny: **żadnej logiki weryfikacji Turnstile nie ma**. Jedyne ślady to trzy zmienne w `lib/env.ts` i `.env.example` (`TURNSTILE_ENABLED` z domyślną wartością `"false"`, `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), a `grep -ri turnstile` po `app/` i `lib/` nie znajduje nic więcej.
+
+Z punktu widzenia minimalizacji danych E8 oceniła ten stan jako **lepszy** niż zadeklarowany — nie ma uśpionej ścieżki, którą można włączyć bez przeglądu. Ale wprowadza w błąd co do stanu zabezpieczeń: operator, który ustawi `TURNSTILE_ENABLED=true`, będzie przekonany, że CAPTCHA działa, a nie zadziała nic. **Dlatego `.env.example` oznacza te trzy zmienne jawnie jako zarezerwowane i nieodczytywane przez żadną logikę** (E8 T5). Rekomendacja bramki pozostaje: nie włączać w MVP — trzy działające warstwy nie dodają ani jednego procesora danych.
+
+### 5. Adapter poczty — zrealizowany zgodnie z decyzją
+
+`MAIL_TRANSPORT=log` (domyślny lokalnie i w CI) i `MAIL_TRANSPORT=resend` z wariantowym schematem Zod w `lib/env.ts`: ścieżka `resend` **wymaga** `RESEND_API_KEY` i `RESEND_FROM`, więc ich brak jest błędem konfiguracji, nie cichą degradacją. Jedno ponowienie z krótkim backoffem (`maxAttempts = 2`, `retryDelayMs = 250`) — zgodnie z decyzją. Odbiorca z `INQUIRY_NOTIFICATION_TO`, bez zaszywania w kodzie. Logi zawierają wyłącznie identyfikatory i wynik, nigdy adresata ani treści — potwierdzone w E7 i E8.
+
+**Uwaga RODO do procedury retencji (E8 §3c):** treść powiadomienia zawiera pełne dane zgłaszającego i trafia do dwóch miejsc poza zasięgiem `purge_expired_inquiries()` — skrzynki odbiorcy i panelu Resend. Nie jest to defekt kodu, ale musi znaleźć się w procedurze retencji i w klauzuli (pozycje I7, I8).
+
+### 6. Komunikaty błędów — zrealizowane, z jednym wyjątkiem ocenianym jako wada
+
+Tabela komunikatów jest zaimplementowana w `lib/inquiries/handler.ts`; odpowiedzi nie odbijają danych wejściowych, szczegóły idą wyłącznie do logu skorelowanego przez `requestId`. Potwierdzone w E7 i E8.
+
+**Ustalenie otwarte (E8 T4):** „token czasowy → 200 sukces” obejmuje **wszystkie** powody odrzucenia tokenu, w tym `expired`. Osoba, która zostawiła otwarty formularz na dłużej niż 60 minut i wysłała go w dobrej wierze, widzi ekran potwierdzenia, a zgłoszenie nie zostaje zapisane. Honeypot i `bad_signature` powinny zostać jak są (nie informujemy bota), ale `expired` powinien dawać uczciwy błąd albo token powinien być odświeżany po stronie klienta.
+
+**Pułapka weryfikacyjna, którą ta decyzja tworzy — do zapamiętania (E6 §4).** `MIN_FILL_MS = 3 s` plus „odrzucenie zwraca 200 z ekranem sukcesu” sprawia, że **naiwny test formularza przechodzi, nie zapisując nic**. Ścieżki E2E wysyłały formularz natychmiast, widziały potwierdzenie i były zielone przy zerowym zapisie. Wniosek: asercja na samym ekranie potwierdzenia jest pusta — każda ścieżka „wysłanie się udało” musi potwierdzać wiersz w bazie. W testach rozwiązuje to `awaitFormTokenMaturity()`.
+
+### 7. Wersja klauzuli RODO — zrealizowana mechanicznie, z luką rozliczalności
+
+`inquiries.rodo_clause_version` jest zapisywana przy każdym zgłoszeniu. `lib/rodo/clause.ts` zawiera jawny placeholder: `RODO_CLAUSE_APPROVED = false`, `RODO_CLAUSE_VERSION = "DRAFT-0-niezatwierdzona"`, a `/kontakt` wyświetla ostrzeżenie, że treść nie jest zatwierdzona. Bramka RODO oceniła to podejście jako właściwe — agent nie wymyślił treści prawnej.
+
+**Ustalenie otwarte (E8 §1a):** wartość `rodoClauseVersion` przychodzi **w ciele żądania POST** i jest przyjmowana bez weryfikacji (`z.string().min(1)`). Pole istnieje po to, żeby udowodnić, _którą_ klauzulę zobaczyła osoba — a w tej formie jest dowolnie podmienialne przez składającego żądanie, co podkopuje rozliczalność z art. 5 ust. 2 RODO. Poprawka: serwer ustawia wartość sam z `getRodoClauseVersion()` i ignoruje pole z ciała (albo wiąże wersję w podpisanym `formToken`).
+
+**Ustalenie otwarte (E8 §1b):** nie istnieje trwała, linkowalna strona z klauzulą/polityką prywatności. Treść jest renderowana wyłącznie jako akapit obok checkboxa na `/kontakt`, więc osoba, która już wysłała zgłoszenie, nie ma gdzie wrócić po informację o swoich prawach.
+
+### 8. Testy — zrealizowane
+
+Testy jednostkowe (`tests/unit/`): schemat Zod z przypadkami brzegowymi, honeypot, heurystyka linków, podpis i okno czasowe tokenu, logika limitu częstości, haszowanie identyfikatora klienta, redakcja logów, adaptery poczty. Testy integracyjne (`tests/integration/inquiries-flow.test.ts`): zapis ze statusem `nowe`, zapis przy błędzie poczty (`failed`) bez 5xx, odmowa `INSERT` dla roli `anon`, `429` na czwartym zgłoszeniu w oknie 10 minut. Testy E2E (`tests/e2e/formularz-zgloszenia.spec.ts`): osoba, firma, brak zgody RODO, skan `axe` formularza także w stanie błędu walidacji.
