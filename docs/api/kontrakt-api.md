@@ -19,20 +19,20 @@ Jedyna ścieżka zapisu zgłoszenia. Przeglądarka **nigdy** nie pisze do tabeli
 
 ### 1.1 Ciało żądania
 
-| Pole                | Typ                  | Wymagane           | Reguła walidacji (`lib/validation/inquiry.ts`)                                                                                                |
-| ------------------- | -------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`              | `"osoba" \| "firma"` | **tak**            | enum                                                                                                                                          |
-| `fullName`          | `string`             | **tak**            | po `trim` 2–120 znaków                                                                                                                        |
-| `email`             | `string`             | **tak**            | poprawny adres, ≤ 254 znaki, normalizowany do małych liter                                                                                    |
-| `phone`             | `string`             | **tak**            | po `trim` 6–20 znaków, tylko `0-9 + - ( ) ` i spacje                                                                                          |
-| `companyName`       | `string`             | warunkowo          | ≤ 160 znaków; **wymagane i niepuste gdy `kind = "firma"`**                                                                                    |
-| `trainingId`        | `string` (UUID)      | warunkowo          | poprawny UUID; **wymagane co najmniej jedno z `trainingId` / `interestArea`**                                                                 |
-| `interestArea`      | `string`             | warunkowo          | ≤ 160 znaków; jak wyżej                                                                                                                       |
-| `message`           | `string`             | **tak**            | po `trim` 10–2000 znaków; odrzucane znaki sterujące poza tabulatorem, LF i CR                                                                 |
-| `rodoAck`           | `true`               | **tak**            | musi być literalnie `true`                                                                                                                    |
-| `rodoClauseVersion` | `string`             | **tak**            | niepusty (patrz uwaga o rozliczalności niżej)                                                                                                 |
-| `formToken`         | `string`             | **tak w praktyce** | format `<znacznik_czasu>.<hmac_hex>`; brak = odrzucenie z odpowiedzią „sukces"                                                                |
-| `company_website`   | `string`             | nie                | **honeypot.** Pole ukryte stylem (nie `type="hidden"`), `tabindex="-1"`, `aria-hidden="true"`. Wypełnione = odrzucenie z odpowiedzią „sukces" |
+| Pole                    | Typ                  | Wymagane              | Reguła walidacji (`lib/validation/inquiry.ts`)                                                                                                                                                                                                                      |
+| ----------------------- | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`                  | `"osoba" \| "firma"` | **tak**               | enum                                                                                                                                                                                                                                                                |
+| `fullName`              | `string`             | **tak**               | po `trim` 2–120 znaków                                                                                                                                                                                                                                              |
+| `email`                 | `string`             | **tak**               | poprawny adres, ≤ 254 znaki, normalizowany do małych liter                                                                                                                                                                                                          |
+| `phone`                 | `string`             | **tak**               | po `trim` 6–20 znaków, tylko `0-9 + - ( ) ` i spacje                                                                                                                                                                                                                |
+| `companyName`           | `string`             | warunkowo             | ≤ 160 znaków; **wymagane i niepuste gdy `kind = "firma"`**                                                                                                                                                                                                          |
+| `trainingId`            | `string` (UUID)      | warunkowo             | poprawny UUID; **wymagane co najmniej jedno z `trainingId` / `interestArea`**                                                                                                                                                                                       |
+| `interestArea`          | `string`             | warunkowo             | ≤ 160 znaków; jak wyżej                                                                                                                                                                                                                                             |
+| `message`               | `string`             | **tak**               | po `trim` 10–2000 znaków; odrzucane znaki sterujące poza tabulatorem, LF i CR                                                                                                                                                                                       |
+| `rodoAck`               | `true`               | **tak**               | musi być literalnie `true`                                                                                                                                                                                                                                          |
+| ~~`rodoClauseVersion`~~ | —                    | **nie jest wejściem** | **Usunięte z ciała żądania (ISK-357 T3 → ISK-363).** Wersję klauzuli ustala serwer z `getRodoClauseVersion()`; wartość przysłana w żądaniu jest ignorowana jak każde nierozpoznane pole. Przyjmowanie jej od klienta podkopywało rozliczalność z art. 5 ust. 2 RODO |
+| `formToken`             | `string`             | **tak w praktyce**    | format `<znacznik_czasu>.<hmac_hex>`; brak = odrzucenie z odpowiedzią „sukces"                                                                                                                                                                                      |
+| `company_website`       | `string`             | nie                   | **honeypot.** Pole ukryte stylem (nie `type="hidden"`), `tabindex="-1"`, `aria-hidden="true"`. Wypełnione = odrzucenie z odpowiedzią „sukces"                                                                                                                       |
 
 Pola nierozpoznane są ignorowane. Maksymalny rozmiar ciała: **16 KiB**.
 
@@ -49,7 +49,6 @@ Przykład (osoba indywidualna):
   "interestArea": "Sztuczna inteligencja",
   "message": "Proszę o ofertę szkolenia dla zespołu 8 osób.",
   "rodoAck": true,
-  "rodoClauseVersion": "DRAFT-0-niezatwierdzona",
   "formToken": "1760000000000.8f3c…"
 }
 ```
@@ -71,20 +70,20 @@ Krok 7 jest źródłem prawdy: zgłoszenie zostaje zapisane ze statusem `nowe` i
 
 ### 1.3 Odpowiedzi
 
-| Sytuacja                                                                                | HTTP  | Ciało                                                                                                                                       |
-| --------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sukces (zapis wykonany)                                                                 | `200` | `{"message":"Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail."}`                                                                 |
-| Honeypot wypełniony                                                                     | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                     |
-| Token nieprawidłowy, zbyt szybki (< 3 s) lub o złej sygnaturze                          | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                     |
-| Token przedawniony (> 60 min) — sygnał ludzki, nie bot (ISK-357 T4 / ISK-363)           | `422` | `{"error":"form_expired","message":"Formularz był otwarty zbyt długo…"}` — **uczciwy błąd, bez zapisu**; klient pobiera świeży token z `GET /api/form-token` i wysyła ponownie bez utraty treści |
-| Klauzula RODO niezatwierdzona (`RODO_CLAUSE_APPROVED` ≠ `true`) — bramka P1             | `503` | `{"error":"clause_not_approved","message":"Formularz zgłoszeniowy jest chwilowo niedostępny…"}` — **bez zapisu**; endpoint zamknięty, dopóki ISKT nie zatwierdzi treści |
-| Brak / inny `Content-Type`                                                              | `415` | `{"error":"unsupported_media_type"}`                                                                                                        |
-| Ciało > 16 KiB                                                                          | `413` | `{"error":"payload_too_large"}`                                                                                                             |
-| Ciało nie jest obiektem JSON                                                            | `400` | `{"error":"invalid_json"}`                                                                                                                  |
-| Błąd walidacji                                                                          | `400` | `{"error":"validation_error","fields":{"<pole>":["<komunikat>"]}}`                                                                          |
-| Przekroczony limit częstości                                                            | `429` | `{"error":"too_many_requests","message":"Zbyt wiele zgłoszeń z tego połączenia. Spróbuj ponownie później."}`                                |
-| Brak `FORM_TOKEN_SECRET`, `FORM_THROTTLE_SALT` lub `INQUIRY_NOTIFICATION_TO`            | `500` | `{"error":"server_misconfigured"}`                                                                                                          |
-| Błąd zapisu                                                                             | `500` | `{"error":"server_error","message":"Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.","requestId":"<uuid>"}` |
+| Sytuacja                                                                      | HTTP  | Ciało                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sukces (zapis wykonany)                                                       | `200` | `{"message":"Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail."}`                                                                                                                      |
+| Honeypot wypełniony                                                           | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                                                                          |
+| Token nieprawidłowy, zbyt szybki (< 3 s) lub o złej sygnaturze                | `200` | **to samo ciało co sukces**, bez zapisu                                                                                                                                                          |
+| Token przedawniony (> 60 min) — sygnał ludzki, nie bot (ISK-357 T4 / ISK-363) | `422` | `{"error":"form_expired","message":"Formularz był otwarty zbyt długo…"}` — **uczciwy błąd, bez zapisu**; klient pobiera świeży token z `GET /api/form-token` i wysyła ponownie bez utraty treści |
+| Klauzula RODO niezatwierdzona (`RODO_CLAUSE_APPROVED` ≠ `true`) — bramka P1   | `503` | `{"error":"clause_not_approved","message":"Formularz zgłoszeniowy jest chwilowo niedostępny…"}` — **bez zapisu**; endpoint zamknięty, dopóki ISKT nie zatwierdzi treści                          |
+| Brak / inny `Content-Type`                                                    | `415` | `{"error":"unsupported_media_type"}`                                                                                                                                                             |
+| Ciało > 16 KiB                                                                | `413` | `{"error":"payload_too_large"}`                                                                                                                                                                  |
+| Ciało nie jest obiektem JSON                                                  | `400` | `{"error":"invalid_json"}`                                                                                                                                                                       |
+| Błąd walidacji                                                                | `400` | `{"error":"validation_error","fields":{"<pole>":["<komunikat>"]}}`                                                                                                                               |
+| Przekroczony limit częstości                                                  | `429` | `{"error":"too_many_requests","message":"Zbyt wiele zgłoszeń z tego połączenia. Spróbuj ponownie później."}`                                                                                     |
+| Brak `FORM_TOKEN_SECRET`, `FORM_THROTTLE_SALT` lub `INQUIRY_NOTIFICATION_TO`  | `500` | `{"error":"server_misconfigured"}`                                                                                                                                                               |
+| Błąd zapisu                                                                   | `500` | `{"error":"server_error","message":"Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.","requestId":"<uuid>"}`                                                      |
 
 `fields` zawiera wyłącznie komunikaty walidacji, **nigdy wartości wejściowych**. Żadna odpowiedź nie odbija danych wejściowych ani szczegółów technicznych; szczegóły trafiają wyłącznie do logu serwera, skorelowane przez `requestId`.
 
@@ -131,10 +130,10 @@ Zdarzenia: `inquiry.rejected` (z polem `layer`), `inquiry.accepted`, `inquiry.no
 
 Wydaje świeży token czasowy formularza (`lib/security/form-token.ts`, `app/api/form-token/route.ts`). Istnieje **wyłącznie** dla ścieżki odzyskania po przedawnieniu tokenu (ISK-357 T4): gdy `POST /api/inquiries` zwróci `422 form_expired`, klient pobiera stąd nowy token i pozwala wysłać zgłoszenie ponownie **bez utraty wpisanej treści**. Render `/kontakt` nie korzysta z tego punktu — token wstrzykuje po stronie serwera.
 
-| Sytuacja               | HTTP  | Ciało                                   |
-| ---------------------- | ----- | --------------------------------------- |
-| Sukces                 | `200` | `{"formToken":"<token>"}`               |
-| Brak `FORM_TOKEN_SECRET` | `500` | `{"error":"server_misconfigured"}`     |
+| Sytuacja                 | HTTP  | Ciało                              |
+| ------------------------ | ----- | ---------------------------------- |
+| Sukces                   | `200` | `{"formToken":"<token>"}`          |
+| Brak `FORM_TOKEN_SECRET` | `500` | `{"error":"server_misconfigured"}` |
 
 `runtime = "nodejs"`, `dynamic = "force-dynamic"`, `cache-control: no-store`. Token jest podpisywany wyłącznie sekretem serwerowym; endpoint nie przyjmuje żadnych danych wejściowych i nie zapisuje niczego.
 
