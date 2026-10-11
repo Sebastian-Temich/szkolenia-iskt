@@ -194,8 +194,9 @@ Dwa ustalenia otwarte dotyczące tych warstw:
 - **Żadnego punktu zapisu do `inquiries` innego niż `POST /api/inquiries`.** Tabela nie ma polityki `INSERT` dla `anon` ani `authenticated`.
 - **Żadnego punktu wydającego token przy zwykłym renderze** — token do formularza powstaje po stronie serwera przy renderze `/kontakt`. Istnieje osobny `GET /api/form-token` (sekcja 1.7), ale **wyłącznie** do odświeżenia tokenu po przedawnieniu (ścieżka `422 form_expired`, ISK-357 T4); nie przyjmuje danych wejściowych i nic nie zapisuje.
 - **Żadnego eksportu zgłoszeń** z panelu (potwierdzone w bramce E8).
-- **Żadnej weryfikacji CAPTCHA.** Zmienne `TURNSTILE_*` **nie istnieją już w schemacie środowiska** (`lib/env.ts`, usunięte w ISK-357 T5): deklarowanie flag, których żaden kod nie odczytuje, wprowadzałoby operatora w błąd co do stanu zabezpieczeń. W `.env.example` pozostają wyłącznie jako **zarezerwowane, nieaktywne** placeholdery z ostrzeżeniem — szczegóły w [ADR-0004, sekcja 4 stanu implementacji](../adr/ADR-0004-formularze-antyspam-resend.md#4-captcha--korekta-stanu-nie-jest-zaimplementowana-w-ogóle).
-- **Żadnych nagłówków bezpieczeństwa.** `next.config.ts` nie definiuje `headers()` (E7 W1).
+- **Żadnej weryfikacji CAPTCHA.** Zmienne `TURNSTILE_*` **nie istnieją już w schemacie środowiska** (`lib/env.ts`, usunięte w ISK-357 T5, przeniesione na linię integracyjną w ISK-363): deklarowanie flag, których żaden kod nie odczytuje, wprowadzałoby operatora w błąd co do stanu zabezpieczeń. W `.env.example` pozostają wyłącznie jako **zarezerwowane, nieaktywne** placeholdery z ostrzeżeniem — szczegóły w [ADR-0004, sekcja 4 stanu implementacji](../adr/ADR-0004-formularze-antyspam-resend.md#4-captcha--korekta-stanu-nie-jest-zaimplementowana-w-ogóle).
+
+> **Zmiana od 2026-10-10 (ISK-360).** Była tu pozycja „żadnych nagłówków bezpieczeństwa" (E7 W1). Każda odpowiedź — w tym `POST /api/inquiries` — niesie dziś `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` i `Cross-Origin-Opener-Policy: same-origin`; trasy `/panel/*` dostają CSP z nonce na żądanie. Opis: [ADR-0006, „Nagłówki bezpieczeństwa"](../adr/ADR-0006-hosting.md#nagłówki-bezpieczeństwa--reguła-3-dotrzymana-e7-w1-naprawione-isk-360).
 
 ---
 
