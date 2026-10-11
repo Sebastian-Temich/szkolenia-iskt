@@ -178,7 +178,7 @@ Weryfikacja bramki E7: obrona w głąb działa realnie — 7 z 7 akcji woła `re
 Dwa ustalenia otwarte dotyczące tych warstw:
 
 - **E7 S1 — fail-open w `proxy.ts`:** przy braku `NEXT_PUBLIC_SUPABASE_URL` lub `ANON_KEY` funkcja zwraca `next()`, więc kontrola `/panel/*` cicho przestaje istnieć. Całość kończy się 500 niżej (bo strony rzucają z `getPublicEnv()`), ale fail-closed wynika z przypadkowej kolejności, nie z intencji.
-- **E7 W3 — otwarta rejestracja w Auth:** `supabase/config.toml` ma `enable_signup = true`, `enable_confirmations = false`, `minimum_password_length = 6`, wyłączone MFA i brak sekcji `[auth.sessions]`. Dowolna osoba może utworzyć konto i przejść warstwę 1; zatrzymują ją warstwy 2 i 3, więc dane nie wyciekają — ale middleware przestaje być bramką.
+- **E7 W3 — otwarta rejestracja w Auth: naprawione (ISK-362).** `supabase/config.toml` ma teraz `[auth].enable_signup = false` (blokuje `POST /auth/v1/signup`), `minimum_password_length = 12` z `password_requirements = "lower_upper_letters_digits_symbols"`, włączone TOTP i sekcję `[auth.sessions]` (`timebox = 24h`, `inactivity_timeout = 8h`). `[auth.email].enable_signup` celowo pozostaje `true` — ten flag przełącza cały provider e-mail, więc `false` odcięłoby logowanie hasłem administratorowi (supabase/cli#7055). Weryfikacja na projekcie zdalnym ujęta w warunkach wdrożenia ADR-0006.
 
 ### 3.2 Inwalidacja cache po publikacji
 

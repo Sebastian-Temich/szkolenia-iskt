@@ -173,16 +173,20 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
-enable_signup = true
+# ISK-362 (E7 W3): rejestracja wylaczona. Jedyne konto administratora zaklada ISKT przez Studio
+# albo invite (ADR-0003 D6). Otwarta rejestracja oznaczala zalew auth.users i naduzycie wysylki
+# maili transakcyjnych — middleware (proxy.ts) sprawdza tylko istnienie claimow, nie role admina.
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# ISK-362 (E7 W3): jedno konto trzyma wszystkie dane osobowe — podnosimy do 12 ze zlozonoscia.
+minimum_password_length = 12
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = ""
+password_requirements = "lower_upper_letters_digits_symbols"
 
 # Configure passkey sign-ins.
 # [auth.passkey]
@@ -218,6 +222,14 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
+# ISK-362 (E7 W3): MUSI pozostac `true`. W Supabase CLI/GoTrue `[auth.email].enable_signup`
+# przelacza CALY provider e-mail, nie tylko rejestracje — ustawienie `false` zwraca
+# `email_provider_disabled` ("Email logins are disabled") dla signInWithPassword, czyli
+# odcina logowanie takze jedynemu kontu administratora (a `config push` propaguje
+# `external_email_enabled=false` na projekt zdalny). Otwarta rejestracja jest blokowana
+# WYLACZNIE przez `[auth].enable_signup = false` powyzej (GOTRUE_DISABLE_SIGNUP), ktore
+# blokuje POST /auth/v1/signup, a nie logowanie istniejacych kont ani admin.createUser
+# (service_role omija ten flag). Zrodla: supabase/supabase#40582, supabase/cli#7055.
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
@@ -269,11 +281,12 @@ max_frequency = "5s"
 # 4152127777 = "123456"
 
 # Configure logged in session timeouts.
-# [auth.sessions]
+# ISK-362 (E7 W3): timebox i wygaszanie bezczynnosci dla jedynego konta administratora.
+[auth.sessions]
 # Force log out after the specified duration.
-# timebox = "24h"
+timebox = "24h"
 # Force log out if the user has been inactive longer than the specified duration.
-# inactivity_timeout = "8h"
+inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
 # [auth.hook.before_user_created]
@@ -299,9 +312,10 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
+# ISK-362 (E7 W3): TOTP wlaczone — drugi czynnik dla konta administratora.
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]

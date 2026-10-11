@@ -178,6 +178,8 @@ export async function withPg<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
 }
 
 export const ADMIN_EMAIL = 'admin@example.invalid'
-export const ADMIN_PASSWORD = 'local-admin-passphrase-123'
+// ISK-362 (E7 W3): hasla spelniaja nowy wymog zlozonosci
+// (minimum_password_length=12, password_requirements=lower_upper_letters_digits_symbols).
+export const ADMIN_PASSWORD = 'Local-Admin-Passphrase-123!'
 export const USER_EMAIL = 'user@example.invalid'
-export const USER_PASSWORD = 'local-user-passphrase-123'
+export const USER_PASSWORD = 'Local-User-Passphrase-123!'
