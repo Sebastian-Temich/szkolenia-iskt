@@ -88,14 +88,14 @@ Rekomendowana poprawka (należy do właściciela warstwy aplikacji, nie do tej b
 
 ### Nowy warunek wdrożenia: zaufane proxy (E8 T8, E7 W2)
 
-Limit częstości opiera się na adresie klienta odczytanym z nagłówków (`lib/security/client-hash.ts`). Poprawność tego mechanizmu zależy **wyłącznie** od tego, czy platforma hostingowa **nadpisuje** nagłówki przysłane przez klienta — a to założenie nie było dotąd nigdzie zapisane. Dodatkowo obecna implementacja czyta `x-forwarded-for[0]`, czyli wartość kontrolowaną przez atakującego (szczegóły: [ADR-0004, sekcja 3 stanu implementacji](ADR-0004-formularze-antyspam-resend.md#3-warstwy-antyspamowe--wszystkie-zaimplementowane-jedna-obchodzona)).
+Limit częstości opiera się na adresie klienta odczytanym z nagłówków (`lib/security/client-hash.ts`). Poprawność tego mechanizmu zależy **wyłącznie** od tego, czy platforma hostingowa **nadpisuje** nagłówki przysłane przez klienta — a to założenie nie było dotąd nigdzie zapisane. Logika odczytu adresu została naprawiona w **ISK-361** (E7 W2): `x-real-ip` pierwszy, z `x-forwarded-for` wpis odliczony od końca o liczbę zaufanych proxy, brak adresu → odrzucenie (szczegóły: [ADR-0004, sekcja 3 stanu implementacji](ADR-0004-formularze-antyspam-resend.md#3-warstwy-antyspamowe--wszystkie-zaimplementowane-jedna-obchodzona)). **Kod jest poprawny tylko przy prawidłowo ustawionej konfiguracji `FORM_TRUSTED_PROXY_COUNT`**, a tej nie da się ustalić bez wybranej platformy — dlatego poniższy warunek wdrożenia pozostaje otwarty.
 
 **Warunek wdrożenia, wiążący niezależnie od wyboru dostawcy:**
 
 1. Ustalić i zapisać, który nagłówek na wybranej platformie jest **nadpisywany** przez platformę i dlatego godny zaufania.
-2. Ustalić liczbę zaufanych proxy przed aplikacją i uczynić ją konfiguracją, nie stałą w kodzie.
-3. Zweryfikować to empirycznie na środowisku preview **przed** przyjęciem pierwszego realnego zgłoszenia — nie na podstawie dokumentacji dostawcy.
-4. Brak ustalonego adresu klienta traktować jako odrzucenie albo osobny, znacznie ostrzejszy limit — nigdy jako wspólne wiadro dla wszystkich klientów.
+2. Ustalić liczbę zaufanych proxy przed aplikacją i ustawić ją w `FORM_TRUSTED_PROXY_COUNT` (konfiguracja już istnieje, domyślnie `1`; nie jest stałą w kodzie).
+3. Zweryfikować to **empirycznie na środowisku preview** **przed** przyjęciem pierwszego realnego zgłoszenia — nie na podstawie dokumentacji dostawcy. Test: wysłać żądanie z podrobionym `x-forwarded-for` i potwierdzić, że `client_hash` odpowiada realnemu adresowi połączenia, a nie wartości z nagłówka.
+4. Brak ustalonego adresu klienta jest już traktowany jako odrzucenie (handler zwraca `429`), nigdy jako wspólne wiadro — potwierdzić, że w docelowej topologii nagłówek jest zawsze obecny, aby nie odrzucać realnych zgłoszeń.
 
 ### Dodatkowe warunki wdrożenia wynikające z bramek
 

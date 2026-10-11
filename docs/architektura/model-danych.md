@@ -384,7 +384,7 @@ create index form_submission_throttle_lookup_idx on public.form_submission_throt
 
 > **Kwalifikacja prawna z bramki RODO (E8 §5), istotna dla klauzuli:** `client_hash` to **pseudonimizacja** (art. 4 pkt 5 RODO), **nie anonimizacja** (motyw 26). Przestrzeń adresów IPv4 jest w pełni przeliczalna, a sól żyje w środowisku tej samej aplikacji, która ma dostęp do bazy — więc ten sam podmiot posiada jednocześnie hasz i klucz. `client_hash` **pozostaje danymi osobowymi** i wlicza się do zakresu klauzuli oraz retencji. Zdanie „nie zapisujemy IP" jest prawdziwe; zdanie „nie da się zidentyfikować" byłoby nieprawdziwe.
 >
-> Dwa ustalenia otwarte: brak rotacji `FORM_THROTTLE_SALT` (rekomendacja bramki: rotacja dobowa — koszt praktycznie zerowy, bo jedynym skutkiem jest zerowanie liczników w oknach 10 min / 24 h) oraz retencja 24 h, która jest udokumentowana, ale **nie egzekwowana** (funkcja wywoływana wyłącznie ręcznie, pozycja I10).
+> Ustalenie zamknięte (ISK-357 P2): sól `FORM_THROTTLE_SALT` jest **stabilna**, nie rotowana. Pierwotna rekomendacja bramki (rotacja dobowa) okazała się sprzeczna z funkcją limitu — zerowanie liczników w kroczących oknach 10 min / 24 h, także przez granicę doby UTC, **jest** obejściem limitu, a nie skutkiem ubocznym bez znaczenia. Powiązywalność haszy ograniczamy **retencją**, nie podmianą klucza. Ustalenie otwarte: retencja 24 h jest udokumentowana, ale **nie egzekwowana** — `purge_submission_throttle()` wywoływana wyłącznie ręcznie (pozycja I10).
 
 ### 3.10 Funkcje utrzymaniowe
 

@@ -10,7 +10,6 @@ const base = {
   interestArea: "Szkolenia BHP",
   message: "Dzien dobry, prosze o kontakt w sprawie szkolenia dla zespolu.",
   rodoAck: true as const,
-  rodoClauseVersion: "DRAFT-1",
 };
 
 describe("inquirySchema — pola i normalizacja", () => {
@@ -76,8 +75,12 @@ describe("inquirySchema — zgoda RODO", () => {
     expect(inquirySchema.safeParse(withoutAck).success).toBe(false);
   });
 
-  it("wymaga wersji klauzuli RODO", () => {
-    expect(inquirySchema.safeParse({ ...base, rodoClauseVersion: "" }).success).toBe(false);
+  it("ignoruje wersje klauzuli RODO z ciala zadania (ustala ja serwer — ISK-357 T3)", () => {
+    const result = inquirySchema.safeParse({ ...base, rodoClauseVersion: "v9-nieistniejaca" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect("rodoClauseVersion" in result.data).toBe(false);
+    }
   });
 });
 

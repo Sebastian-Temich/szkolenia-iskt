@@ -13,6 +13,7 @@ export function SiteFooter() {
           <Link href="/szkolenia">Katalog</Link>
           <Link href="/trenerzy">Trenerzy</Link>
           <Link href="/kontakt">Kontakt</Link>
+          <Link href="/polityka-prywatnosci">Polityka prywatności</Link>
         </div>
         <p className="demo-note">
           Wszystkie treści oznaczone [DEMO] są fikcyjne.
