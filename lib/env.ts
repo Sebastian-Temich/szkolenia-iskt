@@ -51,6 +51,18 @@ function formatEnvironmentError(scope: string, error: z.ZodError): Error {
   return new Error(`Nieprawidłowa konfiguracja ${scope}: ${names.join(", ")}`);
 }
 
+const siteUrlSchema = z.object({
+  NEXT_PUBLIC_SITE_URL: publicEnvSchema.shape.NEXT_PUBLIC_SITE_URL,
+});
+
+export function parseSiteUrl(values: Environment) {
+  const result = siteUrlSchema.safeParse(values);
+  if (!result.success) {
+    throw formatEnvironmentError("publiczna", result.error);
+  }
+  return result.data.NEXT_PUBLIC_SITE_URL;
+}
+
 export function parsePublicEnv(values: Environment) {
   const result = publicEnvSchema.safeParse(values);
   if (!result.success) {
@@ -83,6 +95,31 @@ export function parseServerEnv(values: Environment) {
     throw formatEnvironmentError("serwerowa", result.error);
   }
   return result.data;
+}
+
+/**
+ * Adres publiczny czytamy OSOBNO od `getPublicEnv()` (ISK-375). Metadane Next.js
+ * — `app/layout.tsx`, `buildPageMetadata()` w plikach stron — wyliczaja sie przy
+ * ewaluacji modulu, a `npm run build` w bramce `quality` biegnie bez kluczy
+ * Supabase (patrz komentarz przy `shouldPrerenderWithoutData`). Pelna walidacja
+ * publiczna wysadzilaby wtedy build na brakujacym `NEXT_PUBLIC_SUPABASE_*`,
+ * mimo ze SEO potrzebuje wylacznie adresu bazowego.
+ *
+ * Brak `NEXT_PUBLIC_SITE_URL` jest tu twardym bledem. Wartosc domyslna musialaby
+ * byc konkretna domena w kodzie — czyli dokladnie defekt, ktory ta zmiana usuwa:
+ * deploy preview emitowalby kanoniki produkcyjne i nikt by tego nie zauwazyl.
+ * Zmienna jest juz WYMAGANA w `publicEnvSchema`, wiec nie poszerza to kontraktu
+ * operatora.
+ *
+ * UWAGA (natura `NEXT_PUBLIC_*`): Next.js wstawia te wartosc do bundla przy
+ * `next build`. Ustawienie jej dopiero w czasie zadania nie zmieni kanonikow —
+ * kazde srodowisko (preview, staging, produkcja) musi miec wlasny build. Dowod
+ * na realnym artefakcie: `tests/e2e/public-pages.spec.ts` ("robots.txt...").
+ */
+export function getSiteUrl() {
+  return parseSiteUrl({
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  });
 }
 
 export function getPublicEnv() {

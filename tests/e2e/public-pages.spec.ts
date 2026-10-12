@@ -61,6 +61,75 @@ test.describe("ochrona szkicow", () => {
   });
 });
 
+// ISK-375. Test jednostkowy dowodzi, ze `lib/seo.ts` czyta `NEXT_PUBLIC_SITE_URL`,
+// ale `NEXT_PUBLIC_*` Next.js WSTAWIA do bundla przy `next build` — wartosc
+// widziana przez funkcje w locie nie musi byc ta, ktora wyladowala w artefakcie.
+// Dlatego tutaj mierzymy odpowiedz realnego serwera (w CI: `npm run start` na
+// buildzie z `npm run build`, PLAYWRIGHT_USE_BUILD=1).
+//
+// Adres aplikacji (`baseURL`, port 4173) jest CELOWO inny niz
+// `NEXT_PUBLIC_SITE_URL` w CI (127.0.0.1:3000) — gdyby `robots.txt` zgadzal sie
+// z adresem zadania zamiast z konfiguracja, ten test by to pokazal.
+test.describe("adres kanoniczny z konfiguracji", () => {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+
+  test.beforeAll(() => {
+    // W CI zmienna stoi na poziomie workflow (`ci.yml` -> `env`), lokalnie
+    // ustawia ja `scripts/e2e-local.sh`. Pominiecie w CI zamienilo by ten test
+    // w zielony no-op, czyli dokladnie w bramke, ktora przepuscila ISK-375.
+    if (process.env.CI) {
+      expect(
+        configured,
+        "NEXT_PUBLIC_SITE_URL musi byc ustawione w CI",
+      ).toBeTruthy();
+    }
+  });
+
+  test("robots.txt emituje host i sitemap z NEXT_PUBLIC_SITE_URL", async ({
+    request,
+  }) => {
+    test.skip(
+      !configured,
+      "Brak NEXT_PUBLIC_SITE_URL w procesie testow — uruchom ./scripts/e2e-local.sh",
+    );
+
+    const response = await request.get("/robots.txt");
+    expect(response.status()).toBe(200);
+    const body = await response.text();
+
+    expect(body).toContain(`Host: ${configured}`);
+    expect(body).toContain(`Sitemap: ${configured}/sitemap.xml`);
+    // Negatyw: zahardkodowana domena produkcyjna nie moze wyciekac do artefaktu
+    // zbudowanego z innym adresem. Bez tego testu publikacja preview zglosilaby
+    // produkcyjny `Host` i kanoniki.
+    expect(body).not.toContain("szkolenia.iskt.pl");
+    // Karta ISK-375 nie jest publikacja — blokada indeksowania zostaje.
+    expect(body).toContain("Disallow: /");
+  });
+
+  test("sitemap.xml i kanonik strony uzywaja tego samego adresu", async ({
+    page,
+    request,
+  }) => {
+    test.skip(
+      !configured,
+      "Brak NEXT_PUBLIC_SITE_URL w procesie testow — uruchom ./scripts/e2e-local.sh",
+    );
+
+    const sitemap = await request.get("/sitemap.xml");
+    expect(sitemap.status()).toBe(200);
+    const xml = await sitemap.text();
+    expect(xml).toContain(`<loc>${configured}/szkolenia</loc>`);
+    expect(xml).not.toContain("szkolenia.iskt.pl");
+
+    await page.goto("/szkolenia");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      `${configured}/szkolenia`,
+    );
+  });
+});
+
 test("nieistniejace szkolenie zwraca 404", async ({ page }) => {
   const response = await page.goto("/szkolenia/nie-ma-takiego-szkolenia");
   expect(response?.status()).toBe(404);
