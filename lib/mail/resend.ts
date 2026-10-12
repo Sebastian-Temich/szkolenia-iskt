@@ -1,4 +1,5 @@
 import type { MailAdapter, MailMessage, MailResult } from "@/lib/mail";
+import { assertNoEmailHeaderInjection } from "@/lib/security/header-injection";
 import { logServerEvent, safeErrorCode, type SafeLogger } from "@/lib/security/safe-log";
 
 // Adapter Resend (ADR-0004 §5): wylacznie serwerowo, RESEND_API_KEY nigdy w kliencie.
@@ -45,6 +46,15 @@ export function createResendMailAdapter(options: ResendAdapterOptions): MailAdap
 
   return {
     async send(message: MailMessage): Promise<MailResult> {
+      // Ostatnia linia obrony przed wstrzyknieciem naglowka (ISK-370): odrzuc CR/LF w polach
+      // naglowkowych ZANIM dojdzie do wywolania Resend. W normalnym przeplywie schemat Zod juz
+      // je odrzucil — to zabezpieczenie na wypadek pominiecia walidacji przez inna sciezke.
+      assertNoEmailHeaderInjection({
+        from: options.from,
+        to: message.to,
+        subject: message.subject,
+      });
+
       const client = await resolveClient();
       let lastErrorCode = "error";
 

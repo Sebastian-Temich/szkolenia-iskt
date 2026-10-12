@@ -65,3 +65,25 @@ describe("resend mail adapter (zamockowany SDK)", () => {
     expect(logged).not.toContain("danymi zglaszajacego");
   });
 });
+
+describe("resend mail adapter — obrona przed wstrzyknieciem naglowka (ISK-370)", () => {
+  // Druga warstwa obrony: nawet gdyby temat z CR/LF przeszedl walidacje, adapter NIE wola Resend.
+  it.each([
+    ["CR", "\r"],
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+  ])("rzuca i NIE wola Resend, gdy temat zawiera %s", async (_name, sep) => {
+    const send = vi.fn().mockResolvedValue({ data: { id: "resend-x" }, error: null });
+    const adapter = createResendMailAdapter({
+      apiKey: "re_test",
+      from: "powiadomienia@iskt.pl",
+      client: { emails: { send } },
+      logger: vi.fn(),
+    });
+
+    await expect(
+      adapter.send({ ...message, subject: `Nowe zgloszenie${sep}Bcc: evil@example.com` }),
+    ).rejects.toThrow("mail_header_injection");
+    expect(send).not.toHaveBeenCalled();
+  });
+});

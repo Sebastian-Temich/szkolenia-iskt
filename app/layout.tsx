@@ -1,17 +1,13 @@
 import type { Metadata } from "next";
 
-import { SITE_URL } from "@/lib/seo";
+import { buildRootMetadata } from "@/lib/seo";
 
 import { interVariable } from "./fonts";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: "Szkolenia ISKT — wiedza, która działa",
-  description: "Demonstracyjny katalog szkoleń ISKT dla osób i zespołów.",
-  alternates: { canonical: SITE_URL },
-  robots: { index: false, follow: false },
-};
+// Treść metadanych siedzi w `lib/seo.ts` (ISK-375): adres bazowy pochodzi
+// z `NEXT_PUBLIC_SITE_URL`, a testowalność wymaga modułu bez `next/font` i CSS.
+export const metadata: Metadata = buildRootMetadata();
 
 /**
  * Layout wspolny dla calej aplikacji: wylacznie `<html>`, `<body>` i arkusz

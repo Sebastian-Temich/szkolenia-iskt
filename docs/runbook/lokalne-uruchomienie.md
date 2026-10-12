@@ -186,6 +186,28 @@ Harmonogram (`pg_cron`) **nie jest włączony** w MVP — wymaga decyzji ISKT ([
 
 > **To jest możliwość, nie egzekwowanie.** Dziś nie ma nic, co faktycznie usunie dane po terminie. Przed publikacją musi istnieć harmonogram albo procedura z imiennie wskazanym właścicielem, cyklem i rejestrem wykonań. Dodatkowo **dwie kopie danych są poza zasięgiem tych funkcji**: skrzynka odbiorcy powiadomień i panel/logi Resend — powiadomienie zawiera imię i nazwisko, e-mail, telefon, firmę i pełną treść wiadomości. Procedura retencji musi obejmować obie. Pozycje **I6**–**I10** w [skonsolidowanej liście ISKT](../odbior/braki-i-decyzje-iskt.md).
 
+### Zmiana okresu retencji zgłoszeń — `retention_delete_after` jest niezmienne przez `UPDATE`
+
+Od ISK-371 (migracja `20261012120000`) kolumna `inquiries.retention_delete_after` jest **niezmienna dla każdej roli, także właściciela bazy**. Trigger `inquiries_enforce_admin_update` (funkcja `enforce_inquiry_admin_update()`) dokłada tę kolumnę do krotki porównywanej, więc każdy `UPDATE` zmieniający termin retencji kończy się błędem `check_violation` — zmierzone również wykonaniem jako `postgres`. To celowa obrona w głąb: jedyną sankcjonowaną zmianą retencji jest `DELETE` przez `purge_expired_inquiries()` (trigger `BEFORE UPDATE` nie odpala się przy `DELETE`), co realizuje też art. 17 RODO (prawo do usunięcia) kluczem `service_role`.
+
+**Konsekwencja dla przyszłej migracji.** ADR-0003 D8 pozostawia *okres* retencji (dziś 12 miesięcy) jako otwartą decyzję ISKT (pozycja **I10**). Jeśli ISKT zdecyduje o innym okresie, migracja aktualizująca `retention_delete_after` w **istniejących** wierszach **nie wykona się** — sam `UPDATE` wewnątrz migracji również zostanie odrzucony przez trigger. Trzeba go chwilowo wyłączyć, jednym z dwóch sposobów:
+
+```sql
+-- wariant A: punktowe wyłączenie triggera
+alter table public.inquiries disable trigger inquiries_enforce_admin_update;
+update public.inquiries
+  set retention_delete_after = created_at + interval '<nowy okres>';
+alter table public.inquiries enable trigger inquiries_enforce_admin_update;
+
+-- wariant B: wyłączenie wszystkich triggerów użytkownika w tej transakcji
+set local session_replication_role = replica;
+update public.inquiries
+  set retention_delete_after = created_at + interval '<nowy okres>';
+-- rola wraca do 'origin' na końcu transakcji (set local)
+```
+
+Nowe wiersze dostają termin z domyślnej wartości kolumny (albo logiki wstawiania) i nie wymagają takiego zabiegu. Zmiana domyślnego okresu dla nowych zgłoszeń to osobna zmiana `default`/triggera wstawiającego — niezależna od powyższego `UPDATE` na danych historycznych.
+
 ## Rozwiązywanie problemów
 
 | Objaw                                                                                                 | Przyczyna i działanie                                                                                                                                                                                                                                                                                                                                                                                                                      |
