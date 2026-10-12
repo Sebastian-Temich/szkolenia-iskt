@@ -20,4 +20,11 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await expect(
     page.getByRole("navigation", { name: "Nawigacja panelu" }),
   ).toBeVisible();
+  // ISK-372: `login()` konczy sie `redirect("/panel")`, czyli MIEKKA nawigacja
+  // routera wykonywana po odpowiedzi Server Action. Powloka panelu (a wiec
+  // i asercja powyzej) jest widoczna, zanim router zatwierdzi przejscie —
+  // kolejne `page.goto()` wpadalo wtedy w `net::ERR_ABORTED`, bo przerywalo
+  // nawigacje w toku. Objaw czytal sie jak niedostepna strona, a byl wyscigiem
+  // (ok. 1 na 2 przebiegi przy trzech workerach). Czekamy na zatwierdzony adres.
+  await page.waitForURL(/\/panel(\?|$)/);
 }

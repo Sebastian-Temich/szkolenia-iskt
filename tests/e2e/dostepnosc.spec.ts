@@ -15,6 +15,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 import { clearThrottle, createInquiry } from "./helpers/data";
 import { awaitFormTokenMaturity } from "./helpers/form";
+import { serviceClient } from "./helpers/stack";
 
 const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
@@ -100,6 +101,34 @@ test.describe("axe: panel administratora (poza wymaganym minimum ADR-0005 D4)", 
       expect(describe(critical)).toEqual([]);
     });
   }
+
+  // ISK-372 / B3: szczegolu zgloszenia nie bylo na tej liscie, bo sciezka jest
+  // parametryzowana (`/panel/zgloszenia/[id]`) — i to jedyny widok w panelu,
+  // na ktorym bramka UX znalazla naruszenie 1.4.3 (biale "Ustaw: W toku" na
+  // tle strony, 1,03:1). Dlatego zakladamy zgloszenie i skanujemy ten adres
+  // jawnie; lista nie wystarcza, bo przycisku przejscia statusu na niej nie ma.
+  test("panel — szczegol zgloszenia bez naruszen krytycznych", async ({
+    page,
+  }) => {
+    const inquiry = await createInquiry();
+    try {
+      await loginAsAdmin(page);
+      await page.goto(`/panel/zgloszenia/${inquiry.id}`);
+
+      // Skan bez akcji nie dowodzilby niczego o B3.
+      await expect(
+        page.getByRole("button", { name: "Ustaw: W toku" }),
+      ).toBeVisible();
+
+      const results = await scan(page);
+      const critical = results.violations.filter(
+        (v) => v.impact === "critical" || v.impact === "serious",
+      );
+      expect(describe(critical)).toEqual([]);
+    } finally {
+      await serviceClient().from("inquiries").delete().eq("id", inquiry.id);
+    }
+  });
 });
 
 test("axe: formularz w stanie bledu walidacji bez naruszen krytycznych", async ({
