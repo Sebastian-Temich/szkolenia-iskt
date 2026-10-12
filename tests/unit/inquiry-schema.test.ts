@@ -175,3 +175,90 @@ describe("inquirySchema — wstrzykniecie naglowka e-mail CR/LF (ISK-370)", () =
     expect(result.success).toBe(true);
   });
 });
+
+describe("inquirySchema — warunkowe pola w JEDNYM przebiegu (ISK-382)", () => {
+  // Zbiera sciezki bledow z jednego `safeParse` — DoD wymaga liczenia `issues` po `path`,
+  // nie samego `success === false`, bo defekt polegal na BRAKUJACEJ sciezce przy pierwszej
+  // wysylce, nie na przejsciu walidacji.
+  const errorPaths = (input: unknown): string[] => {
+    const result = inquirySchema.safeParse(input);
+    if (result.success) return [];
+    return [...new Set(result.error.issues.map((issue) => issue.path.join(".")))].sort();
+  };
+
+  // Odpowiada `defaultValues` z `app/(public)/kontakt/inquiry-form.tsx`: przegladarka nie wysyla
+  // `undefined`, tylko puste stringi i `rodoAck: false`. To ten ksztalt decydowal o defekcie —
+  // `z.literal(true)` dawalo blad przerywajacy, ktory wycinal `superRefine`.
+  const emptyForm = {
+    kind: "osoba",
+    fullName: "",
+    email: "",
+    phone: "",
+    companyName: "",
+    interestArea: "",
+    message: "",
+    rodoAck: false,
+  } as const;
+
+  it("pusty formularz (ksztalt z przegladarki) oznacza takze interestArea — bez drugiej wysylki", () => {
+    expect(errorPaths(emptyForm)).toEqual([
+      "email",
+      "fullName",
+      "interestArea",
+      "message",
+      "phone",
+      "rodoAck",
+    ]);
+  });
+
+  it("pusty obiekt oznacza wszystkie wymagane pola razem z warunkowym interestArea", () => {
+    const paths = errorPaths({});
+    expect(paths).toContain("interestArea");
+    expect(paths).toEqual(
+      expect.arrayContaining(["kind", "fullName", "email", "phone", "message", "rodoAck"]),
+    );
+  });
+
+  it("pusty formularz firmowy oznacza companyName razem z bledami ksztaltu", () => {
+    const paths = errorPaths({ ...emptyForm, kind: "firma" });
+    expect(paths).toContain("companyName");
+    expect(paths).toContain("interestArea");
+    expect(paths).toContain("rodoAck");
+  });
+
+  it("brak samej zgody RODO nie odklada bledu interestArea na kolejna wysylke", () => {
+    const paths = errorPaths({
+      ...emptyForm,
+      fullName: "Jan Kowalski",
+      email: "jan@example.com",
+      phone: "+48 600 100 200",
+      message: "Dzien dobry, prosze o kontakt w sprawie szkolenia dla zespolu.",
+    });
+    expect(paths).toEqual(["interestArea", "rodoAck"]);
+  });
+
+  // Strona odwrotna reguly (ISK-373): na `/kontakt?szkolenie=<slug>` temat zgloszenia wynika
+  // z `trainingId`, wiec brak `interestArea` NIE jest bledem — takze gdy inne pola sa puste.
+  it("trainingId nadal zwalnia z interestArea, nawet przy bledach ksztaltu", () => {
+    const paths = errorPaths({
+      ...emptyForm,
+      trainingId: "123e4567-e89b-42d3-a456-426614174000",
+    });
+    expect(paths).not.toContain("interestArea");
+    expect(paths).toContain("rodoAck");
+  });
+
+  it("kind=osoba nigdy nie wymaga companyName, nawet przy bledach ksztaltu", () => {
+    expect(errorPaths(emptyForm)).not.toContain("companyName");
+  });
+
+  // Sprawdzenie biegnie teraz takze na przerwanym parsowaniu, wiec musi zniesc wejscie,
+  // ktore wcale nie jest obiektem — inaczej `value.trainingId` rzucilby TypeError.
+  it.each([null, undefined, "hej", 42, [], true])(
+    "nie wywraca sie na wejsciu, ktore nie jest obiektem (%p)",
+    (input) => {
+      expect(() => inquirySchema.safeParse(input)).not.toThrow();
+      expect(inquirySchema.safeParse(input).success).toBe(false);
+    },
+  );
+});
