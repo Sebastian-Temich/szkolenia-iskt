@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import Link from "next/link";
+import { TrainerAvatar } from "@/components/trainer-avatar";
 import { getTrainers } from "@/lib/public-catalog";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -10,20 +11,6 @@ export const metadata: Metadata = buildPageMetadata({
     "Poznaj demonstracyjny zespół ekspertów prowadzących szkolenia ISKT.",
   path: "/trenerzy",
 });
-
-function Initials({ name }: { name: string }) {
-  return (
-    <span aria-hidden="true">
-      {name
-        .replace("[DEMO]", "")
-        .trim()
-        .split(" ")
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join("")}
-    </span>
-  );
-}
 
 export default async function TrainersPage() {
   const trainers = await getTrainers();
@@ -40,31 +27,41 @@ export default async function TrainersPage() {
         </div>
       </section>
       <section className="section section-tight">
-        <div className="trainer-grid page-shell">
-          {trainers.map((trainer) => (
-            <article className="trainer-card" key={trainer.id}>
-              {trainer.photo_url ? (
-                <Image
-                  src={trainer.photo_url}
-                  alt=""
-                  width={144}
-                  height={144}
-                  unoptimized
+        {/* ISK-373 / P18: stan pusty. Seed `[DEMO]` zawsze tworzy dwoje trenerow,
+            wiec na zadnym srodowisku demonstracyjnym nie da sie tego zobaczyc —
+            ale lista moze byc pusta po wycofaniu profili z publikacji, a wtedy
+            zostawala goła sekcja bez jednego slowa wyjasnienia. */}
+        {trainers.length === 0 ? (
+          <div className="page-shell">
+            <div className="empty-state">
+              <h2>Lista trenerów jest w przygotowaniu</h2>
+              <p>
+                Nie mamy teraz opublikowanego żadnego profilu. Napisz do nas —
+                dobierzemy prowadzącego do tematu szkolenia.
+              </p>
+              <Link className="button" href="/kontakt">
+                Zapytaj o szkolenie →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="trainer-grid page-shell">
+            {trainers.map((trainer) => (
+              <article className="trainer-card" key={trainer.id}>
+                <TrainerAvatar
+                  photoUrl={trainer.photo_url}
+                  fullName={trainer.full_name}
                 />
-              ) : (
-                <div className="avatar">
-                  <Initials name={trainer.full_name} />
+                <div>
+                  <p className="eyebrow">{trainer.competences.join(" · ")}</p>
+                  <h2>{trainer.full_name}</h2>
+                  <strong>{trainer.headline}</strong>
+                  <p>{trainer.bio}</p>
                 </div>
-              )}
-              <div>
-                <p className="eyebrow">{trainer.competences.join(" · ")}</p>
-                <h2>{trainer.full_name}</h2>
-                <strong>{trainer.headline}</strong>
-                <p>{trainer.bio}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
