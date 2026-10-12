@@ -126,11 +126,11 @@ Rozstrzygnięcie: normalizację wykonuje **warstwa aplikacji**, nie baza. Funkcj
 
 Pozostaje nieuzupełnione (E2R, C2): indeks trigramowy pokrywa tylko `title`, a `summary` ma w tsvectorze wagę B bez odpowiednika trigramowego.
 
-### D7 — administrator nie zmienia dowolnych kolumn: **ADR obiecuje więcej, niż baza robi**
+### D7 — administrator nie zmienia dowolnych kolumn: **baza dotrzymuje tekstu ADR** (zamknięte, ISK-371)
 
 Brzmienie D7: trigger „odrzuca zmianę pól z danymi osobowymi **i pól technicznych**; dozwolone są `status`, `admin_note`, `first_handled_at`, `closed_at”`.
 
-Implementacja `enforce_inquiry_admin_update()` to **czarna lista** 11 kolumn osobowych. Wszystko poza nią jest otwarte. Zmierzone w bramce E2R w sesji administratora:
+Pierwotna implementacja `enforce_inquiry_admin_update()` była **czarną listą** 11 kolumn osobowych, a wszystko poza nią było otwarte. Zmierzone w bramce E2R w sesji administratora (stan **przed** naprawą):
 
 ```
 update inquiries set retention_delete_after = '2099-01-01'                 -> PRZESZŁO
@@ -139,16 +139,25 @@ update inquiries set id = <inny uuid>                                      -> PR
 update inquiries set email = ...                                           -> odrzucone (kontrola działa)
 ```
 
-`retention_delete_after` **jest** mechanizmem retencji z D8, więc administrator może przesunąć go bezterminowo, bez wpisu w `inquiry_status_history` i bez wpisu w `admin_audit_log`. Niezależnie od tego czarna lista **zawodzi otwarciem** dla każdej kolumny dodanej w przyszłej migracji.
+Ponieważ `retention_delete_after` **jest** mechanizmem retencji z D8, administrator mógł przesunąć go bezterminowo, bez wpisu w `inquiry_status_history` i bez wpisu w `admin_audit_log` — a czarna lista dodatkowo zawodziła otwarciem dla każdej kolumny dodanej w przyszłej migracji.
 
-**Status: otwarte** (E2R B2, powtórzone jako E7 N4). Rekomendowana poprawka — utrzymać tekst ADR i dowieźć go uprawnieniami kolumnowymi, nie listą w triggerze:
+**Status: zamknięte** (E2R B2, powtórzone jako E7 N4; naprawione w ISK-371, migracja `20261012120000`). Zastosowano rekomendowaną poprawkę — tekst ADR dowieziony uprawnieniami kolumnowymi, nie listą w triggerze:
 
 ```sql
 revoke update on public.inquiries from authenticated;
 grant  update (status, admin_note) on public.inquiries to authenticated;
 ```
 
-Uprawnienia kolumnowe sprawdzają kolumny z `SET`, nie te ustawiane przez trigger, więc `first_handled_at`, `closed_at` i `updated_at` dalej działają, a trigger zostaje jako obrona w głąb. Poprawka nie została wprowadzona.
+Uprawnienia kolumnowe sprawdzają kolumny z `SET`, nie te ustawiane przez trigger, więc `first_handled_at`, `closed_at` i `updated_at` dalej działają, a trigger zostaje jako obrona w głąb. **Stan zmierzony po migracji** w sesji administratora (`authenticated` + `is_admin()`):
+
+```
+update inquiries set retention_delete_after = '2099-01-01'  -> permission denied for table inquiries
+update inquiries set notification_status / source_path / id -> permission denied for table inquiries
+update inquiries set status = 'w_toku'                      -> PRZESZŁO (operacja panelu)
+update inquiries set admin_note = '...'                     -> PRZESZŁO (operacja panelu)
+```
+
+Dodatkowo `retention_delete_after` dołączono do krotki niezmiennej w `enforce_inquiry_admin_update()`: `UPDATE` tej kolumny jest odrzucany błędem `check_violation` nawet dla roli omijającej grant kolumnowy (zmierzone jako `postgres`). Zmiana *okresu* retencji (D8) wymaga więc świadomej, osobnej migracji z chwilowym wyłączeniem triggera — procedura w [runbooku, Zadania utrzymaniowe](../runbook/lokalne-uruchomienie.md#zadania-utrzymaniowe-uruchamiane-ręcznie).
 
 **Zaakceptowane odstępstwo:** `enforce_inquiry_admin_update()` jest `SECURITY DEFINER` z `set search_path = public, pg_temp`, mimo że dokument modelu danych nie wskazywał trybu bezpieczeństwa. Powód: trigger wstawia wiersz do `inquiry_status_history`, która ma RLS i **nie ma** `INSERT` dla roli `authenticated` (macierz: „wpis przez trigger”). Bez `DEFINER` legalna zmiana statusu przez administratora byłaby odrzucana. E2R zaakceptowała to wprost i potwierdziła na działającej bazie.
 

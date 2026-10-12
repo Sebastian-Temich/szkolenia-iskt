@@ -221,15 +221,31 @@
     flex-wrap: wrap;
     gap: 1rem;
   }
+  /* ISK-372 / B3: `color: white !important` stalo tu, zeby przebic kolorem
+     regule `.panel-actions button` (0,1,1). Przebijalo tylko KOLOR — tlo
+     `background: none` z tej samej reguly wygrywalo nad `background:
+     var(--color-primary)` (0,1,0), wiec przycisk "Ustaw: W toku" na szczegole
+     zgloszenia byl bialym tekstem na tle strony: kontrast 1,03:1 wobec
+     wymaganych 4,5:1 (WCAG 2.1 AA, 1.4.3). `!important` maskowal kolizje
+     specyficznosci i czynil ja niewidoczna przy czytaniu CSS.
+     Lekarstwem jest zdjecie `.panel-button` spod selektorow dla akcji-tekstow
+     (`:not(.panel-button)` nizej), a nie kolejne `!important`: przycisk pelny
+     i akcja-tekst to dwa osobne warianty, ktore nie powinny sie nawzajem
+     nadpisywac deklaracja po deklaracji.
+     Wlasne `min-width`/`min-height` (WCAG 2.5.5) sa tu, bo `.panel-button` nie
+     korzysta juz z reguly celow dotykowych z ISK-364 / P5. */
   .panel-button {
     display: inline-flex;
     width: fit-content;
+    align-items: center;
     justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
     padding: 0.75rem 1.1rem;
     border: 0;
     border-radius: var(--radius-sm);
     background: var(--color-primary);
-    color: white !important;
+    color: var(--color-text-on-brand);
     font: inherit;
     font-weight: 750;
     text-decoration: none;
@@ -240,8 +256,8 @@
     cursor: wait;
   }
   .panel-link-button,
-  .panel-actions button,
-  .panel-chip button {
+  .panel-actions button:not(.panel-button),
+  .panel-chip button:not(.panel-button) {
     border: 0;
     background: none;
     color: var(--color-primary);
@@ -251,11 +267,14 @@
   /* ISK-364 / P5: akcje w tabelach i chipach byly golym tekstem — bramka UX
      zmierzyla 60x20 i 114x18 px wobec minimum 44x44 (WCAG 2.1 AA, 2.5.5).
      Powiekszamy sam obszar klikalny (padding + `min-height`), nie krój: układ
-     wizualny zostaje, zmienia się wysokość trafienia. */
-  .panel-actions a,
-  .panel-actions button,
-  .panel-chip a,
-  .panel-chip button,
+     wizualny zostaje, zmienia się wysokość trafienia.
+     ISK-372 / B3: `.panel-button` jest wylaczony takze tutaj — ta regula
+     nadpisywala jego `padding` i `border-radius` (0,1,1 vs 0,1,0), a od teraz
+     przycisk pelny ma wlasne `min-width`/`min-height`. */
+  .panel-actions a:not(.panel-button),
+  .panel-actions button:not(.panel-button),
+  .panel-chip a:not(.panel-button),
+  .panel-chip button:not(.panel-button),
   .panel-link-button,
   .panel-header nav a {
     display: inline-flex;
