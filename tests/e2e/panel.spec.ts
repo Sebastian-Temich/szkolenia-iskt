@@ -201,18 +201,38 @@ test("publikacja pokazuje szkolenie publicznie, a wycofanie je ukrywa", async ({
   await expect(page.getByText(trainingTitle)).toBeHidden({
     timeout: actionTimeout,
   });
+
+  /**
+   * ISK-374 BL-A: publikacja i wycofanie są operacjami administracyjnymi, które ADR-0003
+   * wymaga zapisać w dzienniku. Wcześniej panel nie pisał do `admin_audit_log` ani jednego
+   * wiersza. Czytamy dziennik kluczem service_role, bo z sesji panelu jest on tylko do
+   * odczytu, a zapis idzie wyłącznie przez funkcję `log_admin_action()`.
+   */
+  const { data: trainingRow } = await service
+    .from("trainings")
+    .select("id")
+    .eq("slug", "e5-bezpieczna-praca")
+    .single();
+  const { data: auditRows } = await service
+    .from("admin_audit_log")
+    .select("action, entity, actor_id")
+    .eq("entity_id", trainingRow!.id);
+  expect(new Set(auditRows?.map((row) => row.action))).toEqual(
+    new Set(["training.publish", "training.unpublish"]),
+  );
+  for (const row of auditRows ?? []) {
+    expect(row.entity).toBe("training");
+    // Autora wpisu wymusza baza z sesji administratora, nie warstwa aplikacji.
+    expect(row.actor_id).not.toBeNull();
+  }
 });
 
-test("status zgłoszenia przechodzi cykl nowe → w toku → zamknięte", async ({
-  page,
-}) => {
-  const senderName = `Status Cykl ${Date.now()}`;
-  const service = serviceClient();
-  const { data: inquiry, error } = await service
+async function createStatusInquiry(label: string): Promise<string> {
+  const { data, error } = await serviceClient()
     .from("inquiries")
     .insert({
       kind: "firma",
-      full_name: senderName,
+      full_name: `${label} ${Date.now()}`,
       email: "status.cykl@example.invalid",
       phone: "+48 500 000 001",
       company_name: "Przykładowa Firma",
@@ -224,19 +244,33 @@ test("status zgłoszenia przechodzi cykl nowe → w toku → zamknięte", async 
     .select("id")
     .single();
   expect(error).toBeNull();
+  return data!.id as string;
+}
+
+/**
+ * ISK-374 BL-B: panel dopuszczał tylko `nowe → w_toku → zamkniete`, a ADR-0003 (D7),
+ * `model-danych.md` §3.6 i trigger w bazie dopuszczają cztery przejścia — w tym
+ * zamknięcie od razu i ponowne otwarcie. Poprzednia wersja tego testu asertowała, że
+ * „zamknięte nie ma żadnego przejścia”, czyli utrwalała odstępstwo zamiast je wyłapać.
+ */
+test("status zgłoszenia przechodzi cykl nowe → w toku → zamknięte i da się otworzyć ponownie", async ({
+  page,
+}) => {
+  const inquiryId = await createStatusInquiry("Status Cykl");
 
   await login(page, adminEmail);
-  await page.goto(`/panel/zgloszenia/${inquiry!.id}`);
+  await page.goto(`/panel/zgloszenia/${inquiryId}`);
   const status = page.locator(".panel-status.is-large");
   await expect(status).toHaveText("Nowe", { timeout: actionTimeout });
 
-  // Z „nowe” dostępny jest wyłącznie następny krok cyklu.
+  // Z „nowe” są dwie drogi: obsługa albo zamknięcie od razu (np. spam).
   await expect(
     page.getByRole("button", { name: "Ustaw: W toku" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Ustaw: Zamknięte" }),
-  ).toBeHidden();
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ustaw: Nowe" })).toBeHidden();
 
   await page.getByRole("button", { name: "Ustaw: W toku" }).click();
   await expect(status).toHaveText("W toku", { timeout: actionTimeout });
@@ -245,7 +279,45 @@ test("status zgłoszenia przechodzi cykl nowe → w toku → zamknięte", async 
   await page.getByRole("button", { name: "Ustaw: Zamknięte" }).click();
   await expect(status).toHaveText("Zamknięte", { timeout: actionTimeout });
 
-  // Zamknięte zgłoszenie nie ma już żadnego dozwolonego przejścia.
+  // Zamknięte zgłoszenie można otworzyć ponownie — i tylko do „w toku”.
   await expect(page.getByText("Zgłoszenie jest zamknięte.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Ustaw:/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ustaw: Nowe" })).toBeHidden();
+  await page.getByRole("button", { name: "Ustaw: W toku" }).click();
+  await expect(status).toHaveText("W toku", { timeout: actionTimeout });
+});
+
+test("zgłoszenie można zamknąć od razu, bez przechodzenia przez „w toku”", async ({
+  page,
+}) => {
+  const inquiryId = await createStatusInquiry("Status Spam");
+
+  await login(page, adminEmail);
+  await page.goto(`/panel/zgloszenia/${inquiryId}`);
+  const status = page.locator(".panel-status.is-large");
+  await expect(status).toHaveText("Nowe", { timeout: actionTimeout });
+
+  await page.getByRole("button", { name: "Ustaw: Zamknięte" }).click();
+  await expect(status).toHaveText("Zamknięte", { timeout: actionTimeout });
+
+  // Przejście przeszło także przez trigger bazy, a nie tylko przez mapę w kodzie.
+  const { data } = await serviceClient()
+    .from("inquiries")
+    .select("status, closed_at")
+    .eq("id", inquiryId)
+    .single();
+  expect(data?.status).toBe("zamkniete");
+  expect(data?.closed_at).not.toBeNull();
+
+  // ISK-374 BL-A: zmiana statusu zostawia ślad w dzienniku audytu — bez danych osobowych.
+  const audit = await serviceClient()
+    .from("admin_audit_log")
+    .select("action, entity, actor_id, details")
+    .eq("entity_id", inquiryId);
+  expect(audit.data).toHaveLength(1);
+  expect(audit.data?.[0]).toMatchObject({
+    action: "inquiry.status_change",
+    entity: "inquiry",
+    details: { from: "nowe", to: "zamkniete" },
+  });
+  expect(audit.data?.[0]?.actor_id).not.toBeNull();
 });

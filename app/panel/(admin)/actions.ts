@@ -3,6 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { publishAuditAction, recordAdminAction } from "@/lib/panel/audit";
 import { requireAdmin } from "@/lib/panel/auth";
 import { invalidatePublicCatalog } from "@/lib/panel/catalog-cache";
 import { isDeleteConfirmed } from "@/lib/panel/confirm-delete";
@@ -35,12 +36,31 @@ export async function saveCategory(formData: FormData) {
   const { supabase } = await requireAdmin();
   const parsed = categorySchema.safeParse(formValues(formData));
   if (!parsed.success) fail("Niepoprawne dane kategorii.");
-  const id = formData.get("id");
-  const query = idSchema.safeParse(id).success
-    ? supabase.from("categories").update(parsed.data).eq("id", String(id))
-    : supabase.from("categories").insert(parsed.data);
-  const { error } = await query;
-  if (error) fail("Nie udało się zapisać kategorii.");
+  const existingId = idSchema.safeParse(formData.get("id"));
+  if (existingId.success) {
+    const { error } = await supabase
+      .from("categories")
+      .update(parsed.data)
+      .eq("id", existingId.data);
+    if (error) fail("Nie udało się zapisać kategorii.");
+    await recordAdminAction(supabase, {
+      action: "category.update",
+      entity: "category",
+      entityId: existingId.data,
+    });
+  } else {
+    const { data, error } = await supabase
+      .from("categories")
+      .insert(parsed.data)
+      .select("id")
+      .single();
+    if (error || !data) fail("Nie udało się zapisać kategorii.");
+    await recordAdminAction(supabase, {
+      action: "category.create",
+      entity: "category",
+      entityId: data.id as string,
+    });
+  }
   refreshCatalog();
   redirect("/panel/szkolenia");
 }
@@ -49,12 +69,31 @@ export async function saveTrainer(formData: FormData) {
   const { supabase } = await requireAdmin();
   const parsed = trainerSchema.safeParse(formValues(formData));
   if (!parsed.success) fail("Niepoprawne dane trenera.");
-  const id = formData.get("id");
-  const query = idSchema.safeParse(id).success
-    ? supabase.from("trainers").update(parsed.data).eq("id", String(id))
-    : supabase.from("trainers").insert(parsed.data);
-  const { error } = await query;
-  if (error) fail("Nie udało się zapisać trenera.");
+  const existingId = idSchema.safeParse(formData.get("id"));
+  if (existingId.success) {
+    const { error } = await supabase
+      .from("trainers")
+      .update(parsed.data)
+      .eq("id", existingId.data);
+    if (error) fail("Nie udało się zapisać trenera.");
+    await recordAdminAction(supabase, {
+      action: "trainer.update",
+      entity: "trainer",
+      entityId: existingId.data,
+    });
+  } else {
+    const { data, error } = await supabase
+      .from("trainers")
+      .insert(parsed.data)
+      .select("id")
+      .single();
+    if (error || !data) fail("Nie udało się zapisać trenera.");
+    await recordAdminAction(supabase, {
+      action: "trainer.create",
+      entity: "trainer",
+      entityId: data.id as string,
+    });
+  }
   refreshCatalog();
   redirect("/panel/trenerzy");
 }
@@ -64,6 +103,9 @@ export async function saveTraining(formData: FormData) {
   const parsed = trainingSchema.safeParse({
     ...formValues(formData),
     funding_available: formData.get("funding_available") === "on",
+    // Niezaznaczony checkbox nie trafia do FormData, wiec brak pola znaczy `false`
+    // — tak samo jak przy dofinansowaniu.
+    is_featured: formData.get("is_featured") === "on",
     trainer_ids: formData.getAll("trainer_ids"),
   });
   if (!parsed.success) fail("Niepoprawne dane szkolenia.");
@@ -80,11 +122,6 @@ export async function saveTraining(formData: FormData) {
       .eq("id", id.data);
     if (error) fail("Nie udało się zapisać szkolenia.");
     trainingId = id.data;
-    const { error: clearError } = await supabase
-      .from("training_trainers")
-      .delete()
-      .eq("training_id", trainingId);
-    if (clearError) fail("Nie udało się zaktualizować trenerów.");
   } else {
     const { data, error } = await supabase
       .from("trainings")
@@ -95,16 +132,23 @@ export async function saveTraining(formData: FormData) {
     trainingId = data.id;
   }
 
-  if (trainer_ids.length) {
-    const { error } = await supabase.from("training_trainers").insert(
-      trainer_ids.map((trainerId, index) => ({
-        training_id: trainingId,
-        trainer_id: trainerId,
-        sort_order: (index + 1) * 10,
-      })),
-    );
-    if (error) fail("Nie udało się przypisać trenerów.");
-  }
+  // ISK-374 BL-D: wymiana przypisan trenerow idzie przez jedno RPC, bo DELETE i INSERT
+  // wykonane jako dwa zapytania REST to dwie transakcje — blad INSERT (np. rownolegle
+  // usuniety trener) zostawial szkolenie BEZ trenerow. Funkcja jest SECURITY INVOKER,
+  // wiec RLS panelu nadal obowiazuje, a niepowodzenie wycofuje rowniez DELETE.
+  const { error: trainersError } = await supabase.rpc("set_training_trainers", {
+    p_training_id: trainingId,
+    p_trainer_ids: trainer_ids,
+  });
+  if (trainersError)
+    fail("Nie udało się przypisać trenerów. Poprzednie przypisania pozostały.");
+
+  await recordAdminAction(supabase, {
+    action: id.success ? "training.update" : "training.create",
+    entity: "training",
+    entityId: trainingId,
+    details: { trainers: trainer_ids.length },
+  });
 
   refreshCatalog();
   redirect("/panel/szkolenia");
@@ -137,6 +181,14 @@ export async function deleteCatalogItem(
         : "categories";
   const { error } = await supabase.from(table).delete().eq("id", validId.data);
   if (error) fail("Nie udało się usunąć pozycji. Sprawdź jej powiązania.");
+  // Usuniecie jest nieodwracalne (dla szkolenia dodatkowo kasuje przypisania trenerow
+  // przez `on delete cascade`), wiec wpis w dzienniku jest tu najwazniejszy: bez niego
+  // nie da sie ustalic kto i kiedy (ISK-374 BL-A).
+  await recordAdminAction(supabase, {
+    action: `${kind}.delete`,
+    entity: kind,
+    entityId: validId.data,
+  });
   refreshCatalog();
 }
 
@@ -162,6 +214,11 @@ export async function setPublished(
     })
     .eq("id", validId.data);
   if (error) fail("Nie udało się zmienić publikacji.");
+  await recordAdminAction(supabase, {
+    action: publishAuditAction(kind, published),
+    entity: kind,
+    entityId: validId.data,
+  });
   refreshCatalog();
 }
 
@@ -187,6 +244,14 @@ export async function changeInquiryStatus(id: string, nextStatus: string) {
     .update({ status: validStatus.data })
     .eq("id", validId.data);
   if (error) fail("Nie udało się zmienić statusu.");
+  // Same statusy — bez danych osobowych zgloszenia (ograniczenie
+  // admin_audit_log_details_no_pii odrzucilo by je i tak).
+  await recordAdminAction(supabase, {
+    action: "inquiry.status_change",
+    entity: "inquiry",
+    entityId: validId.data,
+    details: { from: currentStatus.data, to: validStatus.data },
+  });
   revalidatePath("/panel/zgloszenia");
   revalidatePath(`/panel/zgloszenia/${validId.data}`);
 }

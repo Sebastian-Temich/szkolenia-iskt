@@ -56,9 +56,14 @@ Przed publikacją zdjęcia upewnij się, że ISKT ma prawo do wykorzystania wize
 2. Podaj tytuł oraz **Slug**, czyli fragment adresu bez spacji i polskich znaków, np. `zarzadzanie-projektem`.
 3. Wpisz podsumowanie widoczne na liście oraz dłuższy opis.
 4. Wybierz kategorię i poziom.
-5. Podaj czas trwania i cenę netto. Możesz dopisać najbliższe terminy i zaznaczyć dostępność dofinansowania.
-6. W sekcji **Trenerzy** zaznacz osoby prowadzące. Można wybrać więcej niż jedną.
-7. Wybierz **Zapisz szkolenie**.
+5. Podaj czas trwania i cenę netto. Możesz dopisać najbliższe terminy, zaznaczyć dostępność dofinansowania i dodać informację o nim.
+6. W polu **Czego się nauczysz** wpisz korzyści — jedną w wierszu. Puste pole ukrywa tę sekcję na publicznej stronie, więc nie zostaje po niej pusty nagłówek. W **Dla kogo** opisz odbiorców.
+7. Zaznacz **Pokaż w sekcji „Najczęściej wybierane” na stronie głównej**, jeśli szkolenie ma trafić do tej sekcji.
+8. **Tytuł SEO** (do 70 znaków) i **Opis SEO** (do 160 znaków) są widoczne w wynikach wyszukiwania. Puste pola oznaczają, że użyty zostanie tytuł i podsumowanie szkolenia.
+9. W sekcji **Trenerzy** zaznacz osoby prowadzące. Można wybrać więcej niż jedną.
+10. Wybierz **Zapisz szkolenie**.
+
+Rozbudowany program szkolenia (sekcje z punktami) nie ma jeszcze pola w panelu — do jego wprowadzenia potrzebny jest kontakt z wykonawcą. Dopóki jest pusty, publiczna strona po prostu nie pokazuje sekcji „Program szkolenia”.
 
 ![Formularz nowego szkolenia z kategorią i trenerem](images/08-szkolenie-dodawanie.png)
 
@@ -113,12 +118,13 @@ Wybierz **Zobacz szczegóły**, aby przeczytać dane kontaktowe, temat i wiadomo
 1. Nowe zgłoszenie ma status **Nowe**.
 2. Gdy zaczynasz je obsługiwać, wybierz **Ustaw: W toku**.
 3. Po zakończeniu sprawy wybierz **Ustaw: Zamknięte**.
+4. Zgłoszenie, które nie wymaga obsługi (na przykład spam), możesz zamknąć od razu ze statusu **Nowe** — bez przechodzenia przez „W toku”.
 
 ![Zgłoszenie w toku](images/17-zgloszenie-w-toku.png)
 
 ![Zgłoszenie zamknięte](images/18-zgloszenie-zamkniete.png)
 
-Zamkniętego zgłoszenia nie można cofnąć do wcześniejszego etapu. Treści zgłoszenia nie można edytować na żadnym etapie. To celowe: panel zachowuje dokładnie wiadomość wysłaną przez nadawcę, dzięki czemu historia sprawy pozostaje wiarygodna.
+Zamknięte zgłoszenie można otworzyć ponownie: wybierz **Ustaw: W toku**, gdy sprawa wróciła. Nie da się natomiast cofnąć zgłoszenia do statusu **Nowe** — każda zmiana statusu zapisuje się w historii, więc przebieg sprawy pozostaje odtwarzalny. Treści zgłoszenia nie można edytować na żadnym etapie. To celowe: panel zachowuje dokładnie wiadomość wysłaną przez nadawcę, dzięki czemu historia sprawy pozostaje wiarygodna.
 
 ## 6. Dane osobowe w zgłoszeniach
 

@@ -19,6 +19,29 @@ const optionalUrl = z
   .transform((value) => value || null);
 const integer = z.coerce.number().int().min(0);
 
+/**
+ * Pola SEO mają limit długości wymuszony w bazie (`check` w 20261009120300) —
+ * walidujemy go tutaj, żeby administrator zobaczył komunikat formularza, a nie
+ * surowy błąd Postgresa.
+ */
+const optionalTextMax = (max: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, message)
+    .transform((value) => value || null);
+
+/**
+ * Lista wpisywana w `textarea` — jedna pozycja w wierszu. `learning_outcomes` to
+ * kolumna `text[] not null default '{}'`, więc puste pole daje pustą tablicę, nie NULL.
+ */
+const linesToArray = z.string().transform((value) =>
+  value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean),
+);
+
 export const categorySchema = z.object({
   name: z.string().trim().min(2, "Podaj nazwę."),
   slug,
@@ -41,6 +64,19 @@ export const trainerSchema = z.object({
   sort_order: integer.default(100),
 });
 
+/**
+ * ISK-374 BL-C: formularz obejmował podzbiór kolumn `trainings`, a brakujące pola są
+ * czytane przez publiczny frontend — `is_featured` decyduje o sekcji „Najczęściej
+ * wybierane” na stronie głównej, `seo_*` o tytule i opisie w wynikach wyszukiwania,
+ * `learning_outcomes` i `target_audience` o treści strony szczegółu. Bez nich szkolenie
+ * utworzone w panelu nie mogło trafić na stronę główną ani mieć własnych metadanych.
+ *
+ * Świadomie poza zakresem: `program` (`jsonb` [{title, items[]}]). Struktura zagnieżdżona
+ * wymaga edytora sekcji z powtarzalnymi listami, a nie pojedynczego pola — to dług opisany
+ * w ISK-374. Dopóki go nie ma, publiczna strona szczegółu nie pokazuje nagłówka „Program
+ * szkolenia”, gdy program jest pusty (stan pusty dodany w tym samym commicie), więc
+ * szkolenie z panelu nie wygląda na niedokończone.
+ */
 export const trainingSchema = z.object({
   title: z.string().trim().min(2, "Podaj tytuł."),
   slug,
@@ -51,7 +87,22 @@ export const trainingSchema = z.object({
   duration_hours: z.coerce.number().positive(),
   price_net_pln: z.coerce.number().min(0),
   funding_available: z.coerce.boolean().default(false),
+  // Uwaga na kolejnosc w zod 4: `.default(x)` podstawia WYNIK, pomijajac transformacje,
+  // wiec dla pol nullable domyslna wartoscia jest `null` (a nie ""), zeby brak pola w
+  // formularzu zapisywal sie tak samo jak pole wyczyszczone.
+  funding_note: optionalText.default(null),
+  learning_outcomes: linesToArray.default([]),
+  target_audience: optionalText.default(null),
   terms_note: optionalText.default(""),
+  is_featured: z.coerce.boolean().default(false),
+  seo_title: optionalTextMax(
+    70,
+    "Tytuł SEO może mieć najwyżej 70 znaków.",
+  ).default(null),
+  seo_description: optionalTextMax(
+    160,
+    "Opis SEO może mieć najwyżej 160 znaków.",
+  ).default(null),
   trainer_ids: z.array(z.uuid()).default([]),
   sort_order: integer.default(100),
 });
