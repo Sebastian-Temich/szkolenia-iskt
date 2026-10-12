@@ -19,6 +19,11 @@ import {
   sfx,
 } from "./helpers/data";
 import { awaitFormTokenMaturity } from "./helpers/form";
+import {
+  backgroundAlpha,
+  contrastSamples,
+  formatSample,
+} from "./helpers/kontrast";
 import { serviceClient } from "./helpers/stack";
 
 /** Minimum z WCAG 2.1 AA, kryterium 2.5.5 (Target Size). */
@@ -96,6 +101,97 @@ test.describe("B2 — naglowki maja hierarchie, nie 16px/400", () => {
     expect(h1.fontSize).toBeGreaterThan(h2.fontSize);
     expect(h2.fontSize).toBeGreaterThan(eyebrow.fontSize);
   });
+});
+
+test.describe("B3 — przyciski panelu maja czytelny kontrast, nie tylko nazwe", () => {
+  // Defekt: `.panel-button` wewnatrz `.panel-actions` tracil wlasne tlo przez
+  // regule `.panel-actions button` (0,1,1 wobec 0,1,0), a `color: white
+  // !important` zostawial bialy tekst. Na szczegole zgloszenia dawalo to
+  // 1,03:1 — przycisk "Ustaw: W toku" dzialal, ale byl niewidoczny.
+  //
+  // Ustalenie przezylo ISK-359 i ISK-364 wlasnie dlatego, ze testy sprawdzaly
+  // ISTNIENIE przycisku (`getByRole`), a nie jego WIDOCZNOSC. Tutaj mierzymy
+  // kontrast wobec tla efektywnego i porownujemy z progiem WCAG 1.4.3.
+
+  /** Widoki panelu, na ktorych `.panel-button` wystepuje bez danych z seeda. */
+  const buttonViews = [
+    ["szkolenia", "/panel/szkolenia"],
+    ["trenerzy", "/panel/trenerzy"],
+  ] as const;
+
+  test("szczegol zgloszenia: przycisk zmiany statusu jest czytelny", async ({
+    page,
+  }) => {
+    const inquiry = await createInquiry();
+    try {
+      await loginAsAdmin(page);
+      await page.goto(`/panel/zgloszenia/${inquiry.id}`);
+
+      // Sciezka D5.8 (ADR-0005 D5): zgloszenie "nowe" musi dac sie przestawic
+      // na "w toku", wiec przycisk przejscia MUSI tu byc. Bez tej asercji
+      // pomiar ponizej przechodzilby na pustym zbiorze.
+      const button = page.getByRole("button", { name: "Ustaw: W toku" });
+      await expect(button).toBeVisible();
+
+      const samples = await contrastSamples(
+        page,
+        ".panel-actions .panel-button",
+      );
+      expect(
+        samples.length,
+        "nie zmierzylem zadnego `.panel-button` w `.panel-actions` — selektor albo markup sie rozjechal",
+      ).toBeGreaterThan(0);
+
+      for (const sample of samples) {
+        expect(sample.ratio, formatSample(sample)).toBeGreaterThanOrEqual(
+          sample.required,
+        );
+      }
+
+      // Druga, niezalezna asercja na sam mechanizm defektu: przycisk pelny ma
+      // miec WLASNE tlo. Gdyby kolejna regula znow zdjela `background`, a
+      // kolor tekstu przypadkiem wyszedl czytelny, pomiar wyzej moglby
+      // przejsc — ta asercja nie.
+      const alpha = await backgroundAlpha(page, ".panel-actions .panel-button");
+      expect(
+        alpha,
+        "`.panel-button` nie ma wlasnego tla — wrocila kolizja z `.panel-actions button`",
+      ).toBeGreaterThan(0.99);
+
+      // Przycisk nadal dziala — poprawka dotyczy wygladu, nie zachowania.
+      await button.click();
+      await expect(page.locator(".panel-status")).toHaveText("W toku");
+      await expect(
+        page.getByRole("button", { name: "Ustaw: Zamknięte" }),
+      ).toBeVisible();
+    } finally {
+      await serviceClient().from("inquiries").delete().eq("id", inquiry.id);
+    }
+  });
+
+  for (const [name, path] of buttonViews) {
+    test(`${name}: kazdy przycisk i akcja w tabeli przechodzi prog 1.4.3`, async ({
+      page,
+    }) => {
+      await loginAsAdmin(page);
+      await page.goto(path);
+      await expect(page.locator(".panel-button").first()).toBeVisible();
+
+      // Oba warianty naraz: przycisk pelny (`.panel-button`) i akcja-tekst
+      // (`.panel-actions a`, `.panel-chip button`). DoD pkt 4 — ta sama
+      // kolizja nie moze dotykac pozostalych wystapien.
+      const samples = await contrastSamples(
+        page,
+        ".panel-button, .panel-link-button, .panel-actions a, .panel-actions button, .panel-chip a, .panel-chip button",
+      );
+      expect(samples.length).toBeGreaterThan(0);
+
+      const failing = samples.filter(
+        (sample) => sample.ratio < sample.required,
+      );
+      expect(failing.map(formatSample)).toEqual([]);
+    });
+  }
 });
 
 test.describe("P1 — kroj Inter jest faktycznie wczytany", () => {
