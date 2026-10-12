@@ -92,22 +92,52 @@ export const inquirySchema = z
     // ustala serwer z `getRodoClauseVersion()` — wartosc z ciala zadania bylaby dowolnie
     // podmienialna i podkopywalaby rozliczalnosc (art. 5 ust. 2 RODO).
   })
-  .superRefine((value, ctx) => {
-    if (value.kind === "firma" && !value.companyName) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["companyName"],
-        message: "Nazwa firmy jest wymagana dla zgłoszenia firmowego.",
-      });
-    }
-    if (!value.trainingId && !value.interestArea) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["interestArea"],
-        message: "Wskaż interesujące szkolenie lub obszar.",
-      });
-    }
-  });
+  .superRefine(
+    (value, ctx) => {
+      // `when: () => true` wylacza domyslne pomijanie, wiec ten blok dostaje tez wartosc z
+      // czesciowo nieudanego parsowania kształtu. Pola, ktore nie przeszly walidacji, moga byc
+      // wtedy `undefined`, a przy wejsciu, ktore wcale nie jest obiektem (`null`, string,
+      // tablica), `value` jest surowym wejsciem — stad straznik ponizej.
+      if (!isPlainRecord(value)) return;
+
+      // Odczyt przez indeks, bo na sciezce przerwanego parsowania typ wyjsciowy klamie:
+      // pole zadeklarowane jako `string` moze tu nie istniec.
+      const kind = value.kind;
+      const companyName = value.companyName;
+      const trainingId = value.trainingId;
+      const interestArea = value.interestArea;
+
+      if (kind === "firma" && !companyName) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["companyName"],
+          message: "Nazwa firmy jest wymagana dla zgłoszenia firmowego.",
+        });
+      }
+      if (!trainingId && !interestArea) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["interestArea"],
+          message: "Wskaż interesujące szkolenie lub obszar.",
+        });
+      }
+    },
+    {
+      // ISK-382: domyslnie `zod` pomija sprawdzenia dopisane do `ZodObject`, jesli walidacja
+      // kształtu dala blad przerywajacy (`invalid_type` dla braku pola, `invalid_value` dla
+      // `rodoAck: false`). W formularzu `/kontakt` oznaczalo to, ze pusta wysylka zglaszala
+      // `fullName`/`email`/`phone`/`message`/`rodoAck`, ale warunkowy brak `interestArea`
+      // (i `companyName` dla firmy) pojawial sie dopiero przy DRUGIEJ wysylce — po poprawieniu
+      // tamtych pol. `when` kaze uruchomic ten blok niezaleznie od bledow kształtu, wiec
+      // jedna wysylka oznacza wszystkie faktycznie wymagane pola.
+      when: () => true,
+    },
+  );
+
+// Straznik dla sciezki przerwanego parsowania: `value` moze byc dowolnym wejsciem.
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export type InquiryInput = z.input<typeof inquirySchema>;
 export type InquiryData = z.output<typeof inquirySchema>;
