@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HONEYPOT_FIELD } from "@/lib/antispam/honeypot";
 import type { ThrottleStore } from "@/lib/antispam/throttle";
@@ -167,4 +167,33 @@ describe("processInquiry — token czasowy (ISK-357 T4)", () => {
     expect(response.status).toBe(200);
     expect(inserted).toHaveLength(0);
   });
+});
+
+describe("processInquiry — wstrzykniecie naglowka e-mail CR/LF (ISK-370)", () => {
+  // Regresja S3: pole trafiajace do tematu powiadomienia z CR/LF musi zostac odrzucone na
+  // warstwie walidacji (przed zapisem), wiec rekord NIE powstaje i poczta NIE jest wywolywana.
+  for (const [name, sep] of [
+    ["CR", "\r"],
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+  ] as const) {
+    it(`odrzuca ${name} w fullName z 400, bez zapisu i bez proby wysylki`, async () => {
+      const send = vi.fn(async () => ({ transport: "log", id: "log:test" }) as const);
+      const { deps, inserted } = makeDeps({ mail: { send } });
+      const issuedAt = NOW.getTime() - 10_000; // swiezy, poprawny token
+      const response = await processInquiry(
+        postRequest({
+          ...validBody,
+          fullName: `Jan Kowalski${sep}Bcc: evil@example.com`,
+          formToken: issueFormToken(SECRET, issuedAt),
+        }),
+        deps,
+      );
+      expect(response.status).toBe(400);
+      const payload = (await response.json()) as { error?: string };
+      expect(payload.error).toBe("validation_error");
+      expect(inserted).toHaveLength(0);
+      expect(send).not.toHaveBeenCalled();
+    });
+  }
 });

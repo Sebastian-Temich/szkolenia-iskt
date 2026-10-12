@@ -1,8 +1,18 @@
 import { z } from "zod";
 
+import { hasLineBreak } from "@/lib/security/header-injection";
+
 // Jeden schemat Zod wspoldzielony przez klienta (React Hook Form) i serwer (Route Handler).
 // Reguly pokrywaja sie z ograniczeniami CHECK w bazie (ADR-0004 §2, trzecia warstwa obrony).
 // Serwer nigdy nie ufa klientowi — ten sam schemat jest zrodlem prawdy po obu stronach.
+
+// Komunikat dla pol jednoliniowych ze znakiem konca linii. CR/LF w tych polach zostaloby
+// przeniesione do tematu/adresata powiadomienia e-mail i pozwolilo wstrzyknac wlasny naglowek
+// wiadomosci (ISK-370). `message` jest wieloliniowa (tresc, nie naglowek) i ma wlasna regule.
+const NO_LINE_BREAK_MESSAGE = "To pole nie może zawierać znaków końca linii.";
+
+const noLineBreak = { message: NO_LINE_BREAK_MESSAGE } as const;
+const rejectsLineBreak = (value: string) => !hasLineBreak(value);
 
 export const INQUIRY_KINDS = ["osoba", "firma"] as const;
 export type InquiryKind = (typeof INQUIRY_KINDS)[number];
@@ -34,6 +44,7 @@ const optionalText = (max: number) =>
     .string()
     .trim()
     .max(max)
+    .refine(rejectsLineBreak, noLineBreak)
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined));
 
@@ -44,7 +55,8 @@ export const inquirySchema = z
       .string()
       .trim()
       .min(INQUIRY_LIMITS.fullName.min, { message: "Podaj imię i nazwisko (min. 2 znaki)." })
-      .max(INQUIRY_LIMITS.fullName.max, { message: "Imię i nazwisko jest za długie." }),
+      .max(INQUIRY_LIMITS.fullName.max, { message: "Imię i nazwisko jest za długie." })
+      .refine(rejectsLineBreak, noLineBreak),
     email: z
       .string()
       .trim()
@@ -56,7 +68,8 @@ export const inquirySchema = z
       .trim()
       .min(INQUIRY_LIMITS.phone.min, { message: "Podaj numer telefonu." })
       .max(INQUIRY_LIMITS.phone.max, { message: "Numer telefonu jest za długi." })
-      .regex(PHONE_PATTERN, { message: "Numer telefonu zawiera niedozwolone znaki." }),
+      .regex(PHONE_PATTERN, { message: "Numer telefonu zawiera niedozwolone znaki." })
+      .refine(rejectsLineBreak, noLineBreak),
     companyName: optionalText(INQUIRY_LIMITS.companyName.max),
     trainingId: z.uuid({ message: "Niepoprawny identyfikator szkolenia." }).optional(),
     interestArea: optionalText(INQUIRY_LIMITS.interestArea.max),
