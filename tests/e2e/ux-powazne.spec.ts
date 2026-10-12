@@ -524,12 +524,18 @@ test.describe("P18 — niedostepne zdjecie spada do awatara z inicjalami", () =>
     competence: string;
   }) {
     const svc = serviceClient();
-    const slug = `test-trener-${sfx()}`;
+    const suffix = sfx();
+    // Nazwa musi byc unikalna, bo to po NIEJ znajdujemy wiersz w panelu:
+    // tabela trenerow pokazuje slug tylko wtedy, gdy `headline` jest puste
+    // (`trainer.headline || /${trainer.slug}`), a tutaj `headline` jest
+    // wypelnione. Trzeci czlon nazwy nie psuje inicjalow — `trainerInitials`
+    // bierze dwa pierwsze.
+    const fullName = `${fields.fullName} ${suffix}`;
     const { data, error } = await svc
       .from("trainers")
       .insert({
-        slug,
-        full_name: fields.fullName,
+        slug: `test-trener-${suffix}`,
+        full_name: fullName,
         headline: fields.headline,
         bio: "Profil testowy na potrzeby pomiaru degradacji awatara (E2E).",
         photo_url: fields.photoUrl,
@@ -539,16 +545,18 @@ test.describe("P18 — niedostepne zdjecie spada do awatara z inicjalami", () =>
       .select("id,full_name")
       .single();
     if (error) throw error;
-    return { id: data.id as string, fullName: data.full_name as string, slug };
+    return { id: data.id as string, fullName: data.full_name as string };
   }
 
-  async function publishFromPanel(page: Page, slug: string) {
+  async function publishFromPanel(page: Page, fullName: string) {
     await loginAsAdmin(page);
     await page.goto("/panel/trenerzy");
-    const row = page.getByRole("row").filter({ hasText: slug });
+    const row = page.getByRole("row").filter({ hasText: fullName });
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "Publikuj" }).click();
-    await expect(row.getByText("Opublikowane")).toBeVisible();
+    // Uwaga: tabela trenerow pisze „Opublikowany”, a tabela szkolen
+    // „Opublikowane” — to nie literowka w tescie.
+    await expect(row.getByText("Opublikowany")).toBeVisible();
   }
 
   test("photo_url zwracajace 404 nie daje pustego krazka", async ({ page }) => {
@@ -563,7 +571,7 @@ test.describe("P18 — niedostepne zdjecie spada do awatara z inicjalami", () =>
     });
 
     try {
-      await publishFromPanel(page, trainer.slug);
+      await publishFromPanel(page, trainer.fullName);
       await page.goto("/trenerzy");
 
       const card = page
@@ -606,7 +614,7 @@ test.describe("P18 — niedostepne zdjecie spada do awatara z inicjalami", () =>
     });
 
     try {
-      await publishFromPanel(page, trainer.slug);
+      await publishFromPanel(page, trainer.fullName);
       await page.goto("/trenerzy");
 
       const card = page
