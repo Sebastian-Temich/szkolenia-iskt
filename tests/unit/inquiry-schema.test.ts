@@ -129,3 +129,49 @@ describe("inquirySchema — temat zgloszenia", () => {
     expect(inquirySchema.safeParse({ ...base, trainingId: "not-a-uuid" }).success).toBe(false);
   });
 });
+
+describe("inquirySchema — wstrzykniecie naglowka e-mail CR/LF (ISK-370)", () => {
+  // Temat powiadomienia (ADR-0004 §5) powstaje z `fullName`/`companyName`; `phone`/`interestArea`
+  // sa polami jednoliniowymi zapisywanymi i przekazywanymi do warstwy poczty. Zadne z tych pol nie
+  // moze zawierac CR/LF, bo pozwolilyby dopisac wlasny naglowek wiadomosci (np. `Bcc:`).
+  const SINGLE_LINE_FIELDS = ["fullName", "companyName", "phone", "interestArea"] as const;
+  const PAYLOADS: Record<(typeof SINGLE_LINE_FIELDS)[number], string> = {
+    fullName: "Jan Kowalski",
+    companyName: "ACME sp. z o.o.",
+    phone: "+48 600 100 200",
+    interestArea: "Szkolenia BHP",
+  };
+
+  // Pozycja brzegowa (poczatek/koniec) jest kluczowa: `.trim()` usunelby CR/LF z brzegow przed
+  // sprawdzeniem, wiec walidacja CR/LF musi dzialac na SUROWEJ wartosci (ISK-370, regresja S3).
+  const SEPARATORS = [
+    ["CR", "\r"],
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+  ] as const;
+
+  for (const field of SINGLE_LINE_FIELDS) {
+    for (const [name, sep] of SEPARATORS) {
+      const variants = {
+        poczatku: `${sep}Bcc: evil@example.com ${PAYLOADS[field]}`,
+        srodku: `${PAYLOADS[field]}${sep}Bcc: evil@example.com`,
+        koncu: `${PAYLOADS[field]}${sep}`,
+      } as const;
+      for (const [position, injected] of Object.entries(variants)) {
+        it(`odrzuca ${name} na ${position} pola ${field}`, () => {
+          const result = inquirySchema.safeParse({ ...base, kind: "firma", [field]: injected });
+          expect(result.success).toBe(false);
+        });
+      }
+    }
+  }
+
+  it("nadal przyjmuje poprawne pola jednoliniowe (kontrapunkt)", () => {
+    const result = inquirySchema.safeParse({
+      ...base,
+      kind: "firma",
+      companyName: "ACME sp. z o.o.",
+    });
+    expect(result.success).toBe(true);
+  });
+});
