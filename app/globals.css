@@ -292,6 +292,14 @@
     align-items: center;
     min-height: 2.75rem;
   }
+  /* ISK-373 / P11: regula bazowa zeruje `text-decoration` dla kazdego `a`, wiec
+     adres kontaktowy na ekranie braku dostepu bylby nieodroznialny od zwyklego
+     tekstu — a to jedyna droga uzyskania dostepu, jaka ten ekran podaje. */
+  .panel-inline-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
   .panel-error {
     padding: 0.75rem;
     border-radius: var(--radius-sm);
@@ -729,6 +737,32 @@
     padding-inline: 0.35rem;
     border-radius: var(--radius-xs);
   }
+  /* ISK-373 / P5: cele dotykowe w warstwie publicznej, ktore ISK-364 pominelo.
+     Bramka zmierzyla: „Zobacz szczegoly →” w kartach 125,7 x 18,7, „Pelny
+     katalog →” 120,1 x 24, odnosniki stopki 328 x 24 — przyjete w bramce
+     minimum to 44 x 44. Rosnie wylacznie obszar trafienia (`min-height` +
+     `inline-flex`), krój i uklad zostaja bez zmian.
+
+     Zakres jest celowo waski: to linki stojace SAMODZIELNIE (stopka, naglowki
+     sekcji, stopka karty, powrot ze szczegolu). Odnosnikow w biegu zdania
+     (np. w `.prose` albo w akapicie z klauzula RODO) nie ruszamy — WCAG 2.5.5
+     wprost wylacza „inline” z wymogu rozmiaru, a podniesienie im wysokosci
+     rozerwaloby interlinie akapitu. */
+  .card-footer a,
+  .section-heading > a,
+  .footer-grid a,
+  /* „Wyczysc filtry” w stanie pustym katalogu to goly link bez klasy;
+     `:not(.button)` chroni CTA, ktore ma wlasna, wyzsza wysokosc. */
+  .empty-state a:not(.button) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+  /* `.footer-grid > div` jest gridem, wiec link rozciaga sie na cala szerokosc
+     kolumny; bez tego tekst wyladowalby na srodku. */
+  .footer-grid a {
+    justify-content: flex-start;
+  }
   .button-ghost {
     border: 1px solid var(--color-border-default);
     background: white;
@@ -1010,8 +1044,12 @@
     background: rgb(255 255 255 / 60%);
     font-size: 0.85rem;
   }
+  /* „← Wszystkie szkolenia” to samodzielny cel dotykowy, nie odnosnik w biegu
+     zdania — ten sam defekt co karty i stopka (ISK-373 / P5). */
   .back-link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
     margin-bottom: 2rem;
     color: var(--color-text-secondary);
   }
@@ -1073,12 +1111,20 @@
     gap: 2rem;
     align-items: center;
   }
-  .avatar,
-  .trainer-card img {
+  /* ISK-373 / P18: krazek jest zawsze zastepnikiem z inicjalami, a zdjecie lezy
+     NA nim (`.avatar-photo`). Wczesniej selektor brzmial `.avatar,
+     .trainer-card img` — zdjecie i zastepnik byly alternatywa, wiec zdjecie
+     zwracajace 404 dawalo pusty krazek z samym tlem. Teraz nieudane wczytanie
+     odslania inicjaly, bez udzialu JavaScriptu. `.trainer-card img` zniklo
+     z selektora swiadomie: zostawione wygraloby specyficznoscia (0,1,1) z
+     `.avatar-photo` (0,1,0) i przywrocilo stare wymiary. */
+  .avatar {
+    position: relative;
     width: 9rem;
     aspect-ratio: 1;
     display: grid;
     place-items: center;
+    overflow: hidden;
     border-radius: 50%;
     background: linear-gradient(
       145deg,
@@ -1088,6 +1134,13 @@
     color: var(--color-green-900);
     font-size: 2rem;
     font-weight: 850;
+  }
+  .avatar-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
     object-fit: cover;
   }
   .trainer-card h2 {
@@ -1219,8 +1272,7 @@
   .trainer-card {
     grid-template-columns: 1fr;
   }
-  .avatar,
-  .trainer-card img {
+  .avatar {
     width: 6rem;
   }
   .catalog-form .button {
