@@ -363,7 +363,14 @@ alter table public.admin_audit_log
   check (not (details ?| array['email','phone','full_name','company_name','message','interest_area']));
 ```
 
-**Kto faktycznie pisze do tej tabeli.** Bramka E2R rozstrzygnęła, że audyt powinien należeć do bazy (triggery `AFTER INSERT/UPDATE/DELETE` z `SECURITY DEFINER` na tabelach katalogu), żeby dziennika nie dało się pominąć, a panel został przy sesji użytkownika. **Triggery audytu nie istnieją.** Jedyny wpis powstaje w `lib/inquiries/repository.ts` (`recordSuspectedSpam`, akcja `inquiry.suspected_spam`), kluczem `service_role` z Route Handlera. **Operacje administracyjne — publikacja, wycofanie, usunięcie, zmiana statusu — nie są audytowane.** Pozycja otwarta.
+**Kto faktycznie pisze do tej tabeli.** Bramka E2R rozstrzygnęła, że audyt powinien należeć do bazy (triggery `AFTER INSERT/UPDATE/DELETE` z `SECURITY DEFINER` na tabelach katalogu), żeby dziennika nie dało się pominąć, a panel został przy sesji użytkownika. Triggerów audytu nadal nie ma, ale **operacje panelu są audytowane** (ISK-374 BL-A, migracja `…141500`):
+
+- Tabela ma **wyłącznie politykę `SELECT`** — z sesji `authenticated` nie da się do niej pisać bezpośrednio. Jedyne wejście zapisu z panelu to `log_admin_action(action, entity, entity_id, details)`: `SECURITY DEFINER`, jawne `is_admin()` jako pierwsza instrukcja, `actor_id` **wymuszone z `auth.uid()`** (nie jest argumentem, więc autora wpisu nie da się podstawić).
+- Audytowane są: utworzenie i edycja szkolenia, trenera i kategorii, publikacja i wycofanie, usunięcie oraz zmiana statusu zgłoszenia.
+- Dla operacji nieodwracalnych i wieloetapowych wpis powstaje **w tej samej transakcji** co mutacja (ISK-374 U1/U2): `save_training(...)` (wiersz `trainings` + wymiana przypisań trenerów + wpis) i `delete_catalog_item(kind, id)` (usunięcie + wpis). Nieudany zapis dziennika wycofuje całą operację, więc stan „wykonane bez śladu" jest nieosiągalny. Przy pozostałych operacjach kolejność to „mutacja → wpis", a błąd dziennika jest głośny.
+- `inquiry.status_change` zapisuje w `details` **tylko status docelowy** (ISK-374 U3). Prawdziwe przejście `from`/`to` zna `inquiry_status_history` (§3.7), bo trigger czyta je z `OLD.status`; duplikat w dzienniku mógłby kłamać przy równoległych zmianach.
+
+Drugie, niezależne wejście zapisu to `lib/inquiries/repository.ts` (`recordSuspectedSpam`, akcja `inquiry.suspected_spam`) kluczem `service_role` z Route Handlera.
 
 Retencja: `purge_expired_audit_log()` w §3.10. Okres docelowy jest decyzją ISKT (E8, pozycja I9).
 

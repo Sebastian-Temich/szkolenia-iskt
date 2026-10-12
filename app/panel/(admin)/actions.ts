@@ -37,17 +37,14 @@ export async function saveCategory(formData: FormData) {
   const parsed = categorySchema.safeParse(formValues(formData));
   if (!parsed.success) fail("Niepoprawne dane kategorii.");
   const existingId = idSchema.safeParse(formData.get("id"));
+  let savedId: string;
   if (existingId.success) {
     const { error } = await supabase
       .from("categories")
       .update(parsed.data)
       .eq("id", existingId.data);
     if (error) fail("Nie udało się zapisać kategorii.");
-    await recordAdminAction(supabase, {
-      action: "category.update",
-      entity: "category",
-      entityId: existingId.data,
-    });
+    savedId = existingId.data;
   } else {
     const { data, error } = await supabase
       .from("categories")
@@ -55,13 +52,17 @@ export async function saveCategory(formData: FormData) {
       .select("id")
       .single();
     if (error || !data) fail("Nie udało się zapisać kategorii.");
-    await recordAdminAction(supabase, {
-      action: "category.create",
-      entity: "category",
-      entityId: data.id as string,
-    });
+    savedId = data.id as string;
   }
+  // ISK-374 U2: inwalidacja cache idzie PRZED zapisem dziennika. Mutacja jest juz
+  // zacommitowana, wiec nieudany dziennik (celowo glosny) nie moze dodatkowo zostawic
+  // publicznych stron z nieaktualna trescia do wygasniecia ISR.
   refreshCatalog();
+  await recordAdminAction(supabase, {
+    action: existingId.success ? "category.update" : "category.create",
+    entity: "category",
+    entityId: savedId,
+  });
   redirect("/panel/szkolenia");
 }
 
@@ -70,17 +71,14 @@ export async function saveTrainer(formData: FormData) {
   const parsed = trainerSchema.safeParse(formValues(formData));
   if (!parsed.success) fail("Niepoprawne dane trenera.");
   const existingId = idSchema.safeParse(formData.get("id"));
+  let savedId: string;
   if (existingId.success) {
     const { error } = await supabase
       .from("trainers")
       .update(parsed.data)
       .eq("id", existingId.data);
     if (error) fail("Nie udało się zapisać trenera.");
-    await recordAdminAction(supabase, {
-      action: "trainer.update",
-      entity: "trainer",
-      entityId: existingId.data,
-    });
+    savedId = existingId.data;
   } else {
     const { data, error } = await supabase
       .from("trainers")
@@ -88,13 +86,15 @@ export async function saveTrainer(formData: FormData) {
       .select("id")
       .single();
     if (error || !data) fail("Nie udało się zapisać trenera.");
-    await recordAdminAction(supabase, {
-      action: "trainer.create",
-      entity: "trainer",
-      entityId: data.id as string,
-    });
+    savedId = data.id as string;
   }
+  // Kolejnosc jak w saveCategory — patrz nota ISK-374 U2 wyzej.
   refreshCatalog();
+  await recordAdminAction(supabase, {
+    action: existingId.success ? "trainer.update" : "trainer.create",
+    entity: "trainer",
+    entityId: savedId,
+  });
   redirect("/panel/trenerzy");
 }
 
@@ -113,42 +113,24 @@ export async function saveTraining(formData: FormData) {
   const { trainer_ids, ...training } = parsed.data;
   const rawId = formData.get("id");
   const id = idSchema.safeParse(rawId);
-  let trainingId: string;
 
-  if (id.success) {
-    const { error } = await supabase
-      .from("trainings")
-      .update(training)
-      .eq("id", id.data);
-    if (error) fail("Nie udało się zapisać szkolenia.");
-    trainingId = id.data;
-  } else {
-    const { data, error } = await supabase
-      .from("trainings")
-      .insert(training)
-      .select("id")
-      .single();
-    if (error || !data) fail("Nie udało się utworzyć szkolenia.");
-    trainingId = data.id;
-  }
-
-  // ISK-374 BL-D: wymiana przypisan trenerow idzie przez jedno RPC, bo DELETE i INSERT
-  // wykonane jako dwa zapytania REST to dwie transakcje — blad INSERT (np. rownolegle
-  // usuniety trener) zostawial szkolenie BEZ trenerow. Funkcja jest SECURITY INVOKER,
-  // wiec RLS panelu nadal obowiazuje, a niepowodzenie wycofuje rowniez DELETE.
-  const { error: trainersError } = await supabase.rpc("set_training_trainers", {
-    p_training_id: trainingId,
+  // ISK-374 BL-D + U1: zapis wiersza `trainings`, wymiana przypisan trenerow i wpis w
+  // dzienniku audytu ida JEDNYM wywolaniem RPC, bo jako osobne zapytania REST byly osobnymi
+  // transakcjami. Blad wymiany trenerow (np. rownolegle usuniety trener — `trainer_id` ma FK)
+  // zostawial zapisany tytul, puste przypisania, PUSTY dziennik i nieuniewazniony cache, a
+  // komunikat mowil tylko o trenerach. Teraz albo wszystko, albo nic — dlatego komunikat bledu
+  // moze uczciwie stwierdzic, ze zadna zmiana nie weszla (wczesniej nie mogl).
+  const { data: savedId, error } = await supabase.rpc("save_training", {
+    p_training_id: id.success ? id.data : null,
+    p_training: training,
     p_trainer_ids: trainer_ids,
   });
-  if (trainersError)
-    fail("Nie udało się przypisać trenerów. Poprzednie przypisania pozostały.");
-
-  await recordAdminAction(supabase, {
-    action: id.success ? "training.update" : "training.create",
-    entity: "training",
-    entityId: trainingId,
-    details: { trainers: trainer_ids.length },
-  });
+  if (error || !savedId)
+    fail(
+      id.success
+        ? "Nie udało się zapisać szkolenia. Żadna zmiana nie została wprowadzona."
+        : "Nie udało się utworzyć szkolenia. Żadna zmiana nie została wprowadzona.",
+    );
 
   refreshCatalog();
   redirect("/panel/szkolenia");
@@ -173,22 +155,17 @@ export async function deleteCatalogItem(
     fail("Usunięcie wymaga potwierdzenia.");
   }
   const { supabase } = await requireAdmin();
-  const table =
-    kind === "training"
-      ? "trainings"
-      : kind === "trainer"
-        ? "trainers"
-        : "categories";
-  const { error } = await supabase.from(table).delete().eq("id", validId.data);
-  if (error) fail("Nie udało się usunąć pozycji. Sprawdź jej powiązania.");
-  // Usuniecie jest nieodwracalne (dla szkolenia dodatkowo kasuje przypisania trenerow
-  // przez `on delete cascade`), wiec wpis w dzienniku jest tu najwazniejszy: bez niego
-  // nie da sie ustalic kto i kiedy (ISK-374 BL-A).
-  await recordAdminAction(supabase, {
-    action: `${kind}.delete`,
-    entity: kind,
-    entityId: validId.data,
+  // ISK-374 BL-A + U2: usuniecie i wpis w dzienniku ida jednym RPC, czyli w JEDNEJ transakcji.
+  // Wpis skladany po commicie usuniecia nie chronil tego, czego wymaga ADR-0003: gdy zapis
+  // dziennika padl, pozycja byla juz nieodwracalnie usunieta i nadal bez sladu. Teraz nieudany
+  // dziennik wycofuje usuniecie, wiec stan „usuniete bez sladu" jest nieosiagalny.
+  // Funkcja zglasza blad takze wtedy, gdy DELETE nie objal zadnego wiersza (RLS filtruje
+  // DELETE jak WHERE, wiec wczesniej byl to cichy sukces).
+  const { error } = await supabase.rpc("delete_catalog_item", {
+    p_kind: kind,
+    p_id: validId.data,
   });
+  if (error) fail("Nie udało się usunąć pozycji. Sprawdź jej powiązania.");
   refreshCatalog();
 }
 
@@ -214,12 +191,14 @@ export async function setPublished(
     })
     .eq("id", validId.data);
   if (error) fail("Nie udało się zmienić publikacji.");
+  // Kolejnosc jak w saveCategory — patrz nota ISK-374 U2. Przy publikacji jest to
+  // najwazniejsze: to wlasnie ta operacja zmienia widocznosc pozycji na publicznych stronach.
+  refreshCatalog();
   await recordAdminAction(supabase, {
     action: publishAuditAction(kind, published),
     entity: kind,
     entityId: validId.data,
   });
-  refreshCatalog();
 }
 
 export async function changeInquiryStatus(id: string, nextStatus: string) {
@@ -244,14 +223,20 @@ export async function changeInquiryStatus(id: string, nextStatus: string) {
     .update({ status: validStatus.data })
     .eq("id", validId.data);
   if (error) fail("Nie udało się zmienić statusu.");
-  // Same statusy — bez danych osobowych zgloszenia (ograniczenie
-  // admin_audit_log_details_no_pii odrzucilo by je i tak).
+  revalidatePath("/panel/zgloszenia");
+  revalidatePath(`/panel/zgloszenia/${validId.data}`);
+  // ISK-374 U3: `details` zawiera TYLKO status docelowy. `from` pochodzilo z odczytu przed
+  // UPDATE-em, wiec przy dwoch rownoleglych zmianach zapisywaloby stan z momentu odczytu, a
+  // nie faktyczny poprzedni — dziennik audytu klamalby wzgledem `inquiry_status_history`,
+  // ktora dostaje prawdziwe `from`/`to` z `OLD.status` w triggerze. Jedno zrodlo prawdy dla
+  // przejscia: ta historia. Samo przejscie jest bezpieczne niezaleznie od tego odczytu —
+  // niedozwolone odrzuca trigger `enforce_inquiry_admin_update()`.
+  // Zadnych danych osobowych zgloszenia (ograniczenie admin_audit_log_details_no_pii
+  // odrzucilo by je i tak).
   await recordAdminAction(supabase, {
     action: "inquiry.status_change",
     entity: "inquiry",
     entityId: validId.data,
-    details: { from: currentStatus.data, to: validStatus.data },
+    details: { to: validStatus.data },
   });
-  revalidatePath("/panel/zgloszenia");
-  revalidatePath(`/panel/zgloszenia/${validId.data}`);
 }

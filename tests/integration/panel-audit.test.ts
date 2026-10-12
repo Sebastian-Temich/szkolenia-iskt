@@ -18,6 +18,7 @@ import {
   grantAdmin,
   serviceClient,
   signedInClient,
+  withPg,
 } from './helpers/supabase'
 
 let anon: SupabaseClient
@@ -238,5 +239,324 @@ describe('BL-D: atomowa wymiana przypisan trenerow', () => {
     })
     expect(error).not.toBeNull()
     expect(await trainerIdsOf(trainingId)).toEqual([trainerA])
+  })
+})
+
+// ---------------------------------------------------------------------------------------
+// U1: atomowy zapis szkolenia (wiersz + trenerzy + wpis w dzienniku w JEDNEJ transakcji).
+// Poprzednio zapis wiersza i wymiana trenerow byly dwoma zapytaniami REST, wiec para
+// "zapis szkolenia + wymiana przypisan" mogla rozjechac sie w polowie: tytul juz zapisany,
+// dziennik pusty, cache nieuniewazniony, a komunikat mowil tylko o trenerach.
+// ---------------------------------------------------------------------------------------
+
+function trainingPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    slug: `test-save-${randomUUID().slice(0, 8)}`,
+    title: '[TEST] Szkolenie zapisane przez RPC',
+    summary: 'Fikcyjne streszczenie testowe o wystarczajacej dlugosci.',
+    description: 'Opis testowy.',
+    category_id: categoryId,
+    level: 'podstawowy',
+    duration_hours: 8,
+    price_net_pln: 1200,
+    funding_available: false,
+    funding_note: null,
+    learning_outcomes: [],
+    target_audience: null,
+    terms_note: '',
+    is_featured: false,
+    sort_order: 100,
+    seo_title: null,
+    seo_description: null,
+    ...overrides,
+  }
+}
+
+async function trainingRow(id: string) {
+  const { data, error } = await serviceClient()
+    .from('trainings')
+    .select('id, title, slug, is_published, is_featured, seo_title, program, learning_outcomes')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+describe('U1: save_training — zapis, trenerzy i dziennik w jednej transakcji', () => {
+  test('tworzy szkolenie, przypisuje trenerow i zapisuje wpis w dzienniku', async () => {
+    const { data: newId, error } = await admin.rpc('save_training', {
+      p_training_id: null,
+      p_training: trainingPayload({ is_featured: true, seo_title: 'Tytul SEO' }),
+      p_trainer_ids: [trainerA, trainerB],
+    })
+    expect(error).toBeNull()
+    expect(newId).toBeTruthy()
+
+    const row = await trainingRow(newId as string)
+    expect(row).toMatchObject({ is_featured: true, seo_title: 'Tytul SEO', is_published: false })
+    expect(await trainerIdsOf(newId as string)).toEqual([trainerA, trainerB])
+
+    const rows = await auditRows(newId as string)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      action: 'training.create',
+      entity: 'training',
+      actor_id: adminUserId,
+      details: { trainers: 2 },
+    })
+  })
+
+  test('edycja nadpisuje pola i zapisuje wpis training.update', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+
+    const { error } = await admin.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload({ title: '[TEST] Tytul po edycji' }),
+      p_trainer_ids: [trainerA],
+    })
+    expect(error).toBeNull()
+    expect((await trainingRow(trainingId))?.title).toBe('[TEST] Tytul po edycji')
+    expect(await trainerIdsOf(trainingId)).toEqual([trainerA])
+    expect(await auditRows(trainingId)).toMatchObject([{ action: 'training.update' }])
+  })
+
+  // RDZEN U1 — dokladny scenariusz recenzenta: administrator zmienia tytul i odznacza
+  // trenera, a rownolegle ktos usuwa tego trenera. Wczesniej tytul BYL juz zapisany,
+  // dziennik zostawal pusty, a komunikat mowil wylacznie o trenerach.
+  test('nieudana wymiana trenerow wycofuje ROWNIEZ zapis wiersza i wpis w dzienniku', async () => {
+    const trainingId = await createTraining({ published: false, categoryId, title: '[TEST] Tytul przed' })
+    await admin.rpc('set_training_trainers', { p_training_id: trainingId, p_trainer_ids: [trainerA] })
+
+    const { error } = await admin.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload({ title: '[TEST] Tytul po edycji' }),
+      // Trener nie istnieje — FK odrzuca INSERT, tak jak trener usuniety rownolegle.
+      p_trainer_ids: [trainerB, randomUUID()],
+    })
+    expect(error).not.toBeNull()
+
+    expect((await trainingRow(trainingId))?.title).toBe('[TEST] Tytul przed')
+    expect(await trainerIdsOf(trainingId)).toEqual([trainerA])
+    expect(await auditRows(trainingId)).toHaveLength(0)
+  })
+
+  // Druga polowa U1: przy TWORZENIU nieudane przypisanie zostawialo szkolenie-sierote,
+  // a ponowny zapis uderzal w unique(slug) — administrator w zaulku.
+  test('nieudane tworzenie nie zostawia szkolenia-sieroty (slug zostaje wolny)', async () => {
+    const payload = trainingPayload()
+
+    const first = await admin.rpc('save_training', {
+      p_training_id: null,
+      p_training: payload,
+      p_trainer_ids: [randomUUID()],
+    })
+    expect(first.error).not.toBeNull()
+
+    const { data: orphans } = await serviceClient()
+      .from('trainings')
+      .select('id')
+      .eq('slug', payload.slug)
+    expect(orphans ?? []).toHaveLength(0)
+
+    // Ten sam slug da sie zapisac ponownie — zaden sierota nie blokuje unique.
+    const second = await admin.rpc('save_training', {
+      p_training_id: null,
+      p_training: payload,
+      p_trainer_ids: [trainerA],
+    })
+    expect(second.error).toBeNull()
+  })
+
+  // Lista kolumn w funkcji jest granica bezpieczenstwa: formularz edycji nie moze
+  // opublikowac szkolenia "po drodze", bo publikacja ma osobna sciezke (setPublished).
+  test('payload nie moze ustawic is_published ani published_at', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+
+    const { error } = await admin.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload({ is_published: true, published_at: new Date().toISOString() }),
+      p_trainer_ids: [],
+    })
+    expect(error).toBeNull()
+    expect((await trainingRow(trainingId))?.is_published).toBe(false)
+  })
+
+  // BL-C: `program` (jsonb z sekcjami) jest swiadomie poza formularzem. Pominiecie kolumny
+  // w UPDATE musi ZACHOWAC jej wartosc — inaczej zapis z panelu wyczyscilby program z seedu.
+  test('zapis z panelu nie czysci kolumny `program` (dlug BL-C)', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+    const program = [{ title: 'Modul 1', items: ['Punkt A'] }]
+    const seeded = await serviceClient().from('trainings').update({ program }).eq('id', trainingId)
+    expect(seeded.error).toBeNull()
+
+    const { error } = await admin.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload(),
+      p_trainer_ids: [],
+    })
+    expect(error).toBeNull()
+    expect((await trainingRow(trainingId))?.program).toEqual(program)
+  })
+
+  test('learning_outcomes zachowuje kolejnosc, a brak pola daje pusta tablice', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+
+    await admin.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload({ learning_outcomes: ['Ocena ryzyka', 'Procedury kontrolne'] }),
+      p_trainer_ids: [],
+    })
+    expect((await trainingRow(trainingId))?.learning_outcomes).toEqual([
+      'Ocena ryzyka',
+      'Procedury kontrolne',
+    ])
+
+    await admin.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload({ learning_outcomes: [] }),
+      p_trainer_ids: [],
+    })
+    expect((await trainingRow(trainingId))?.learning_outcomes).toEqual([])
+  })
+
+  test('uzytkownik bez admin_users nie zapisze szkolenia (RLS dalej dziala)', async () => {
+    const trainingId = await createTraining({ published: false, categoryId, title: '[TEST] Tytul przed' })
+
+    const { error } = await user.rpc('save_training', {
+      p_training_id: trainingId,
+      p_training: trainingPayload({ title: '[TEST] Podmieniony' }),
+      p_trainer_ids: [],
+    })
+    expect(error).not.toBeNull()
+    expect((await trainingRow(trainingId))?.title).toBe('[TEST] Tytul przed')
+    expect(await auditRows(trainingId)).toHaveLength(0)
+  })
+
+  test('anon nie moze wywolac save_training', async () => {
+    const { error } = await anon.rpc('save_training', {
+      p_training_id: null,
+      p_training: trainingPayload(),
+      p_trainer_ids: [],
+    })
+    expect(error).not.toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------------------
+// U2: usuniecie i wpis w dzienniku w jednej transakcji. Wpis skladany PO commicie nie
+// chronil niczego — gdy zapis dziennika padl, pozycja byla juz nieodwracalnie usunieta
+// i nadal bez sladu, czyli dokladnie to, czego zabrania ADR-0003.
+// ---------------------------------------------------------------------------------------
+describe('U2: delete_catalog_item — usuniecie i dziennik w jednej transakcji', () => {
+  test('usuwa pozycje i zapisuje wpis w dzienniku', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+
+    const { error } = await admin.rpc('delete_catalog_item', {
+      p_kind: 'training',
+      p_id: trainingId,
+    })
+    expect(error).toBeNull()
+    expect(await trainingRow(trainingId)).toBeNull()
+    expect(await auditRows(trainingId)).toMatchObject([
+      { action: 'training.delete', entity: 'training', actor_id: adminUserId },
+    ])
+  })
+
+  // RDZEN U2: wymuszamy blad SAMEGO zapisu dziennika (trigger odrzucajacy wpis) i
+  // sprawdzamy, ze usuniecie zostalo WYCOFANE. Stan "usuniete bez sladu" ma byc
+  // nieosiagalny, a nie tylko zglaszany administratorowi po fakcie.
+  test('nieudany zapis dziennika WYCOFUJE usuniecie', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+
+    await withPg(async (c) => {
+      await c.query(`
+        create or replace function public.__test_blokuj_dziennik() returns trigger
+        language plpgsql as $$ begin
+          raise exception 'symulowany blad zapisu dziennika';
+        end $$;
+        create trigger __test_blokuj_dziennik before insert on public.admin_audit_log
+          for each row execute function public.__test_blokuj_dziennik();
+      `)
+    })
+    try {
+      const { error } = await admin.rpc('delete_catalog_item', {
+        p_kind: 'training',
+        p_id: trainingId,
+      })
+      expect(error).not.toBeNull()
+      // Pozycja MUSI nadal istniec — to jest cala wlasnosc U2.
+      expect(await trainingRow(trainingId)).not.toBeNull()
+    } finally {
+      await withPg(async (c) => {
+        await c.query(`
+          drop trigger if exists __test_blokuj_dziennik on public.admin_audit_log;
+          drop function if exists public.__test_blokuj_dziennik();
+        `)
+      })
+    }
+
+    // Kontrola: po zdjeciu triggera to samo usuniecie przechodzi i zostawia slad.
+    const { error } = await admin.rpc('delete_catalog_item', {
+      p_kind: 'training',
+      p_id: trainingId,
+    })
+    expect(error).toBeNull()
+    expect(await trainingRow(trainingId)).toBeNull()
+    expect(await auditRows(trainingId)).toMatchObject([{ action: 'training.delete' }])
+  })
+
+  // RLS filtruje DELETE jak WHERE, wiec bez kontroli row_count nie-admin dostawal
+  // CICHY sukces, a panel dopisywal do dziennika usuniecie, ktore sie nie odbylo.
+  test('uzytkownik bez admin_users nie usuwa i dostaje blad, nie cichy sukces', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+
+    const { error } = await user.rpc('delete_catalog_item', {
+      p_kind: 'training',
+      p_id: trainingId,
+    })
+    expect(error).not.toBeNull()
+    expect(await trainingRow(trainingId)).not.toBeNull()
+    expect(await auditRows(trainingId)).toHaveLength(0)
+  })
+
+  test('nieistniejaca pozycja to blad, a dziennik zostaje pusty', async () => {
+    const missing = randomUUID()
+    const { error } = await admin.rpc('delete_catalog_item', {
+      p_kind: 'training',
+      p_id: missing,
+    })
+    expect(error).not.toBeNull()
+    expect(await auditRows(missing)).toHaveLength(0)
+  })
+
+  test('nieznany rodzaj pozycji jest odrzucany', async () => {
+    const { error } = await admin.rpc('delete_catalog_item', {
+      p_kind: 'admin_users',
+      p_id: randomUUID(),
+    })
+    expect(error).not.toBeNull()
+  })
+
+  test('usuniecie szkolenia kasuje przypisania trenerow i zostawia slad', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+    await admin.rpc('set_training_trainers', { p_training_id: trainingId, p_trainer_ids: [trainerA] })
+
+    const { error } = await admin.rpc('delete_catalog_item', {
+      p_kind: 'training',
+      p_id: trainingId,
+    })
+    expect(error).toBeNull()
+    expect(await trainerIdsOf(trainingId)).toEqual([])
+    expect(await auditRows(trainingId)).toMatchObject([{ action: 'training.delete' }])
+  })
+
+  test('anon nie moze wywolac delete_catalog_item', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+    const { error } = await anon.rpc('delete_catalog_item', {
+      p_kind: 'training',
+      p_id: trainingId,
+    })
+    expect(error).not.toBeNull()
+    expect(await trainingRow(trainingId)).not.toBeNull()
   })
 })

@@ -161,6 +161,12 @@ test.describe("B3 — przyciski panelu maja czytelny kontrast, nie tylko nazwe",
       // Przycisk nadal dziala — poprawka dotyczy wygladu, nie zachowania.
       await button.click();
       await expect(page.locator(".panel-status")).toHaveText("W toku");
+      // ISK-374 / BL-B: mapa przejsc ma teraz `nowe: [w_toku, zamkniete]`, wiec
+      // "Ustaw: Zamkniete" jest widoczne JUZ PRZED klikniecieciem — asercja na
+      // jego widocznosc po przejsciu przestalaby cokolwiek dowodzic. Dowodem,
+      // ze maszyna stanow faktycznie ruszyla, jest ZNIKNIECIE przejscia do
+      // "w toku" (`w_toku: [zamkniete]`), a nie pojawienie sie tego drugiego.
+      await expect(button).toBeHidden();
       await expect(
         page.getByRole("button", { name: "Ustaw: Zamknięte" }),
       ).toBeVisible();

@@ -1,14 +1,14 @@
 /**
- * ISK-364 / B6 — dowod braku utraty danych.
+ * ISK-364 / B6 — dowod braku utraty danych, oraz ISK-374 BL-A / U2 — slad w dzienniku.
  *
  * Test dotyka samej akcji serwerowej, nie UI: okienko potwierdzenia da sie
  * pominac (skrypt, wylaczony JS, recznie zlozone zadanie do Server Action),
  * wiec guard MUSI siedziec po stronie serwera. Asercja nie konczy sie na
- * "rzucilo bledem" — sprawdzamy, ze `.delete()` nie zostalo wywolane ANI RAZU
+ * "rzucilo bledem" — sprawdzamy, ze usuniecie nie zostalo wywolane ANI RAZU
  * i ze akcja nie dotarla nawet do uwierzytelnienia, czyli do klienta bazy.
  *
  * Kontrola negatywna: usuniecie wywolania `isDeleteConfirmed` z
- * `deleteCatalogItem` czerwieni tu testy "bez potwierdzenia…", bo `.delete()`
+ * `deleteCatalogItem` czerwieni tu testy "bez potwierdzenia…", bo RPC usuwajace
  * zostanie wywolane.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,14 +18,15 @@ import { CONFIRM_DELETE_FIELD } from "@/lib/panel/confirm-delete";
 const ID = "11111111-1111-4111-8111-111111111111";
 const OTHER_ID = "22222222-2222-4222-8222-222222222222";
 
-const deleteCalls: Array<{ table: string; id: string }> = [];
+// Bezposrednie `from(table).delete()` NIE powinno sie juz pojawic — usuniecie idzie przez
+// RPC, zeby wpis w dzienniku byl czescia tej samej transakcji (U2). Zliczamy je, zeby
+// powrot do starej sciezki byl widoczny jako czerwony test, a nie przeoczony.
+const tableDeleteCalls: Array<{ table: string; id: string }> = [];
 const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
 const requireAdmin = vi.fn();
 const refreshed = vi.fn();
-// ISK-374 BL-A: zapis dziennika audytu idzie przez RPC `log_admin_action`.
-// Zmienna pozwala sprawdzic rowniez sciezke bledu dziennika.
 let rpcResult: { data: unknown; error: { message: string } | null } = {
-  data: 1,
+  data: null,
   error: null,
 };
 
@@ -52,7 +53,7 @@ vi.mock("@/lib/panel/auth", () => ({
             delete() {
               return {
                 eq(_column: string, id: string) {
-                  deleteCalls.push({ table, id });
+                  tableDeleteCalls.push({ table, id });
                   return Promise.resolve({ error: null });
                 },
               };
@@ -76,10 +77,14 @@ function confirmedForm(id: string): FormData {
   return form;
 }
 
+/** Wywolania RPC, ktore faktycznie usuwaja — niezaleznie od nazwy funkcji. */
+const deleteRpcCalls = () =>
+  rpcCalls.filter((call) => call.fn === "delete_catalog_item");
+
 beforeEach(() => {
-  deleteCalls.length = 0;
+  tableDeleteCalls.length = 0;
   rpcCalls.length = 0;
-  rpcResult = { data: 1, error: null };
+  rpcResult = { data: null, error: null };
   requireAdmin.mockClear();
   refreshed.mockClear();
 });
@@ -89,7 +94,8 @@ describe("deleteCatalogItem — potwierdzenie jest wymagane po stronie serwera",
     await expect(deleteCatalogItem("training", ID)).rejects.toThrow(
       "Usunięcie wymaga potwierdzenia.",
     );
-    expect(deleteCalls).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+    expect(tableDeleteCalls).toEqual([]);
     expect(requireAdmin).not.toHaveBeenCalled();
   });
 
@@ -97,7 +103,8 @@ describe("deleteCatalogItem — potwierdzenie jest wymagane po stronie serwera",
     await expect(
       deleteCatalogItem("training", ID, new FormData()),
     ).rejects.toThrow("Usunięcie wymaga potwierdzenia.");
-    expect(deleteCalls).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+    expect(tableDeleteCalls).toEqual([]);
     expect(requireAdmin).not.toHaveBeenCalled();
   });
 
@@ -105,43 +112,39 @@ describe("deleteCatalogItem — potwierdzenie jest wymagane po stronie serwera",
     await expect(
       deleteCatalogItem("training", ID, confirmedForm(OTHER_ID)),
     ).rejects.toThrow("Usunięcie wymaga potwierdzenia.");
-    expect(deleteCalls).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+    expect(tableDeleteCalls).toEqual([]);
     expect(requireAdmin).not.toHaveBeenCalled();
   });
 
   it("z poprawnym potwierdzeniem usuwa dokladnie te pozycje", async () => {
     await deleteCatalogItem("training", ID, confirmedForm(ID));
-    expect(deleteCalls).toEqual([{ table: "trainings", id: ID }]);
+    expect(deleteRpcCalls()).toEqual([
+      { fn: "delete_catalog_item", args: { p_kind: "training", p_id: ID } },
+    ]);
     expect(requireAdmin).toHaveBeenCalledTimes(1);
   });
 
   /**
-   * ISK-374 BL-A: usuniecie jest nieodwracalne i kaskaduje na przypisania trenerow,
-   * wiec bez wpisu w dzienniku nie da sie ustalic kto i kiedy. Asercja pilnuje
-   * dokladnej tresci wpisu, zeby nie dalo sie jej "spelnic" pustym wywolaniem.
+   * ISK-374 U2: usuniecie jest nieodwracalne i kaskaduje na przypisania trenerow, a wpis
+   * skladany PO commicie nie chronil niczego — gdy zapis dziennika padl, pozycja byla juz
+   * usunieta i nadal bez sladu. Dlatego akcja nie moze usuwac tabeli bezposrednio ani
+   * dokladac osobnego wywolania dziennika: oba kroki sa w jednej transakcji RPC
+   * (dowod atomowosci: tests/integration/panel-audit.test.ts).
    */
-  it("po usunieciu zapisuje wpis w dzienniku audytu", async () => {
+  it("usuwa i loguje jedna transakcja, bez osobnego zapytania do tabeli", async () => {
     await deleteCatalogItem("training", ID, confirmedForm(ID));
-    expect(rpcCalls).toEqual([
-      {
-        fn: "log_admin_action",
-        args: {
-          p_action: "training.delete",
-          p_entity: "training",
-          p_entity_id: ID,
-          p_details: {},
-        },
-      },
-    ]);
+
+    expect(tableDeleteCalls).toEqual([]);
+    expect(rpcCalls.map((call) => call.fn)).toEqual(["delete_catalog_item"]);
   });
 
-  it("nieudany zapis dziennika nie konczy sie cichym sukcesem", async () => {
+  it("nieudane usuniecie nie konczy sie cichym sukcesem ani uniewaznieniem cache", async () => {
     rpcResult = { data: null, error: { message: "permission denied" } };
     await expect(
       deleteCatalogItem("training", ID, confirmedForm(ID)),
-    ).rejects.toThrow(/dziennik/i);
-    // Operacja juz sie wykonala — chodzi o to, by administrator o braku wpisu wiedzial.
-    expect(deleteCalls).toEqual([{ table: "trainings", id: ID }]);
+    ).rejects.toThrow(/Nie udało się usunąć pozycji/);
+    // Transakcja wycofana — nic nie zostalo usuniete, wiec nie ma czego uniewazniac.
     expect(refreshed).not.toHaveBeenCalled();
   });
 
@@ -152,13 +155,13 @@ describe("deleteCatalogItem — potwierdzenie jest wymagane po stronie serwera",
     await expect(deleteCatalogItem("category", ID)).rejects.toThrow(
       "Usunięcie wymaga potwierdzenia.",
     );
-    expect(deleteCalls).toEqual([]);
+    expect(rpcCalls).toEqual([]);
 
     await deleteCatalogItem("trainer", ID, confirmedForm(ID));
     await deleteCatalogItem("category", ID, confirmedForm(ID));
-    expect(deleteCalls).toEqual([
-      { table: "trainers", id: ID },
-      { table: "categories", id: ID },
+    expect(deleteRpcCalls().map((call) => call.args)).toEqual([
+      { p_kind: "trainer", p_id: ID },
+      { p_kind: "category", p_id: ID },
     ]);
   });
 
@@ -166,6 +169,6 @@ describe("deleteCatalogItem — potwierdzenie jest wymagane po stronie serwera",
     await expect(
       deleteCatalogItem("training", "nie-uuid", confirmedForm("nie-uuid")),
     ).rejects.toThrow("Niepoprawny identyfikator.");
-    expect(deleteCalls).toEqual([]);
+    expect(rpcCalls).toEqual([]);
   });
 });

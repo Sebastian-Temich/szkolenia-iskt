@@ -211,13 +211,20 @@ Skutek: dowolna osoba z internetu mogła wymusić zadanie retencyjne w wybranym 
 
 **Ustalenie nadal otwarte (E2R C3):** domyślna odmowa jest dziś **zdarzeniem jednorazowym**, nie niezmiennikiem. Nowa tabela utworzona przez rolę `postgres` dostaje `relrowsecurity = false` oraz — zmierzone w `pg_default_acl` — `MAINTAIN, REFERENCES, TRIGGER, TRUNCATE` dla `anon`/`authenticated`. **RLS nie obejmuje `TRUNCATE`**; E2R zademonstrowała `anon` czyszczącego tabelę z włączonym RLS i bez polityk. Uczciwa kwalifikacja: przez PostgREST dziś nieosiągalne (REST nie wystawia `TRUNCATE`), więc to naruszenie zasady najmniejszych uprawnień, nie żywa dziura zdalna. Poprawka to jedna linia `alter default privileges … revoke all on tables from anon, authenticated` i **nie została wprowadzona**.
 
-### Kto pisze do `admin_audit_log` — rozstrzygnięte przez E2R, niezrealizowane
+### Kto pisze do `admin_audit_log` — rozstrzygnięte przez E2R, zrealizowane inaczej (ISK-374)
 
 Pierwotny ADR nie określał tego, a konsekwencje mówiły, że panel używa sesji użytkownika, podczas gdy `service_role` jest zarezerwowany dla zgłoszeń i zadań utrzymaniowych. Tabela `admin_audit_log` nie ma `INSERT` dla roli `authenticated`, więc panel albo łamie tę granicę przy każdej akcji, albo po cichu nie audytuje.
 
 **E2R rozstrzygnęła: audyt należy do bazy, nie do aplikacji** — triggery `AFTER INSERT/UPDATE/DELETE` (`SECURITY DEFINER`) na `categories`/`trainers`/`trainings` zapisujące `action`/`entity`/`entity_id` + `auth.uid()`. Wtedy dziennika nie da się pominąć, a panel zostaje przy sesji użytkownika.
 
-**Stan faktyczny:** triggery audytu **nie istnieją**. Jedyny wpis do `admin_audit_log` powstaje w `lib/inquiries/repository.ts` (`recordSuspectedSpam`, akcja `inquiry.suspected_spam`) — kluczem `service_role` z Route Handlera, czyli poza panelem. Operacje administracyjne (publikacja, wycofanie, usunięcie, zmiana statusu) **nie są audytowane**. Pozycja otwarta.
+**Stan faktyczny (ISK-374 BL-A):** triggery audytu nadal **nie istnieją**, ale operacje panelu **są audytowane** — intencja E2R („dziennika nie da się pominąć, panel zostaje przy sesji użytkownika") jest spełniona innym środkiem niż trigger:
+
+- Migracja `…141500` dodaje `log_admin_action(action, entity, entity_id, details)` — `SECURITY DEFINER`, jawne `is_admin()`, `actor_id` **wymuszone z `auth.uid()`**. Tabela nadal **nie ma polityki `INSERT`**, więc z sesji panelu nie ma innej drogi zapisu niż ta funkcja; granica z ADR-0005 (panel na sesji użytkownika, `service_role` tylko dla zgłoszeń i utrzymania) zostaje nienaruszona.
+- Audytowane są: utworzenie i edycja szkolenia, trenera i kategorii, publikacja, wycofanie, usunięcie oraz zmiana statusu zgłoszenia.
+- Migracja `…160000` (ISK-374 U1/U2) domyka to, czego trigger dawał „za darmo" — **nierozdzielność mutacji i wpisu**: `save_training(...)` i `delete_catalog_item(kind, id)` wykonują mutację i zapis dziennika w jednej transakcji, więc nieudany wpis wycofuje operację. Dotyczy to operacji nieodwracalnej (usunięcie) i wieloetapowej (zapis szkolenia z wymianą trenerów). Przy pozostałych kolejność to „mutacja → wpis", a błąd dziennika jest głośny.
+- Różnica względem triggera pozostaje i jest świadoma: zapis `service_role` (np. `recordSuspectedSpam`) oraz zmiany wykonane bezpośrednio w bazie (SQL, Studio) nie przechodzą przez tę funkcję i nie zostawiają wpisu. Trigger byłby na to odporny — jeżeli ISKT uzna to za wymagane, jest to osobna pozycja.
+
+Drugie, niezależne wejście zapisu: `lib/inquiries/repository.ts` (`recordSuspectedSpam`, akcja `inquiry.suspected_spam`) kluczem `service_role` z Route Handlera.
 
 Pozostałe ustalenia o tej tabeli: `inquiry_status_history.note` nie jest nigdy zapisywany (E2R C6), a `published_at` jest zarządzane przez aplikację z asymetrycznym ograniczeniem — `trainings` ma `trainings_published_has_date`, `categories` i `trainers` nie (E2R C7, zarówno w migracji, jak i w dokumencie modelu danych).
 

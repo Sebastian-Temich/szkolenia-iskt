@@ -317,7 +317,21 @@ test("zgłoszenie można zamknąć od razu, bez przechodzenia przez „w toku”
   expect(audit.data?.[0]).toMatchObject({
     action: "inquiry.status_change",
     entity: "inquiry",
-    details: { from: "nowe", to: "zamkniete" },
+    // ISK-374 U3: `details` ma TYLKO status docelowy. Wcześniejsza wersja zapisywała też
+    // `from`, odczytane przed UPDATE-em — przy dwóch równoległych zmianach byłby to stan
+    // z momentu odczytu, a nie faktyczny poprzedni. Jedyne źródło prawdy dla przejścia to
+    // `inquiry_status_history`, która dostaje `from`/`to` z `OLD.status` w triggerze.
+    details: { to: "zamkniete" },
   });
+  expect(audit.data?.[0]?.details).not.toHaveProperty("from");
   expect(audit.data?.[0]?.actor_id).not.toBeNull();
+
+  // Przejście jest też zapisane w historii — i to ona zna prawdziwy stan poprzedni.
+  const history = await serviceClient()
+    .from("inquiry_status_history")
+    .select("from_status, to_status")
+    .eq("inquiry_id", inquiryId);
+  expect(history.data).toMatchObject([
+    { from_status: "nowe", to_status: "zamkniete" },
+  ]);
 });

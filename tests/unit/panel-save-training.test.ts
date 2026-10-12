@@ -1,14 +1,17 @@
 /**
- * ISK-374 BL-D i BL-A — kontrakt zapisu szkolenia w Server Action.
+ * ISK-374 BL-D / U1 / BL-A — kontrakt zapisu szkolenia w Server Action.
  *
- * Test integracyjny (tests/integration/panel-audit.test.ts) dowodzi, że funkcja
- * `set_training_trainers()` jest atomowa. Nie powiedziałby jednak nic, gdyby panel
- * wrócił do dwóch osobnych zapytań (DELETE + INSERT) — a to był właśnie defekt. Dlatego
- * tutaj pilnujemy drugiej połowy: akcja MUSI wymieniać trenerów jednym wywołaniem RPC
- * i nie wolno jej usuwać wierszy `training_trainers` samodzielnie.
+ * Testy integracyjne (tests/integration/panel-audit.test.ts) dowodza, ze `save_training()`
+ * jest atomowa i ze wpis w dzienniku powstaje w tej samej transakcji. Nie powiedzialyby
+ * jednak nic, gdyby panel wrocil do skladania zapisu z kilku zapytan REST — a to byl
+ * wlasnie defekt (najpierw DELETE+INSERT trenerow, potem `update trainings` + osobne RPC).
+ * Dlatego tutaj pilnujemy drugiej polowy dowodu: akcja MUSI zapisywac szkolenie JEDNYM
+ * wywolaniem RPC i nie wolno jej samodzielnie dotykac tabel `trainings`/`training_trainers`
+ * ani dokladac osobnego wpisu do dziennika.
  *
- * Kontrola negatywna: zamiana wywołania RPC w `saveTraining` na `delete()` + `insert()`
- * czerwieni test „nie usuwa przypisań osobnym zapytaniem”.
+ * Kontrola negatywna: rozbicie `save_training` w akcji na `update trainings` + RPC
+ * `set_training_trainers` + `log_admin_action` czerwieni testy „jednym wywolaniem RPC"
+ * i „nie zapisuje szkolenia osobnymi zapytaniami".
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,6 +26,7 @@ type Call = { op: string; table: string; values?: Record<string, unknown> };
 const calls: Call[] = [];
 const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
 const rpcErrors = new Map<string, { message: string }>();
+const refreshed = vi.fn();
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -34,7 +38,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/panel/catalog-cache", () => ({
-  invalidatePublicCatalog: vi.fn(),
+  invalidatePublicCatalog: (...args: unknown[]) => refreshed(...args),
 }));
 
 vi.mock("@/lib/panel/auth", () => ({
@@ -75,10 +79,14 @@ vi.mock("@/lib/panel/auth", () => ({
         },
         rpc(fn: string, args: Record<string, unknown>) {
           rpcCalls.push({ fn, args });
-          return Promise.resolve({
-            data: null,
-            error: rpcErrors.get(fn) ?? null,
-          });
+          const error = rpcErrors.get(fn) ?? null;
+          // `save_training` zwraca identyfikator zapisanego wiersza.
+          const data = error
+            ? null
+            : fn === "save_training"
+              ? ((args.p_training_id as string | null) ?? NEW_TRAINING_ID)
+              : null;
+          return Promise.resolve({ data, error });
         },
       },
     }),
@@ -112,81 +120,59 @@ beforeEach(() => {
   calls.length = 0;
   rpcCalls.length = 0;
   rpcErrors.clear();
+  refreshed.mockClear();
 });
 
-describe("saveTraining — wymiana trenerów i dziennik audytu", () => {
-  it("wymienia trenerów jednym wywołaniem RPC, z kolejnością z formularza", async () => {
+describe("saveTraining — atomowy zapis, trenerzy i dziennik audytu", () => {
+  it("zapisuje szkolenie jednym wywolaniem RPC, z kolejnoscia trenerow z formularza", async () => {
     await saveTraining(
       trainingForm({ id: TRAINING_ID }, [TRAINER_A, TRAINER_B]),
     );
 
-    expect(rpcCalls[0]).toEqual({
-      fn: "set_training_trainers",
-      args: {
-        p_training_id: TRAINING_ID,
-        p_trainer_ids: [TRAINER_A, TRAINER_B],
-      },
-    });
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0]?.fn).toBe("save_training");
+    expect(rpcCalls[0]?.args.p_training_id).toBe(TRAINING_ID);
+    expect(rpcCalls[0]?.args.p_trainer_ids).toEqual([TRAINER_A, TRAINER_B]);
   });
 
-  it("nie usuwa przypisań osobnym zapytaniem (to był defekt BL-D)", async () => {
+  /**
+   * U1: przed poprawka zapis szedl dwoma zapytaniami (wiersz `trainings`, potem RPC na
+   * trenerow) i rozjezdzal sie w polowie. Tutaj pilnujemy, ze akcja nie dotyka tabel
+   * bezposrednio — ani `trainings`, ani `training_trainers`.
+   */
+  it("nie zapisuje szkolenia osobnymi zapytaniami (to byly defekty BL-D i U1)", async () => {
     await saveTraining(trainingForm({ id: TRAINING_ID }, [TRAINER_A]));
 
-    expect(calls.filter((call) => call.table === "training_trainers")).toEqual(
-      [],
-    );
-    expect(calls.map((call) => `${call.op}:${call.table}`)).toEqual([
-      "update:trainings",
-    ]);
+    expect(calls).toEqual([]);
   });
 
-  it("gdy wymiana trenerów się nie uda, zgłasza błąd i nie zapisuje wpisu audytu", async () => {
-    rpcErrors.set("set_training_trainers", { message: "foreign key" });
+  /** BL-A/U1: wpis w dzienniku jest czescia transakcji RPC, a nie osobnym wywolaniem. */
+  it("nie dokłada osobnego wywołania dziennika — audyt jest w tej samej transakcji", async () => {
+    await saveTraining(trainingForm({ id: TRAINING_ID }, [TRAINER_A]));
+
+    expect(rpcCalls.map((call) => call.fn)).toEqual(["save_training"]);
+  });
+
+  it("gdy zapis sie nie uda, zglasza blad i nie uniewaznia cache", async () => {
+    rpcErrors.set("save_training", { message: "foreign key" });
 
     await expect(
       saveTraining(trainingForm({ id: TRAINING_ID }, [TRAINER_A])),
-    ).rejects.toThrow(/Poprzednie przypisania pozostały/);
-    expect(rpcCalls.map((call) => call.fn)).toEqual(["set_training_trainers"]);
+    ).rejects.toThrow(/Żadna zmiana nie została wprowadzona/);
+    // Nic sie nie zapisalo (transakcja wycofana), wiec nie ma czego uniewazniac.
+    expect(refreshed).not.toHaveBeenCalled();
   });
 
-  it("zapisuje wpis w dzienniku audytu po udanej edycji", async () => {
-    await saveTraining(trainingForm({ id: TRAINING_ID }, [TRAINER_A]));
-
-    expect(rpcCalls[1]).toEqual({
-      fn: "log_admin_action",
-      args: {
-        p_action: "training.update",
-        p_entity: "training",
-        p_entity_id: TRAINING_ID,
-        p_details: { trainers: 1 },
-      },
-    });
-  });
-
-  it("dla nowego szkolenia loguje utworzenie i używa identyfikatora z INSERT-a", async () => {
+  it("dla nowego szkolenia nie przekazuje identyfikatora i uzywa tego z RPC", async () => {
     await saveTraining(trainingForm({}, [TRAINER_A]));
 
-    expect(calls.map((call) => `${call.op}:${call.table}`)).toEqual([
-      "insert:trainings",
-    ]);
-    expect(rpcCalls).toEqual([
-      {
-        fn: "set_training_trainers",
-        args: { p_training_id: NEW_TRAINING_ID, p_trainer_ids: [TRAINER_A] },
-      },
-      {
-        fn: "log_admin_action",
-        args: {
-          p_action: "training.create",
-          p_entity: "training",
-          p_entity_id: NEW_TRAINING_ID,
-          p_details: { trainers: 1 },
-        },
-      },
-    ]);
+    expect(calls).toEqual([]);
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0]?.args.p_training_id).toBeNull();
+    expect(rpcCalls[0]?.args.p_trainer_ids).toEqual([TRAINER_A]);
   });
 
-  /** BL-C: pola czytane przez publiczny frontend muszą trafić do zapisu. */
+  /** BL-C: pola czytane przez publiczny frontend musza trafic do zapisu. */
   it("zapisuje is_featured, pola SEO i listę korzyści", async () => {
     const form = trainingForm({ id: TRAINING_ID });
     form.set("is_featured", "on");
@@ -198,7 +184,7 @@ describe("saveTraining — wymiana trenerów i dziennik audytu", () => {
 
     await saveTraining(form);
 
-    expect(calls[0]?.values).toMatchObject({
+    expect(rpcCalls[0]?.args.p_training).toMatchObject({
       is_featured: true,
       seo_title: "Tytuł SEO",
       seo_description: "Opis SEO",
@@ -206,14 +192,16 @@ describe("saveTraining — wymiana trenerów i dziennik audytu", () => {
       target_audience: "Zespoły techniczne",
       funding_note: "KFS",
     });
-    // `trainer_ids` nie jest kolumną tabeli `trainings` — idzie wyłącznie do RPC.
-    expect(calls[0]?.values).not.toHaveProperty("trainer_ids");
+    // `trainer_ids` nie jest kolumną tabeli `trainings` — idzie osobnym argumentem RPC.
+    expect(rpcCalls[0]?.args.p_training).not.toHaveProperty("trainer_ids");
+    // Publikacja ma wlasna sciezke (setPublished) — formularz edycji nie moze jej ustawic.
+    expect(rpcCalls[0]?.args.p_training).not.toHaveProperty("is_published");
   });
 
   it("niezaznaczony checkbox zapisuje false, a nie pomija pola", async () => {
     await saveTraining(trainingForm({ id: TRAINING_ID }));
 
-    expect(calls[0]?.values).toMatchObject({
+    expect(rpcCalls[0]?.args.p_training).toMatchObject({
       is_featured: false,
       funding_available: false,
     });
