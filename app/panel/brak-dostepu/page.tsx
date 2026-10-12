@@ -15,8 +15,21 @@ export default function ForbiddenPage() {
       <section className="panel-login-card">
         <p className="panel-eyebrow">Brak uprawnień</p>
         <h1>To konto nie ma dostępu do panelu</h1>
+        {/* ISK-373 / P11: stalo tu „Administrator musi byc wpisany do rejestru
+            <code>admin_users</code>” — ekran ujawnial nazwe tabeli w bazie, co
+            dla osoby bez uprawnien jest bezuzyteczne, a dla kogos badajacego
+            powierzchnie ataku jest darmowa wskazowka. Jednoczesnie nie mowil,
+            do kogo sie zglosic po dostep (kryterium 6 z DoD bramki UX). */}
         <p>
-          Administrator musi być wpisany do rejestru <code>admin_users</code>.
+          Konto, na które się zalogowano, nie ma uprawnień administratora.
+          Uprawnienia nadaje administrator ISKT.
+        </p>
+        <p>
+          Jeśli dostęp jest Ci potrzebny, napisz na{" "}
+          <a className="panel-inline-link" href="mailto:biuro@iskt.pl">
+            biuro@iskt.pl
+          </a>{" "}
+          i podaj adres e-mail tego konta.
         </p>
         <form action={logout}>
           <button className="panel-button">Wyloguj się</button>
