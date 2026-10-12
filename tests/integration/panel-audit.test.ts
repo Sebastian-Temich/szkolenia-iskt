@@ -217,6 +217,17 @@ describe('BL-D: atomowa wymiana przypisan trenerow', () => {
     expect(await trainerIdsOf(trainingId)).toEqual([trainerA])
   })
 
+  // Osobny przypadek, bo to jedyna sciezka, w ktorej funkcja nie wykonuje zadnego
+  // INSERT-a: gdyby DELETE nie byl filtrowany przez RLS, pusta tablica od nie-admina
+  // skasowalaby przypisania BEZ zadnego bledu (cichy ubytek danych).
+  test('pusta lista od uzytkownika bez admin_users nie kasuje przypisan', async () => {
+    const trainingId = await createTraining({ published: false, categoryId })
+    await admin.rpc('set_training_trainers', { p_training_id: trainingId, p_trainer_ids: [trainerA] })
+
+    await user.rpc('set_training_trainers', { p_training_id: trainingId, p_trainer_ids: [] })
+    expect(await trainerIdsOf(trainingId)).toEqual([trainerA])
+  })
+
   test('anon nie moze wywolac set_training_trainers', async () => {
     const trainingId = await createTraining({ published: false, categoryId })
     await admin.rpc('set_training_trainers', { p_training_id: trainingId, p_trainer_ids: [trainerA] })
