@@ -10,6 +10,8 @@ describe("inwalidacja katalogu po publikacji", () => {
     invalidatePublicCatalog({ revalidatePath, updateTag });
 
     expect(updateTag).toHaveBeenCalledWith("catalog");
+    // Strona główna filtruje `is_featured` (ISK-374 BL-C), więc też musi być wygaszona.
+    expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(revalidatePath).toHaveBeenCalledWith("/szkolenia");
     expect(revalidatePath).toHaveBeenCalledWith("/szkolenia/[slug]", "page");
     expect(revalidatePath).toHaveBeenCalledWith("/trenerzy");

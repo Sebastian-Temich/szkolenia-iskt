@@ -122,6 +122,28 @@ export default async function TrainingEditor({
           </label>
         </div>
         <label>
+          Czego się nauczysz
+          <textarea
+            name="learning_outcomes"
+            rows={5}
+            defaultValue={(
+              (training?.learning_outcomes as string[] | null) ?? []
+            ).join("\n")}
+          />
+          <small>
+            Jedna korzyść w wierszu. Puste pole ukrywa tę sekcję na publicznej
+            stronie.
+          </small>
+        </label>
+        <label>
+          Dla kogo
+          <textarea
+            name="target_audience"
+            rows={3}
+            defaultValue={training?.target_audience ?? ""}
+          />
+        </label>
+        <label>
           Najbliższe terminy
           <textarea
             name="terms_note"
@@ -136,6 +158,46 @@ export default async function TrainingEditor({
           />{" "}
           Dostępne dofinansowanie
         </label>
+        <label>
+          Informacja o dofinansowaniu
+          <textarea
+            name="funding_note"
+            rows={2}
+            defaultValue={training?.funding_note ?? ""}
+          />
+        </label>
+        <label className="panel-check">
+          <input
+            name="is_featured"
+            type="checkbox"
+            defaultChecked={training?.is_featured ?? false}
+          />{" "}
+          Pokaż w sekcji „Najczęściej wybierane” na stronie głównej
+        </label>
+        <div className="panel-fields">
+          <label>
+            Tytuł SEO
+            <input
+              name="seo_title"
+              maxLength={70}
+              defaultValue={training?.seo_title ?? ""}
+            />
+            <small>
+              Do 70 znaków. Puste pole — wyszukiwarka pokaże nazwę szkolenia.
+            </small>
+          </label>
+          <label>
+            Opis SEO
+            <input
+              name="seo_description"
+              maxLength={160}
+              defaultValue={training?.seo_description ?? ""}
+            />
+            <small>
+              Do 160 znaków. Puste pole — wyszukiwarka pokaże krótki wstęp.
+            </small>
+          </label>
+        </div>
         <fieldset>
           <legend>Trenerzy</legend>
           <div className="panel-check-list">

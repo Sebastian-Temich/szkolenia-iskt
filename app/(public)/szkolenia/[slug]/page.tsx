@@ -72,25 +72,44 @@ export default async function TrainingPage({
       <section className="section section-tight">
         <div className="detail-grid page-shell">
           <article className="prose">
-            <h2>O szkoleniu</h2>
-            <p>{training.description}</p>
-            <h2>Czego się nauczysz</h2>
-            <ul>
-              {training.learning_outcomes.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            <h2>Program szkolenia</h2>
-            {training.program.map((section) => (
-              <div key={section.title} className="program">
-                <h3>{section.title}</h3>
+            {/*
+              Stany puste (ISK-374 BL-C): panel nie wypełnia wszystkich pól treści
+              (`program` nadal nie ma edytora), a kolumny mają wartości domyślne
+              `null`/`'{}'`. Bez tych warunków szkolenie dodane w panelu pokazywało
+              nagłówek nad pustą listą. Nagłówek pojawia się więc tylko wtedy, gdy ma
+              co opisać.
+            */}
+            {training.description && (
+              <>
+                <h2>O szkoleniu</h2>
+                <p>{training.description}</p>
+              </>
+            )}
+            {training.learning_outcomes.length > 0 && (
+              <>
+                <h2>Czego się nauczysz</h2>
                 <ul>
-                  {section.items.map((item) => (
+                  {training.learning_outcomes.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
-              </div>
-            ))}
+              </>
+            )}
+            {training.program.length > 0 && (
+              <>
+                <h2>Program szkolenia</h2>
+                {training.program.map((section) => (
+                  <div key={section.title} className="program">
+                    <h3>{section.title}</h3>
+                    <ul>
+                      {section.items.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </>
+            )}
             {training.target_audience && (
               <>
                 <h2>Dla kogo</h2>

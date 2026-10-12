@@ -61,14 +61,25 @@ describe('Uprawnienia EXECUTE funkcji public (ISK-356)', () => {
                 has_function_privilege('authenticated', oid, 'execute') as auth,
                 has_function_privilege('service_role',  oid, 'execute') as svc
            from (${PROJECT_FUNCS}) f
-          where proname in ('is_admin','immutable_unaccent',
+          where proname in ('is_admin','immutable_unaccent','log_admin_action','set_training_trainers',
+                            'save_training','delete_catalog_item',
                             'purge_expired_inquiries','purge_submission_throttle','purge_expired_audit_log')`,
       )
       return r.rows
     })
     const by = (name: string) => privs.filter((p) => p.proname === name)
-    // Funkcje polityk/zapisu katalogu — dostepne dla authenticated i service_role.
-    for (const name of ['is_admin', 'immutable_unaccent']) {
+    // Funkcje polityk/zapisu katalogu oraz sciezki zapisu panelu (ISK-374: log_admin_action
+    // dla dziennika audytu, set_training_trainers dla atomowej wymiany trenerow,
+    // save_training i delete_catalog_item dla atomowosci zapisu z wpisem w dzienniku) —
+    // dostepne dla authenticated i service_role.
+    for (const name of [
+      'is_admin',
+      'immutable_unaccent',
+      'log_admin_action',
+      'set_training_trainers',
+      'save_training',
+      'delete_catalog_item',
+    ]) {
       expect(by(name).length).toBeGreaterThan(0)
       for (const row of by(name)) {
         expect(row.auth).toBe(true)

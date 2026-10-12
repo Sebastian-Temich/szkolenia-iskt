@@ -89,20 +89,19 @@ export default async function InquiryDetails({
       </article>
       <section className="panel-section">
         <h2>Zmień status</h2>
-        {transitions.length ? (
-          <div className="panel-actions">
-            {transitions.map((next) => (
-              <form
-                key={next}
-                action={changeInquiryStatus.bind(null, id, next)}
-              >
-                <button className="panel-button">Ustaw: {labels[next]}</button>
-              </form>
-            ))}
-          </div>
-        ) : (
-          <p>Zgłoszenie jest zamknięte.</p>
-        )}
+        {status === "zamkniete" ? (
+          <p>
+            Zgłoszenie jest zamknięte. Jeśli sprawa wróciła, możesz otworzyć je
+            ponownie — historia statusów zostaje zachowana.
+          </p>
+        ) : null}
+        <div className="panel-actions">
+          {transitions.map((next) => (
+            <form key={next} action={changeInquiryStatus.bind(null, id, next)}>
+              <button className="panel-button">Ustaw: {labels[next]}</button>
+            </form>
+          ))}
+        </div>
       </section>
     </section>
   );
