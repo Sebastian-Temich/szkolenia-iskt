@@ -142,17 +142,27 @@ describe("inquirySchema — wstrzykniecie naglowka e-mail CR/LF (ISK-370)", () =
     interestArea: "Szkolenia BHP",
   };
 
+  // Pozycja brzegowa (poczatek/koniec) jest kluczowa: `.trim()` usunelby CR/LF z brzegow przed
+  // sprawdzeniem, wiec walidacja CR/LF musi dzialac na SUROWEJ wartosci (ISK-370, regresja S3).
+  const SEPARATORS = [
+    ["CR", "\r"],
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+  ] as const;
+
   for (const field of SINGLE_LINE_FIELDS) {
-    for (const [name, sep] of [
-      ["CR", "\r"],
-      ["LF", "\n"],
-      ["CRLF", "\r\n"],
-    ] as const) {
-      it(`odrzuca ${name} w polu ${field}`, () => {
-        const injected = `${PAYLOADS[field]}${sep}Bcc: evil@example.com`;
-        const result = inquirySchema.safeParse({ ...base, kind: "firma", [field]: injected });
-        expect(result.success).toBe(false);
-      });
+    for (const [name, sep] of SEPARATORS) {
+      const variants = {
+        poczatku: `${sep}Bcc: evil@example.com ${PAYLOADS[field]}`,
+        srodku: `${PAYLOADS[field]}${sep}Bcc: evil@example.com`,
+        koncu: `${PAYLOADS[field]}${sep}`,
+      } as const;
+      for (const [position, injected] of Object.entries(variants)) {
+        it(`odrzuca ${name} na ${position} pola ${field}`, () => {
+          const result = inquirySchema.safeParse({ ...base, kind: "firma", [field]: injected });
+          expect(result.success).toBe(false);
+        });
+      }
     }
   }
 

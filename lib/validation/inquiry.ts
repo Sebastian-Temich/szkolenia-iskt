@@ -39,37 +39,41 @@ function hasControlChars(value: string): boolean {
   return false;
 }
 
+// Pole jednoliniowe: CR/LF odrzucamy na SUROWEJ wartosci (PRZED `.trim()`), bo trim usunalby
+// znaki konca linii na brzegach i przepuscil np. "ACME\r\n" (ISK-370). Dopiero po odrzuceniu
+// CR/LF normalizujemy (trim) przez `.pipe(...)`.
+const singleLine = () => z.string().refine(rejectsLineBreak, noLineBreak);
+
 const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .refine(rejectsLineBreak, noLineBreak)
+  singleLine()
+    .pipe(z.string().trim().max(max))
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined));
 
 export const inquirySchema = z
   .object({
     kind: z.enum(INQUIRY_KINDS, { message: "Wybierz rodzaj zgłoszenia." }),
-    fullName: z
-      .string()
-      .trim()
-      .min(INQUIRY_LIMITS.fullName.min, { message: "Podaj imię i nazwisko (min. 2 znaki)." })
-      .max(INQUIRY_LIMITS.fullName.max, { message: "Imię i nazwisko jest za długie." })
-      .refine(rejectsLineBreak, noLineBreak),
+    fullName: singleLine().pipe(
+      z
+        .string()
+        .trim()
+        .min(INQUIRY_LIMITS.fullName.min, { message: "Podaj imię i nazwisko (min. 2 znaki)." })
+        .max(INQUIRY_LIMITS.fullName.max, { message: "Imię i nazwisko jest za długie." }),
+    ),
     email: z
       .string()
       .trim()
       .toLowerCase()
       .max(INQUIRY_LIMITS.email.max, { message: "Adres e-mail jest za długi." })
       .pipe(z.email({ message: "Podaj poprawny adres e-mail." })),
-    phone: z
-      .string()
-      .trim()
-      .min(INQUIRY_LIMITS.phone.min, { message: "Podaj numer telefonu." })
-      .max(INQUIRY_LIMITS.phone.max, { message: "Numer telefonu jest za długi." })
-      .regex(PHONE_PATTERN, { message: "Numer telefonu zawiera niedozwolone znaki." })
-      .refine(rejectsLineBreak, noLineBreak),
+    phone: singleLine().pipe(
+      z
+        .string()
+        .trim()
+        .min(INQUIRY_LIMITS.phone.min, { message: "Podaj numer telefonu." })
+        .max(INQUIRY_LIMITS.phone.max, { message: "Numer telefonu jest za długi." })
+        .regex(PHONE_PATTERN, { message: "Numer telefonu zawiera niedozwolone znaki." }),
+    ),
     companyName: optionalText(INQUIRY_LIMITS.companyName.max),
     trainingId: z.uuid({ message: "Niepoprawny identyfikator szkolenia." }).optional(),
     interestArea: optionalText(INQUIRY_LIMITS.interestArea.max),
