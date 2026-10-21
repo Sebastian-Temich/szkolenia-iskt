@@ -18,18 +18,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { loginAsAdmin, loginViaUi } from "./helpers/auth";
-import {
-  clearThrottle,
-  createTraining,
-  deleteTraining,
-  sfx,
-} from "./helpers/data";
+import { createTraining, deleteTraining, sfx } from "./helpers/data";
 import { USER_EMAIL, USER_PASSWORD, serviceClient } from "./helpers/stack";
-
-// Projekt chromium-forms wykonuje te testy pojedynczo, takze miedzy plikami.
-test.beforeEach(async () => {
-  await clearThrottle();
-});
 
 /** Minimum przyjete w bramce UX (ISK-349/ISK-366) i w `ux-blockers.spec.ts`. */
 const MIN_TOUCH_PX = 44;

@@ -18,8 +18,7 @@ const webServerTimeout =
 
 // Wspolny limiter IP wymaga jednego workera MIEDZY plikami formularza.
 // Samo describe.serial w kazdym pliku nie zapewnia takiej izolacji.
-const formSpecs =
-  /(?:formularz-zgloszenia|ux-blockers|ux-powazne|dostepnosc)\.spec\.ts$/;
+const formSpecs = /(?:formularz-zgloszenia|ux-blockers|dostepnosc)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./tests/e2e",

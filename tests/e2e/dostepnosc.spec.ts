@@ -192,50 +192,52 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
     expect(category).toBeGreaterThan(q);
   });
 
-  test("formularz: calosc da sie wypelnic i wyslac bez myszy", async ({
-    page,
-  }) => {
-    // Ten test realnie wysyla zgloszenie, wiec liczy sie do limitu 3/10 min.
-    await clearThrottle();
-    await page.goto("/kontakt");
+  test(
+    "formularz: calosc da sie wypelnic i wyslac bez myszy",
+    { tag: "@form-submit" },
+    async ({ page }) => {
+      // Ten test realnie wysyla zgloszenie, wiec liczy sie do limitu 3/10 min.
+      await clearThrottle();
+      await page.goto("/kontakt");
 
-    // Focus na pierwszym polu i dalej wylacznie klawiatura.
-    await page.getByLabel("Imię i nazwisko").focus();
-    await page.keyboard.type("[TEST] Klawiatura Testowa");
-    await page.keyboard.press("Tab");
-    await page.keyboard.type("klawiatura@example.invalid");
+      // Focus na pierwszym polu i dalej wylacznie klawiatura.
+      await page.getByLabel("Imię i nazwisko").focus();
+      await page.keyboard.type("[TEST] Klawiatura Testowa");
+      await page.keyboard.press("Tab");
+      await page.keyboard.type("klawiatura@example.invalid");
 
-    // Nie zakladamy sztywnej kolejnosci pozostalych pol — sprawdzamy to, co
-    // jest istotne dla WCAG 2.1.1: kazde pole jest osiagalne i edytowalne
-    // z klawiatury, a zgoda RODO da sie zaznaczyc Spacja.
-    await page.getByLabel("Telefon").focus();
-    await page.keyboard.type("+48 600 100 200");
-    await page.getByLabel("Interesujące szkolenie lub obszar").focus();
-    await page.keyboard.type("[TEST] Obszar");
-    await page.getByLabel("Wiadomość").focus();
-    await page.keyboard.type("Zgloszenie wypelnione wylacznie klawiatura.");
+      // Nie zakladamy sztywnej kolejnosci pozostalych pol — sprawdzamy to, co
+      // jest istotne dla WCAG 2.1.1: kazde pole jest osiagalne i edytowalne
+      // z klawiatury, a zgoda RODO da sie zaznaczyc Spacja.
+      await page.getByLabel("Telefon").focus();
+      await page.keyboard.type("+48 600 100 200");
+      await page.getByLabel("Interesujące szkolenie lub obszar").focus();
+      await page.keyboard.type("[TEST] Obszar");
+      await page.getByLabel("Wiadomość").focus();
+      await page.keyboard.type("Zgloszenie wypelnione wylacznie klawiatura.");
 
-    const consent = page.getByRole("checkbox", {
-      name: /Potwierdzam zapoznanie się z informacją RODO/,
-    });
-    await consent.focus();
-    await page.keyboard.press("Space");
-    await expect(consent).toBeChecked();
+      const consent = page.getByRole("checkbox", {
+        name: /Potwierdzam zapoznanie się z informacją RODO/,
+      });
+      await consent.focus();
+      await page.keyboard.press("Space");
+      await expect(consent).toBeChecked();
 
-    // Przycisk wysylki jest osiagalny i reaguje na Enter.
-    const submit = page.getByRole("button", { name: "Wyślij zgłoszenie" });
-    await submit.focus();
-    await expect(submit).toBeFocused();
-    // Token czasowy (ADR-0004 §3) odrzuca wyslanie szybsze niz 3 s — i robi to
-    // "cicho", oddajac ekran sukcesu. Bez tego czekania test przeszedlby,
-    // nie zapisawszy niczego.
-    await awaitFormTokenMaturity(page);
-    await page.keyboard.press("Enter");
+      // Przycisk wysylki jest osiagalny i reaguje na Enter.
+      const submit = page.getByRole("button", { name: "Wyślij zgłoszenie" });
+      await submit.focus();
+      await expect(submit).toBeFocused();
+      // Token czasowy (ADR-0004 §3) odrzuca wyslanie szybsze niz 3 s — i robi to
+      // "cicho", oddajac ekran sukcesu. Bez tego czekania test przeszedlby,
+      // nie zapisawszy niczego.
+      await awaitFormTokenMaturity(page);
+      await page.keyboard.press("Enter");
 
-    await expect(page.getByRole("status")).toContainText(
-      "Dziękujemy za zgłoszenie",
-    );
-  });
+      await expect(page.getByRole("status")).toContainText(
+        "Dziękujemy za zgłoszenie",
+      );
+    },
+  );
 
   test("brak pulapki focusu: z formularza da sie wyjsc Tabem do konca dokumentu", async ({
     page,

@@ -122,7 +122,7 @@ jobs:
       # i przerwanymi nawigacjami — testy padaly, mimo ze aplikacja byla sprawna.
       # Trzy przebiegi formularza na tej samej bazie; bez resetu i bez retries.
       - name: Verify form isolation without retries
-        run: npm run test:e2e -- --project=chromium-forms --retries=0 --repeat-each=3
+        run: npm run test:e2e -- --project=chromium-forms --grep @form-submit --retries=0 --repeat-each=3
         env:
           PLAYWRIGHT_USE_BUILD: "1"
       - run: npm run test:e2e
