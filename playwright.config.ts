@@ -16,6 +16,10 @@ const baseURL = `http://localhost:${port}`;
 const webServerTimeout =
   Number(process.env.E2E_WEBSERVER_TIMEOUT_MS) || 180_000;
 
+// Wspolny limiter IP wymaga jednego workera MIEDZY plikami formularza.
+// Samo describe.serial w kazdym pliku nie zapewnia takiej izolacji.
+const formSpecs = /(?:formularz-zgloszenia|ux-blockers|dostepnosc)\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   // Bramka hermetycznosci (ADR-0005 D7) + lokalne konta testowe. Bez tego
@@ -36,7 +40,21 @@ export default defineConfig({
   // za ciasne i czytaja sie jak zepsuta aplikacja (patrz ADR-0005 D7).
   timeout: 120_000,
   expect: { timeout: 30_000 },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      testIgnore: formSpecs,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium-forms",
+      testMatch: formSpecs,
+      workers: 1,
+      fullyParallel: false,
+      retries: 0,
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   webServer: {
     command: process.env.PLAYWRIGHT_USE_BUILD
       ? `npm run start -- --port ${port}`

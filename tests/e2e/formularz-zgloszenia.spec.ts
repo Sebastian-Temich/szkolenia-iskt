@@ -37,70 +37,74 @@ async function fillCommonFields(
 }
 
 test.describe("D5.3 — zgloszenie jako osoba indywidualna", () => {
-  test("po wyslaniu widac ekran potwierdzenia, a zgloszenie trafia do bazy", async ({
-    page,
-  }) => {
-    const email = `osoba-${sfx()}@example.invalid`;
-    await page.goto("/kontakt");
+  test(
+    "po wyslaniu widac ekran potwierdzenia, a zgloszenie trafia do bazy",
+    { tag: "@form-submit" },
+    async ({ page }) => {
+      const email = `osoba-${sfx()}@example.invalid`;
+      await page.goto("/kontakt");
 
-    await page.getByRole("radio", { name: "Osoba indywidualna" }).check();
-    await fillCommonFields(page, email);
-    await page
-      .getByRole("checkbox", {
-        name: /Potwierdzam zapoznanie się z informacją RODO/,
-      })
-      .check();
-    await awaitFormTokenMaturity(page);
-    await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
+      await page.getByRole("radio", { name: "Osoba indywidualna" }).check();
+      await fillCommonFields(page, email);
+      await page
+        .getByRole("checkbox", {
+          name: /Potwierdzam zapoznanie się z informacją RODO/,
+        })
+        .check();
+      await awaitFormTokenMaturity(page);
+      await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
 
-    await expect(page.getByRole("status")).toContainText(
-      "Dziękujemy za zgłoszenie",
-    );
+      await expect(page.getByRole("status")).toContainText(
+        "Dziękujemy za zgłoszenie",
+      );
 
-    const { data } = await serviceClient()
-      .from("inquiries")
-      .select("kind,status,company_name")
-      .eq("email", email)
-      .single();
-    expect(data?.kind).toBe("osoba");
-    expect(data?.status).toBe("nowe");
-    expect(data?.company_name).toBeNull();
-  });
+      const { data } = await serviceClient()
+        .from("inquiries")
+        .select("kind,status,company_name")
+        .eq("email", email)
+        .single();
+      expect(data?.kind).toBe("osoba");
+      expect(data?.status).toBe("nowe");
+      expect(data?.company_name).toBeNull();
+    },
+  );
 });
 
 test.describe("D5.4 — zgloszenie jako firma", () => {
-  test("po wyslaniu widac potwierdzenie, a nazwa firmy jest zapisana", async ({
-    page,
-  }) => {
-    const email = `firma-${sfx()}@example.invalid`;
-    await page.goto("/kontakt");
+  test(
+    "po wyslaniu widac potwierdzenie, a nazwa firmy jest zapisana",
+    { tag: "@form-submit" },
+    async ({ page }) => {
+      const email = `firma-${sfx()}@example.invalid`;
+      await page.goto("/kontakt");
 
-    await page.getByRole("radio", { name: "Firma" }).check();
-    // Pole nazwy firmy pojawia sie warunkowo dla rodzaju "firma".
-    const companyField = page.getByLabel("Nazwa firmy");
-    await expect(companyField).toBeVisible();
-    await companyField.fill("[TEST] Firma Przykladowa sp. z o.o.");
-    await fillCommonFields(page, email);
-    await page
-      .getByRole("checkbox", {
-        name: /Potwierdzam zapoznanie się z informacją RODO/,
-      })
-      .check();
-    await awaitFormTokenMaturity(page);
-    await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
+      await page.getByRole("radio", { name: "Firma" }).check();
+      // Pole nazwy firmy pojawia sie warunkowo dla rodzaju "firma".
+      const companyField = page.getByLabel("Nazwa firmy");
+      await expect(companyField).toBeVisible();
+      await companyField.fill("[TEST] Firma Przykladowa sp. z o.o.");
+      await fillCommonFields(page, email);
+      await page
+        .getByRole("checkbox", {
+          name: /Potwierdzam zapoznanie się z informacją RODO/,
+        })
+        .check();
+      await awaitFormTokenMaturity(page);
+      await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
 
-    await expect(page.getByRole("status")).toContainText(
-      "Dziękujemy za zgłoszenie",
-    );
+      await expect(page.getByRole("status")).toContainText(
+        "Dziękujemy za zgłoszenie",
+      );
 
-    const { data } = await serviceClient()
-      .from("inquiries")
-      .select("kind,company_name")
-      .eq("email", email)
-      .single();
-    expect(data?.kind).toBe("firma");
-    expect(data?.company_name).toBe("[TEST] Firma Przykladowa sp. z o.o.");
-  });
+      const { data } = await serviceClient()
+        .from("inquiries")
+        .select("kind,company_name")
+        .eq("email", email)
+        .single();
+      expect(data?.kind).toBe("firma");
+      expect(data?.company_name).toBe("[TEST] Firma Przykladowa sp. z o.o.");
+    },
+  );
 });
 
 test.describe("D5.5 — brak zgody RODO", () => {

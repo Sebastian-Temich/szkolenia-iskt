@@ -463,67 +463,69 @@ test.describe("P4 — /kontakt?szkolenie= wiaze zgloszenie ze szkoleniem", () =>
     await clearThrottle();
   });
 
-  test("przejscie ze szczegolu szkolenia zapisuje niepuste training_id", async ({
-    page,
-  }) => {
-    const training = await createTraining({
-      published: true,
-      titlePrefix: "[TEST] Powiazanie",
-    });
-    const email = `powiazanie-${sfx()}@example.invalid`;
-    try {
-      // Pelna sciezka uzytkownika: szczegol szkolenia -> CTA -> formularz.
-      await page.goto(`/szkolenia/${training.slug}`);
-      await page.getByRole("link", { name: /Skontaktuj się/ }).click();
-      // Nawigacja App Routera nie zmienia adresu, dopoki serwer nie odda
-      // payloadu RSC. W trybie dev pierwsze wejscie w `/kontakt` placi za
-      // kompilacje trasy, wiec domyslne 30 s z `expect` bywa za ciasne i czyta
-      // sie jak niedzialajace CTA. Czekamy jawnie, z limitem calego testu.
-      await page.waitForURL(
-        new RegExp(`/kontakt\\?szkolenie=${training.slug}$`),
-        { timeout: 90_000 },
-      );
+  test(
+    "przejscie ze szczegolu szkolenia zapisuje niepuste training_id",
+    { tag: "@form-submit" },
+    async ({ page }) => {
+      const training = await createTraining({
+        published: true,
+        titlePrefix: "[TEST] Powiazanie",
+      });
+      const email = `powiazanie-${sfx()}@example.invalid`;
+      try {
+        // Pelna sciezka uzytkownika: szczegol szkolenia -> CTA -> formularz.
+        await page.goto(`/szkolenia/${training.slug}`);
+        await page.getByRole("link", { name: /Skontaktuj się/ }).click();
+        // Nawigacja App Routera nie zmienia adresu, dopoki serwer nie odda
+        // payloadu RSC. W trybie dev pierwsze wejscie w `/kontakt` placi za
+        // kompilacje trasy, wiec domyslne 30 s z `expect` bywa za ciasne i czyta
+        // sie jak niedzialajace CTA. Czekamy jawnie, z limitem calego testu.
+        await page.waitForURL(
+          new RegExp(`/kontakt\\?szkolenie=${training.slug}$`),
+          { timeout: 90_000 },
+        );
 
-      // Formularz pokazuje, o ktore szkolenie pyta.
-      const marker = page.getByTestId("selected-training");
-      await expect(marker).toBeVisible();
-      await expect(marker).toContainText(training.title);
-      await expect(marker).toHaveAttribute("data-training-id", training.id);
+        // Formularz pokazuje, o ktore szkolenie pyta.
+        const marker = page.getByTestId("selected-training");
+        await expect(marker).toBeVisible();
+        await expect(marker).toContainText(training.title);
+        await expect(marker).toHaveAttribute("data-training-id", training.id);
 
-      await page.getByLabel("Imię i nazwisko").fill("[TEST] Jan Powiazany");
-      await page.getByLabel("Adres e-mail").fill(email);
-      await page.getByLabel("Telefon").fill("+48 600 100 200");
-      await page
-        .getByLabel("Wiadomość")
-        .fill("Fikcyjna tresc zapytania o konkretne szkolenie (E2E).");
-      await page
-        .getByRole("checkbox", {
-          name: /Potwierdzam zapoznanie się z informacją RODO/,
-        })
-        .check();
-      await awaitFormTokenMaturity(page);
-      await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
+        await page.getByLabel("Imię i nazwisko").fill("[TEST] Jan Powiazany");
+        await page.getByLabel("Adres e-mail").fill(email);
+        await page.getByLabel("Telefon").fill("+48 600 100 200");
+        await page
+          .getByLabel("Wiadomość")
+          .fill("Fikcyjna tresc zapytania o konkretne szkolenie (E2E).");
+        await page
+          .getByRole("checkbox", {
+            name: /Potwierdzam zapoznanie się z informacją RODO/,
+          })
+          .check();
+        await awaitFormTokenMaturity(page);
+        await page.getByRole("button", { name: "Wyślij zgłoszenie" }).click();
 
-      await expect(page.getByRole("status")).toContainText(
-        "Dziękujemy za zgłoszenie",
-      );
+        await expect(page.getByRole("status")).toContainText(
+          "Dziękujemy za zgłoszenie",
+        );
 
-      // Ekran potwierdzenia nic nie dowodzi (warstwy antyspamowe zwracaja 200
-      // takze przy cichym odrzuceniu) — dowodem jest wiersz w bazie.
-      const { data } = await serviceClient()
-        .from("inquiries")
-        .select("training_id,interest_area")
-        .eq("email", email)
-        .single();
-      expect(data?.training_id).toBe(training.id);
-      expect(data?.training_id).not.toBeNull();
-      // Temat zostaje tez tekstem — lista zgloszen czyta sie bez joinu.
-      expect(data?.interest_area).toBe(training.title);
-    } finally {
-      await serviceClient().from("inquiries").delete().eq("email", email);
-      await deleteTraining(training.id);
-    }
-  });
+        // Ekran potwierdzenia nic nie dowodzi (warstwy antyspamowe zwracaja 200
+        // takze przy cichym odrzuceniu) — dowodem jest wiersz w bazie.
+        const { data } = await serviceClient()
+          .from("inquiries")
+          .select("training_id,interest_area")
+          .eq("email", email)
+          .single();
+        expect(data?.training_id).toBe(training.id);
+        expect(data?.training_id).not.toBeNull();
+        // Temat zostaje tez tekstem — lista zgloszen czyta sie bez joinu.
+        expect(data?.interest_area).toBe(training.title);
+      } finally {
+        await serviceClient().from("inquiries").delete().eq("email", email);
+        await deleteTraining(training.id);
+      }
+    },
+  );
 
   test("panel pokazuje nazwe powiazanego szkolenia w szczegole zgloszenia", async ({
     page,
