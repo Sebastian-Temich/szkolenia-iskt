@@ -101,6 +101,88 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* ============================================================================
+   ISK-400 — rytm i forma kompozycji wzorca ISKT Greenovation.
+
+   DLACZEGO `:root`, A NIE `@theme`
+   Tailwind v4 czyta `@theme` jako przestrzenie nazw utilities: `--container-*`
+   daje `max-w-*`, `--spacing-*` daje `p-*`/`m-*` itd. Nazwa wpisana w taka
+   przestrzen moze PRZESLONIC wbudowane utility — projekt juz raz stracil
+   caly uklad strony, bo `--spacing-container` przeslonilo `max-w-container`
+   (ISK-355). Tokeny wzorca nazywaja sie `--container-max` i `--container-pad`;
+   w `@theme` wygenerowalyby `max-w-max` i `max-w-pad`, a `max-w-max`
+   (`max-width: max-content`) Tailwind definiuje sam.
+
+   Zwykle wlasciwosci w `:root` nie generuja zadnego utility, wiec kolizja jest
+   niemozliwa z definicji, a nazwy moga byc identyczne z `_ds/tokens/*.css` —
+   co bylo celem. Konsumentem tych tokenow jest `@layer components` ponizej,
+   nie klasy uzytkowe, wiec nic nie tracimy.
+
+   Tokeny kolorow, typografii, promieni i cieni zostaja w `@theme` wyzej —
+   tam utilities sa potrzebne, a nazwy sa juz zweryfikowane. Tutaj NIE
+   powtarzamy zadnej wartosci koloru; odwolujemy sie do `--color-*`.
+   ========================================================================== */
+:root {
+  /* --- Rytm (spacing.css wzorca) --- */
+  --section-pad-y: clamp(4rem, 9vw, 7.5rem);
+  --container-max: 75rem; /* 1200 px */
+  --container-pad: clamp(1.25rem, 5vw, 3rem); /* 20 / 38.4 / 48 px */
+
+  /* --- Promienie nazwane intencja (wartosci z `@theme`) --- */
+  --radius-card: var(--radius-lg); /* 16 px */
+  --radius-panel: var(--radius-2xl); /* 32 px */
+  --radius-control: var(--radius-md); /* 12 px */
+
+  /* --- Krawedz marki ---
+     `effects.css` wzorca ma `--border-width-strong: 2px`, ale ani jeden
+     przycisk ghost ani chip we wzorcu go nie uzywa: wszystkie maja 1.5px.
+     Token idzie za zmierzonym wzorcem, nie za plikiem tokenow. */
+  --border-width-brand: 1.5px;
+
+  /* --- Wysokosci kontrolek ---
+     Wzorzec ma dziewiec wysokosci przyciskow (34/36/40/44/46/48/50/54/56) dla
+     jednego komponentu. Zostaja cztery z ISK-400: 44 / 46 / 54 / 56.
+     44 px to jednoczesnie minimum celu dotykowego przyjete w bramkach UX
+     tego projektu (WCAG 2.1 AA, 2.5.5) — zadna kontrolka nie schodzi nizej. */
+  --control-h-sm: 44px;
+  --control-h-md: 46px;
+  --control-h-lg: 54px;
+  --control-h-xl: 56px;
+  --field-h: var(--control-h-md); /* 46 px */
+
+  /* --- Pierscien focusu ---
+     `color-mix` jest tu swiadomie: pierscien ma byc polprzezroczysty, zeby
+     czytal sie na bialym tle i na `green-50`. UWAGA dla testow: computed style
+     zwraca `color(srgb ...)`, nie `rgb(...)` — nie parsowac koloru regexem
+     (helper `tests/e2e/helpers/kontrast.ts`). */
+  --focus-ring: color-mix(in srgb, var(--color-green-500) 55%, transparent);
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+
+  /* --- Ruch --- */
+  --dur-fast: 130ms;
+  --dur-base: 220ms;
+  --dur-slow: 380ms;
+
+  /* --- Gradienty marki --- */
+  --gradient-brand: linear-gradient(
+    120deg,
+    var(--color-green-500) 0%,
+    var(--color-green-700) 60%,
+    var(--color-green-900) 100%
+  );
+  --gradient-leaf: linear-gradient(
+    135deg,
+    var(--color-green-300),
+    var(--color-green-600)
+  );
+  --gradient-wash: linear-gradient(
+    180deg,
+    var(--color-green-50),
+    var(--color-neutral-0)
+  );
+}
+
 @layer components {
   .panel-shell {
     min-height: 100vh;
@@ -579,11 +661,13 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* ISK-400: wartosci bez zmian, tylko wyciagniete do tokenow `--focus-ring*`,
+     zeby pola formularza (ktore zastepuja `outline` pierscieniem `box-shadow`)
+     uzywaly tej samej grubosci i tego samego koloru co reszta aplikacji. */
   :focus-visible {
     border-radius: var(--radius-xs);
-    outline: 3px solid
-      color-mix(in srgb, var(--color-green-500) 55%, transparent);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   ::selection {
@@ -1277,5 +1361,809 @@
   }
   .catalog-form .button {
     width: 100%;
+  }
+}
+
+/* ============================================================================
+   ISK-400 — warstwa komponentow wspoldzielonych (prefiks `ui-`).
+
+   DLACZEGO PREFIKS `ui-`
+   W tym pliku zyja juz dwa niezalezne zestawy klas: publiczny (`.button`,
+   `.pill`, `.card-footer`, `.section-heading`, `.avatar`) i panelu
+   (`.panel-*`). Oba sa w `@layer components`, czyli o tej samej wadze. Nazwa
+   taka jak `.card` czy `.badge` bez prefiksu trafilaby w ich sasiedztwo
+   i pierwsza kolizja objawilaby sie jako "layout sie rozjechal" bez zadnego
+   bledu. Prefiks `ui-` jest granica: nowa warstwa nie nadpisuje starej, a M2
+   i M3 moga podmieniac widok po widoku, nie jednym skokiem.
+
+   DLACZEGO CSS, A NIE KLASY UZYTKOWE W `className`
+   Reguly ponizej odwoluja sie do tokenow (`var(--control-h-lg)`) i do stanow,
+   ktorych Tailwind nie wyraza bez wariantow (`:focus-visible` z podmiana
+   `outline` na `box-shadow`, `:disabled`, `:hover` tylko dla kart klikalnych).
+   Trzymanie tego w CSS pozwala tez zmierzyc computed style w bramce e2e
+   niezaleznie od tego, co wyrenderuje React.
+
+   ODSTEPSTWA OD WZORCA SA CELOWE I OZNACZONE `UJEDNOLICENIE:` ponizej.
+   Wzorzec jest prototypem ze stylami inline: ten sam przycisk ma w nim nawet
+   nine wysokosci, ten sam chip dwanascie rozmiarow, eyebrow cztery wartosci
+   `letter-spacing`. ISK-400 punkt 4 wprost kaze to ujednolicic, nie odtworzyc.
+   ========================================================================== */
+@layer components {
+  /* -------------------------------------------------------------- layout -- */
+  /* Rytm sekcji i kontener wzorca. `.page-shell` (wyzej) zostaje dla widokow
+     E1–E5; `.ui-container` jest wersja z wzorca: `padding-inline` zamiast
+     zwezania przez `width: min()`, dzieki czemu tlo sekcji idzie na pelna
+     szerokosc, a tylko tresc ma marginesy. */
+  .ui-container {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: var(--container-pad);
+  }
+  .ui-section {
+    padding-block: var(--section-pad-y);
+  }
+  .ui-section-tint {
+    background: var(--color-surface-muted);
+  }
+  .ui-section-subtle {
+    background: var(--color-surface-subtle);
+  }
+
+  /* -------------------------------------------------------------- button -- */
+  /* UJEDNOLICENIE: wzorzec ma 34/36/40/44/46/48/50/54/56 px. Zostaja cztery
+     rozmiary z ISK-400. UJEDNOLICENIE: `letter-spacing: -0.01em` jest we
+     wzorcu tylko na dwoch z osmiu przyciskow — stosujemy wszedzie.
+     UJEDNOLICENIE: ghost ma we wzorcu `padding` mniejszy o 2 px od primary
+     przy roznicy krawedzi 0.5 px; `box-sizing: border-box` i staly `height`
+     i tak nie przenosza tej roznicy na wymiar, wiec padding jest jeden. */
+  .ui-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: var(--control-h-md);
+    /* Cel dotykowy nie moze zalezec od tego, ile tekstu ma etykieta —
+       icon-button bez `min-width` konczy jako kwadrat 46x46 tylko przypadkiem. */
+    min-width: var(--control-h-sm);
+    padding-inline: 20px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
+  }
+  /* Rozmiary. `sm` (44 px) jest dolna granica: nizej nie zjezdzamy nigdzie. */
+  .ui-button-sm {
+    height: var(--control-h-sm);
+  }
+  .ui-button-md {
+    height: var(--control-h-md);
+  }
+  .ui-button-lg {
+    height: var(--control-h-lg);
+    padding-inline: 28px;
+    font-size: 17px;
+  }
+  .ui-button-xl {
+    height: var(--control-h-xl);
+    padding-inline: 30px;
+    font-size: 18px;
+  }
+  /* Warianty. Kazdy deklaruje krawedz, tlo i kolor razem — polowiczne
+     nadpisanie jednej z trzech wlasciwosci bylo zrodlem ISK-372 / B3
+     (bialy tekst na tle strony, kontrast 1,03:1). */
+  .ui-button-primary {
+    border-color: var(--color-green-700);
+    background: var(--color-green-700);
+    color: var(--color-text-on-brand);
+    box-shadow: var(--shadow-brand);
+  }
+  .ui-button-primary:hover:not(:disabled) {
+    border-color: var(--color-green-800);
+    background: var(--color-green-800);
+  }
+  .ui-button-ghost {
+    border-width: var(--border-width-brand);
+    border-color: var(--color-green-700);
+    background: transparent;
+    color: var(--color-green-700);
+  }
+  .ui-button-ghost:hover:not(:disabled) {
+    background: var(--color-green-50);
+  }
+  /* Na ciemnym tle (panel `--gradient-brand`, karty `--ink-900`). Krawedz
+     zostaje przezroczysta, zeby wysokosc i padding zgadzaly sie z primary. */
+  .ui-button-light {
+    background: var(--color-neutral-0);
+    color: var(--color-green-800);
+    font-weight: 700;
+    box-shadow: var(--shadow-md);
+  }
+  .ui-button-light:hover:not(:disabled) {
+    background: var(--color-green-50);
+  }
+  .ui-button-neutral {
+    border-width: var(--border-width-brand);
+    border-color: var(--color-border-default);
+    background: var(--color-neutral-0);
+    color: var(--color-ink-800);
+  }
+  .ui-button-neutral:hover:not(:disabled) {
+    border-color: var(--color-green-600);
+    color: var(--color-green-800);
+  }
+  /* Wzorzec nie ma zadnego stanu nieaktywnego: jego formularz mozna wyslac
+     dowolna liczbe razy (ISK-399 / M1 punkt 5). `cursor: progress` zamiast
+     `not-allowed`, bo w praktyce ten stan oznacza "trwa wysylka". */
+  .ui-button:disabled {
+    opacity: 0.55;
+    box-shadow: none;
+    cursor: progress;
+  }
+  .ui-button:disabled:hover {
+    background: inherit;
+  }
+  /* Sam padding ikony, bez etykiety. `min-width` z `.ui-button` trzyma 44 px. */
+  .ui-button-icon {
+    padding-inline: 0;
+    aspect-ratio: 1;
+  }
+  .ui-button-block {
+    width: 100%;
+  }
+
+  /* ------------------------------------------------------------ iconchip -- */
+  /* UJEDNOLICENIE: wzorzec ma dwanascie rozmiarow (24/28/36/40/44/48/50/52/
+     54/56/64/96) i dwa promienie dla jednego komponentu. Zostaje piec
+     rozmiarow i dwa ksztalty. */
+  .ui-iconchip {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-control);
+    font-weight: 800;
+    line-height: 1;
+  }
+  .ui-iconchip-xs {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+  }
+  .ui-iconchip-sm {
+    width: 36px;
+    height: 36px;
+  }
+  .ui-iconchip-md {
+    width: 40px;
+    height: 40px;
+  }
+  .ui-iconchip-lg {
+    width: 48px;
+    height: 48px;
+  }
+  .ui-iconchip-xl {
+    width: 56px;
+    height: 56px;
+    font-size: 18px;
+  }
+  .ui-iconchip-circle {
+    border-radius: var(--radius-pill);
+  }
+  .ui-iconchip-soft {
+    background: var(--color-green-50);
+    color: var(--color-green-700);
+  }
+  .ui-iconchip-solid {
+    background: var(--color-green-700);
+    color: var(--color-text-on-brand);
+  }
+  /* Na panelu `--gradient-brand` / `--ink-900`: bialy welon zamiast green-50,
+     bo green-50 na zielonym gradiencie zniknie. */
+  .ui-iconchip-on-dark {
+    background: rgb(255 255 255 / 14%);
+    color: var(--color-text-on-brand);
+  }
+  .ui-iconchip-brand {
+    background: var(--gradient-brand);
+    color: var(--color-text-on-brand);
+  }
+
+  /* ---------------------------------------------------------------- card -- */
+  .ui-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-surface-card);
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+  }
+  .ui-card-roomy {
+    padding: 2rem;
+  }
+  .ui-card-flush {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .ui-card-tint {
+    border-color: var(--color-green-200);
+    background: var(--color-surface-muted);
+    box-shadow: none;
+  }
+  .ui-card-dark {
+    border-color: transparent;
+    background: var(--color-ink-900);
+    color: var(--color-text-on-brand);
+    box-shadow: none;
+  }
+  /* Welon na tle zielonego panelu — we wzorcu nazwane "glass". */
+  .ui-card-glass {
+    border-color: rgb(255 255 255 / 16%);
+    background: rgb(255 255 255 / 8%);
+    color: var(--color-text-on-brand);
+    backdrop-filter: blur(4px);
+    box-shadow: none;
+  }
+  /* UJEDNOLICENIE: hover tylko dla kart, ktore sa linkiem albo przyciskiem.
+     Wzorzec podnosi tez karty nieklikalne, co obiecuje interakcje, ktorej nie
+     ma. Jedna karta we wzorcu ma `-3px` zamiast `-4px` — bierzemy `-4px`.
+     `prefers-reduced-motion` wylacza sam ruch, cien zostaje jako afordans. */
+  .ui-card-interactive {
+    cursor: pointer;
+    transition:
+      box-shadow var(--dur-base) var(--ease-standard),
+      transform var(--dur-base) var(--ease-standard);
+  }
+  .ui-card-interactive:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ui-card-interactive {
+      transition: box-shadow var(--dur-base) var(--ease-standard);
+    }
+    .ui-card-interactive:hover {
+      transform: none;
+    }
+  }
+
+  /* --------------------------------------------------------------- badge -- */
+  /* UJEDNOLICENIE: wzorzec ma czternascie wariantow badge'a roznicych sie
+     o 0.5 px paddingu i 0.5 px kroju. Zostaje jedna forma i piec tonow. */
+  .ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+  .ui-badge-tint {
+    background: var(--color-green-100);
+    color: var(--color-green-800);
+  }
+  .ui-badge-outline {
+    border-color: var(--color-green-200);
+    color: var(--color-green-800);
+  }
+  .ui-badge-soft {
+    border-color: var(--color-green-200);
+    background: var(--color-green-50);
+    color: var(--color-green-800);
+  }
+  .ui-badge-solid {
+    background: var(--color-green-700);
+    color: var(--color-text-on-brand);
+  }
+  /* Nad pasmem gradientu w karcie wyroznionej — tlo musi byc kryjace. */
+  .ui-badge-on-media {
+    background: rgb(255 255 255 / 92%);
+    color: var(--color-green-800);
+  }
+
+  /* ----------------------------------------------------- section heading -- */
+  /* UJEDNOLICENIE: eyebrow ma we wzorcu `letter-spacing` 0.04 / 0.06 / 0.08em
+     w zaleznosci od miejsca. Zostaje 0.08em (`--tracking-caps`). */
+  .ui-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--color-green-600);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: var(--tracking-caps);
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+  /* Kreska 22x2 px. `currentColor` + `aria-hidden` na elemencie: to ornament,
+     a nie tresc, wiec nie moze trafic do czytnika ekranu. */
+  .ui-eyebrow-dash {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+  .ui-eyebrow-on-dark {
+    color: var(--color-green-200);
+  }
+  .ui-section-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+  }
+  .ui-section-heading-center {
+    align-items: center;
+    max-width: 680px;
+    margin-inline: auto;
+    text-align: center;
+  }
+  /* Naglowek z akcja po prawej ("Caly katalog →"). Na waskim ekranie akcja
+     schodzi pod naglowek — wzorzec nie ma tu zadnej reguly `@media`. */
+  .ui-section-heading-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .ui-section-heading-row > .ui-section-heading-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 640px;
+  }
+  @media (max-width: 48rem) {
+    .ui-section-heading-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+  .ui-section-title {
+    margin: 0;
+    font-size: clamp(2rem, 3.4vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  /* UJEDNOLICENIE: podsekcje maja we wzorcu 1.6rem (kurs) i 1.5rem (trener).
+     Zostaje 1.6rem — ISK-400 punkt 4 zada jednej skali, a wieksza wartosc
+     lepiej odcina naglowek od tekstu w gestszych widokach szczegolu. */
+  .ui-subsection-title {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .ui-section-lead {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 1.15rem;
+    line-height: 1.6;
+  }
+  .ui-section-heading-on-dark .ui-section-title {
+    color: var(--color-text-on-brand);
+  }
+  .ui-section-heading-on-dark .ui-section-lead {
+    color: rgb(255 255 255 / 90%);
+  }
+
+  /* --------------------------------------------------------- page header -- */
+  /* UJEDNOLICENIE: katalog ma we wzorcu `max-width: 680px` i `margin-bottom:
+     space-8`, trenerzy `720px` / `space-10`. Zostaje 720 / 2.5rem — polskie
+     naglowki sa dlugie, a wezsza kolumna lamala H1 katalogu na trzy wiersze. */
+  .ui-page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    max-width: 720px;
+    margin-bottom: 2.5rem;
+  }
+  .ui-page-title {
+    margin: 0;
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.06;
+  }
+  .ui-page-lead {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  /* --------------------------------------------------------------- panel -- */
+  .ui-panel {
+    padding: clamp(2.5rem, 5vw, 4.5rem);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    position: relative;
+  }
+  .ui-panel-brand {
+    background: var(--gradient-brand);
+    color: var(--color-text-on-brand);
+    box-shadow: var(--shadow-lg);
+  }
+  /* UJEDNOLICENIE: wzorzec daje cien panelowi dofinansowan, a panelowi
+     statystyk nie, przy identycznym promieniu. Oba maja `--shadow-lg`. */
+  .ui-panel-dark {
+    background: var(--color-ink-900);
+    color: var(--color-text-on-brand);
+    box-shadow: var(--shadow-lg);
+  }
+  /* Poswiata w naroznik panelu. `aria-hidden` + `pointer-events: none`. */
+  .ui-panel-glow {
+    position: absolute;
+    top: -120px;
+    right: -100px;
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(
+      circle,
+      rgb(255 255 255 / 16%),
+      transparent 68%
+    );
+    pointer-events: none;
+  }
+  .ui-panel-body {
+    position: relative;
+  }
+
+  /* ---------------------------------------------------------------- pola -- */
+  /* Rzad pola: etykieta nad kontrolka. `label` ZAWSZE ma `htmlFor`, a kontrolka
+     `id` — we wzorcu etykieta owija kontrolke albo jest luznym `span` bez
+     powiazania (ISK-399 / M1 punkt 5). */
+  .ui-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .ui-field-label {
+    color: var(--color-ink-800);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  /* Gwiazdka pola wymaganego jest ornamentem: wymog niesie `required`
+     i `aria-required`, wiec znak jest `aria-hidden` w komponencie. */
+  .ui-field-required {
+    margin-left: 0.15em;
+    color: var(--color-error-500);
+  }
+  /* `--color-text-muted` (#7e857a) to ~3,8:1 na bialym, a AA wymaga 4,5:1.
+     Wzorzec uzywa tu wlasnie `--text-muted`; bierzemy `secondary` (~6,4:1) —
+     ten sam defekt i to samo lekarstwo co POW-4 w panelu. */
+  .ui-field-hint {
+    color: var(--color-text-secondary);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .ui-field-control {
+    width: 100%;
+    min-width: 0;
+    height: var(--field-h);
+    padding-inline: 14px;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-page);
+    color: var(--color-ink-900);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    transition:
+      border-color var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-fast) var(--ease-standard);
+  }
+  /* Pierscien zamiast `outline`: taka sama grubosc (`--focus-ring-width`)
+     i taki sam kolor (`--focus-ring`) jak outline bazowy, ale przyklejony do
+     krawedzi pola, bez odstepu — dokladnie jak we wzorcu. `outline: none` jest
+     tu dopuszczalne WYLACZNIE dlatego, ze wskaznik zastepczy jest widoczny
+     i mierzony (`tests/e2e/fundament-ui.spec.ts`). */
+  .ui-field-control:focus-visible {
+    outline: none;
+    border-color: var(--color-green-700);
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  }
+  .ui-field-control::placeholder {
+    color: var(--color-text-secondary);
+  }
+  .ui-field-control:disabled {
+    background: var(--color-neutral-100);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  /* Blad pola nie moze byc sygnalizowany tylko kolorem (WCAG 1.4.1) — obok
+     krawedzi stoi tekst komunikatu, a `aria-invalid` niesie stan maszynowo. */
+  .ui-field-control[aria-invalid="true"] {
+    border-color: var(--color-error-500);
+  }
+  .ui-field-control[aria-invalid="true"]:focus-visible {
+    box-shadow: 0 0 0 var(--focus-ring-width)
+      color-mix(in srgb, var(--color-error-500) 35%, transparent);
+  }
+  .ui-field-error {
+    color: var(--color-error-500);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  .ui-textarea {
+    height: auto;
+    min-height: calc(var(--field-h) * 2);
+    padding: 12px 14px;
+    line-height: 1.55;
+    resize: vertical;
+  }
+  /* `appearance: none` zdejmuje karet systemowy, wiec MUSIMY narysowac wlasny —
+     wzorzec zdejmuje karet w formularzu kontaktowym i nie rysuje nic.
+     Strzalka jest `pointer-events: none`, zeby klikniecie w nia otwieralo liste. */
+  .ui-select-wrap {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
+  .ui-select {
+    appearance: none;
+    padding-right: 40px;
+    cursor: pointer;
+  }
+  .ui-select-caret {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    color: var(--color-text-secondary);
+    pointer-events: none;
+  }
+  /* Pole wyszukiwania: pigulka z ikona w `left: 14px`. */
+  .ui-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+  .ui-search .ui-field-control {
+    padding-left: 42px;
+    border-radius: var(--radius-pill);
+  }
+  .ui-search-icon {
+    position: absolute;
+    left: 14px;
+    display: inline-flex;
+    color: var(--color-text-secondary);
+    pointer-events: none;
+  }
+  /* Checkbox: kwadrat 18 px jak we wzorcu, ale caly rzad etykiety ma 44 px
+     wysokosci trafienia — klikalny jest `label`, nie sam kwadrat. */
+  .ui-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: var(--control-h-sm);
+    padding-block: 0.6rem;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+  .ui-checkbox input {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--color-green-700);
+  }
+  /* Wariant "pole z ramka" (panel) — ten sam checkbox w obudowie kontrolki. */
+  .ui-checkbox-boxed {
+    align-items: center;
+    padding: 8px 14px;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-page);
+    color: var(--color-ink-800);
+    font-size: 14px;
+  }
+
+  /* --------------------------------------------------- segmented control -- */
+  /* Semantyka grupy: `fieldset` + `legend` + `input[type=radio]`. Wzorzec ma
+     tu dwa `button`y bez zadnego powiazania — czytnik ekranu nie wie ani ze to
+     jedna kontrolka, ani ktora opcja jest wybrana, a strzalki nie dzialaja.
+     Radio daja to wszystko natywnie i dzialaja bez JavaScriptu.
+     `appearance: none` na inpucie, bo kropka radia nie ma byc widoczna —
+     stan niesie tlo pastylki (i `:checked`, i `aria-checked` natywnie). */
+  /* `fieldset` zeruje wlasna obudowe — niesie tylko semantyke grupy. */
+  .ui-segmented-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .ui-segmented-legend {
+    padding: 0;
+    color: var(--color-ink-800);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .ui-segmented {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-pill);
+    background: var(--color-neutral-100);
+  }
+  .ui-segmented-full,
+  .ui-segmented-full > .ui-segmented {
+    display: flex;
+    align-self: stretch;
+    width: 100%;
+  }
+  .ui-segmented-option {
+    position: relative;
+    display: inline-flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    /* 44 px: we wzorcu pastylka ma 40 px (hero) i 42 px (formularz). */
+    min-height: var(--control-h-sm);
+    padding-inline: 20px;
+    border-radius: var(--radius-pill);
+    color: var(--color-text-secondary);
+    font-size: 14.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
+  }
+  .ui-segmented-option input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    appearance: none;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    cursor: pointer;
+  }
+  .ui-segmented-option > span {
+    pointer-events: none;
+  }
+  /* Focus siedzi na inpucie, ale widoczny ma byc obrys pastylki. */
+  .ui-segmented-option:has(input:focus-visible) {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+  .ui-segmented-option input:focus-visible {
+    outline: none;
+  }
+  /* Wariant zielony (hero, zakladki panelu). */
+  .ui-segmented-green .ui-segmented-option:has(input:checked) {
+    background: var(--color-green-700);
+    color: var(--color-text-on-brand);
+    box-shadow: var(--shadow-xs);
+  }
+  /* Wariant bialy (formularz na tle `green-50`). */
+  .ui-segmented-white .ui-segmented-option:has(input:checked) {
+    background: var(--color-surface-card);
+    color: var(--color-green-800);
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* ----------------------------------------------------------- filterpill -- */
+  /* UJEDNOLICENIE: filtr katalogu i chip kompetencji to we wzorcu ta sama
+     forma z roznym paddingiem, innym tokenem krawedzi i innym kolorem tekstu
+     stanu nieaktywnego. Zostaje jedna. 44 px wysokosci zamiast 40. */
+  .ui-filterpill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: var(--control-h-sm);
+    padding-inline: 18px;
+    border: var(--border-width-brand) solid var(--color-green-200);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-green-800);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background var(--dur-fast) var(--ease-standard),
+      border-color var(--dur-fast) var(--ease-standard);
+  }
+  .ui-filterpill:hover {
+    border-color: var(--color-green-600);
+    background: var(--color-green-50);
+  }
+  /* Stan wybrany niesie tez `aria-current` / `aria-pressed` w komponencie —
+     samo tlo to sygnal wylacznie kolorem (WCAG 1.4.1). */
+  .ui-filterpill-active,
+  .ui-filterpill-active:hover {
+    border-color: var(--color-green-700);
+    background: var(--color-green-700);
+    color: var(--color-text-on-brand);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------- stan/komunikat -- */
+  /* `role="status"` + `aria-live` ustawia komponent. Wzorzec ma tu zwykly div:
+     po wyslaniu formularza czytnik ekranu nie oglasza nic. */
+  .ui-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 12px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  .ui-notice-success {
+    border-color: var(--color-green-200);
+    background: var(--color-green-50);
+    color: var(--color-green-800);
+  }
+  .ui-notice-error {
+    background: var(--color-error-50);
+    color: var(--color-error-500);
+  }
+  .ui-notice-info {
+    background: var(--color-info-50);
+    color: var(--color-info-500);
+  }
+
+  /* Tekst wylacznie dla czytnikow ekranu. `clip-path` + 1x1 px zamiast
+     `display: none`, bo ukryty tak element wypada z drzewa dostepnosci. */
+  .ui-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 }
