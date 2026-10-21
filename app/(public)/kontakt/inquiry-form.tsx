@@ -14,6 +14,10 @@ type FormValues = {
   email: string;
   phone: string;
   companyName: string;
+  // ISK-383: `trainingId` jest wartoscia formularza, choc nie ma wlasnej kontrolki.
+  // Bez tego klucza resolver widzial zawsze `!trainingId` i wymagal `interestArea`
+  // takze na /kontakt?szkolenie=<slug> — wbrew etykiecie bez gwiazdki.
+  trainingId?: string;
   interestArea: string;
   message: string;
   rodoAck: boolean;
@@ -26,6 +30,39 @@ export type SelectedTraining = {
   title: string;
   slug: string;
 };
+
+/**
+ * Wartosci poczatkowe formularza — wydzielone z komponentu, zeby test mogl zmierzyc
+ * DOKLADNIE ten obiekt, ktory trafia do `zodResolver` (ISK-383).
+ *
+ * `trainingId` jest tu polem formularza, mimo ze nie ma kontrolki w drzewie: wartosc
+ * pochodzi z adresu (`?szkolenie=<slug>`), nie od osoby wypelniajacej. React Hook Form
+ * trzyma takie klucze w wartosciach formularza (`shouldUnregister` jest domyslnie
+ * `false`), wiec id leci do resolvera i do `onValid` razem z resztą. Dzieki temu klient
+ * i serwer walidują identyczny obiekt — zasada z naglowka `lib/validation/inquiry.ts` —
+ * i nie ma drugiego zrodla prawdy w postaci recznego doklejania id przy budowie POST.
+ * Id NIE jest renderowane jako `<input type="hidden">`: nic w UI go nie potrzebuje,
+ * a `inquirySchema` i tak sprawdza je przez `z.uuid()` po obu stronach.
+ */
+export function inquiryFormDefaults(
+  training: SelectedTraining | null,
+): FormValues {
+  return {
+    kind: "osoba",
+    fullName: "",
+    email: "",
+    phone: "",
+    companyName: "",
+    trainingId: training?.id,
+    // Nazwa szkolenia trafia tez do pola tekstowego: `training_id` jest
+    // powiazaniem w bazie, a `interest_area` zostaje czytelnym tematem w
+    // liscie zgloszen i w powiadomieniu e-mail.
+    interestArea: training?.title ?? "",
+    message: "",
+    rodoAck: false,
+    company_website: "",
+  };
+}
 
 type Props = {
   formToken: string;
@@ -99,20 +136,7 @@ export function InquiryForm({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(inquirySchema) as unknown as Resolver<FormValues>,
-    defaultValues: {
-      kind: "osoba",
-      fullName: "",
-      email: "",
-      phone: "",
-      companyName: "",
-      // Nazwa szkolenia trafia tez do pola tekstowego: `training_id` jest
-      // powiazaniem w bazie, a `interest_area` zostaje czytelnym tematem w
-      // liscie zgloszen i w powiadomieniu e-mail.
-      interestArea: training?.title ?? "",
-      message: "",
-      rodoAck: false,
-      company_website: "",
-    },
+    defaultValues: inquiryFormDefaults(training),
   });
 
   const kind = useWatch({ control, name: "kind" });
@@ -140,7 +164,9 @@ export function InquiryForm({
           phone: data.phone,
           companyName: data.kind === "firma" ? data.companyName : undefined,
           // ISK-364 / P4: bez tego pola `inquiries.training_id` bylo zawsze NULL.
-          trainingId: training?.id,
+          // ISK-383: czytamy je ze ZWALIDOWANYCH danych, nie z domkniecia `training` —
+          // inaczej klient sprawdzalby regule na innym obiekcie, niz wysyla.
+          trainingId: data.trainingId,
           interestArea: data.interestArea,
           message: data.message,
           rodoAck: data.rodoAck,
@@ -211,6 +237,9 @@ export function InquiryForm({
   // `interestArea` jest wymagane TYLKO wtedy, gdy zgloszenie nie wskazuje szkolenia
   // (`inquirySchema.superRefine`) — oznaczenie w etykiecie musi isc za ta regula,
   // inaczej gwiazdka klamie w jednym z dwoch wejsc na formularz.
+  // ISK-383: od momentu, gdy `trainingId` jest wartoscia formularza, ten warunek i
+  // warunek w resolverze patrza na to samo — wczesniej etykieta mowila prawde, a
+  // walidacja blokowala wysylke po wyczyszczeniu pola.
   const interestAreaRequired = !training;
 
   return (
