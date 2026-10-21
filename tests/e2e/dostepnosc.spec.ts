@@ -295,18 +295,14 @@ test.describe("semantyka tresci", () => {
     page,
   }) => {
     // W modelu danych `trainers.photo_url` moze byc NULL. Widok musi wtedy
-    // albo pominac <img>, albo podac sensowny tekst alternatywny — nigdy
-    // nie renderowac pustego src z pustym alt.
+    // pominac <img> zamiast renderowac pusty src. Kazdy obraz ma atrybut alt;
+    // alt="" jest poprawny dla dekoracyjnego zdjecia obok nazwiska (TrainerAvatar).
+    // Inny test moze rownolegle opublikowac trenera ze zdjeciem.
     await page.goto("/trenerzy");
     const broken = await page.evaluate(() =>
       Array.from(document.querySelectorAll("img"))
         .filter(
-          (img) =>
-            !img.getAttribute("src") ||
-            img.getAttribute("alt") === null ||
-            (img.getAttribute("alt") === "" &&
-              img.getAttribute("role") !== "presentation" &&
-              img.getAttribute("aria-hidden") !== "true"),
+          (img) => !img.getAttribute("src") || img.getAttribute("alt") === null,
         )
         .map((img) => img.outerHTML.slice(0, 120)),
     );
