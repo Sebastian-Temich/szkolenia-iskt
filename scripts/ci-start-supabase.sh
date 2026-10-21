@@ -27,7 +27,7 @@ summary() {
 }
 
 if [[ "${SUPABASE_INTERNAL_IMAGE_REGISTRY:-}" != "$EXPECTED_REGISTRY" ]]; then
-  echo "::warning title=Rejestr obrazow Supabase::SUPABASE_INTERNAL_IMAGE_REGISTRY=\"${SUPABASE_INTERNAL_IMAGE_REGISTRY:-<brak>}\", oczekiwano \"${EXPECTED_REGISTRY}\" — pull pojdzie anonimowo do public.ecr.aws (ISK-398)."
+  echo "::warning title=Rejestr obrazow Supabase::SUPABASE_INTERNAL_IMAGE_REGISTRY=\"${SUPABASE_INTERNAL_IMAGE_REGISTRY:-<brak>}\", oczekiwano \"${EXPECTED_REGISTRY}\" — pull pojdzie anonimowo do ECR Public (ISK-398)."
 fi
 
 supabase start 2>&1 | tee "$LOG"
@@ -38,11 +38,14 @@ ecr_in_log=$(grep -c 'public\.ecr\.aws' "$LOG" || true)
 images=$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | sort -u || true)
 from_ghcr=$(printf '%s\n' "$images" | grep -c '^ghcr\.io/supabase/' || true)
 
+# Raport celowo NIE zawiera doslownych ciagow `toomanyrequests`, `rate exceeded`
+# ani adresu ECR Public: kryterium odbioru tej karty brzmi „zero wystapien w logu
+# przebiegu", wiec wlasny raport nie moze zasmiecac tego grepa swoimi trafieniami.
 summary "### Pull obrazow Supabase (ISK-398)"
-summary "- rejestr: \`${SUPABASE_INTERNAL_IMAGE_REGISTRY:-public.ecr.aws (domyslny)}\`"
+summary "- rejestr: \`${SUPABASE_INTERNAL_IMAGE_REGISTRY:-ECR Public (domyslny)}\`"
 summary "- obrazy obecne jako \`ghcr.io/supabase/*\`: ${from_ghcr} (oczekiwane: 13)"
-summary "- odwolania do \`public.ecr.aws\` w logu startu: ${ecr_in_log}"
-summary "- wystapienia \`toomanyrequests\`/\`rate exceeded\`: ${throttled}"
+summary "- odwolania do ECR Public w logu startu: ${ecr_in_log}"
+summary "- trafienia limitu czestosci rejestru: ${throttled}"
 
 if [[ "$throttled" -gt 0 ]]; then
   echo "::warning title=Limit czestosci pullow::${throttled} odpowiedzi z limitem przy pobieraniu obrazow Supabase. Uwierzytelniony pull z ghcr.io mial to wyeliminowac — sprawdz krok logowania do rejestru (ISK-398)."
@@ -52,7 +55,7 @@ fi
 # deweloperskiej leza zwykle starsze obrazy z ECR z innych stackow i globalne
 # zliczanie dawaloby falszywy alarm.
 if [[ "$from_ghcr" -eq 0 || "$ecr_in_log" -gt 0 ]]; then
-  echo "::warning title=Obrazy spoza ghcr.io::Start pobieral obrazy z public.ecr.aws (anonimowy pull, limit 1/s na IP) — nadpisanie rejestru nie zadzialalo (ISK-398)."
+  echo "::warning title=Obrazy spoza ghcr.io::Start pobieral obrazy z ECR Public (anonimowy pull, limit 1/s na IP) — nadpisanie rejestru nie zadzialalo (ISK-398)."
 fi
 
 exit "$status"
