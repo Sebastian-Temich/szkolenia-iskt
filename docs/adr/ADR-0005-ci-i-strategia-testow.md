@@ -34,6 +34,8 @@ e2e      (zawsze)      → supabase start + build + playwright test (+ skan axe)
 
 Na `main` wymagane: `quality`, `database`, `e2e` oraz co najmniej jedno zatwierdzenie w code review. Bez bezpośrednich commitów na `main` (Project Access Card). Konfiguracja branch protection w GitHubie wymaga uprawnień właściciela repozytorium — zadanie dla ISKT, wypisane jako otwarty punkt.
 
+> **Korekta wykonawcza 2026-10-21 (ISK-394 / ISK-395).** Bramka jest włączona, ale **bez** wymogu zatwierdzenia po stronie GitHuba: `required_approving_review_count = 0` przy `enforce_admins = true`. Powód jest techniczny, nie procesowy — repozytorium ma jednego współpracownika, a GitHub odrzuca zatwierdzenie własnego pull requesta (`422 "Review Can not approve your own pull request"`), więc wymóg `1` był niespełnialny i wymuszał `enforce_admins = false`, czyli obejście **wszystkich** warunków naraz. Decyzja ISKT z 2026-10-21: pull request jest obowiązkowy dla wszystkich (także dla właściciela repozytorium), zielone `quality`, `database` i `e2e` są nieobchodzalnym warunkiem scalenia, a **review merytoryczne prowadzimy w Paperclipie**. Po dodaniu drugiego konta GitHub z uprawnieniem `write` wracamy do `required_approving_review_count >= 1`; zdanie powyżej opisuje wtedy stan docelowy bez zmian.
+
 ### D4. Piramida testów i podział odpowiedzialności
 
 | Poziom       | Narzędzie                 | Zakres                                                                                                         | Właściciel                  |
@@ -79,7 +81,7 @@ Testy pisane przed implementacją dla: walidacji formularza, przepływu zapisu z
 2. Włączenie branch protection na `main` z wymaganymi checkami (D3) — wymaga uprawnień właściciela repozytorium.
 3. Potwierdzenie, czy repozytorium ma pozostać **publiczne** (stan obecny). Publiczne: bezpłatne CI, ale pełna jawność dokumentacji i kodu. Prywatne: limit minut Actions, mniejsza ekspozycja.
 
-> **Rozstrzygnięcie:** punkt 1 zatwierdzony przez ISKT 2026-10-09. Punkt 3 **zamknięty** — ISKT potwierdziło 2026-10-09, że repozytorium **pozostaje publiczne**; decyzja świadoma, a reguła „zero identyfikatorów środowisk w repo” obowiązuje na stałe (weryfikacja wykonana w bramce E7). Ryzyko kosztu minut GitHub Actions jest w związku z tym **nieaktualne** — CI publicznego repozytorium jest bezpłatne. Punkt 2 pozostaje **otwarty**; pozycja w [skonsolidowanej liście ISKT](../odbior/braki-i-decyzje-iskt.md).
+> **Rozstrzygnięcie:** punkt 1 zatwierdzony przez ISKT 2026-10-09. Punkt 3 **zamknięty** — ISKT potwierdziło 2026-10-09, że repozytorium **pozostaje publiczne**; decyzja świadoma, a reguła „zero identyfikatorów środowisk w repo” obowiązuje na stałe (weryfikacja wykonana w bramce E7). Ryzyko kosztu minut GitHub Actions jest w związku z tym **nieaktualne** — CI publicznego repozytorium jest bezpłatne. Punkt 2 jest **zamknięty** — branch protection na `main` włączona i zweryfikowana 2026-10-21 (ISK-394), a polityka review rozstrzygnięta przez ISKT 2026-10-21 (ISK-395); stan faktyczny opisuje korekta w D3 oraz pozycja I28 w [skonsolidowanej liście ISKT](../odbior/braki-i-decyzje-iskt.md).
 
 ---
 
