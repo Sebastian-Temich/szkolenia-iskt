@@ -316,15 +316,30 @@ test.describe("semantyka tresci", () => {
     page,
   }) => {
     // W modelu danych `trainers.photo_url` moze byc NULL. Widok musi wtedy
-    // pominac <img> zamiast renderowac pusty src. Kazdy obraz ma atrybut alt;
-    // alt="" jest poprawny dla dekoracyjnego zdjecia obok nazwiska (TrainerAvatar).
-    // Inny test moze rownolegle opublikowac trenera ze zdjeciem.
+    // pominac <img> zamiast renderowac pusty src, i nigdy nie zostawiac obrazu
+    // bez atrybutu `alt`.
+    //
+    // Puste `alt` jest bledem wszedzie POZA jawnie dekoracyjnym zdjeciem
+    // trenera: `TrainerAvatar` (`.avatar-photo`) celowo oddaje `alt=""`, bo
+    // nazwisko stoi obok w naglowku karty, wiec opis bylby powtorzeniem dla
+    // czytnika ekranu (WCAG 1.1.1). Wyjatek jest zawezony do tej jednej klasy —
+    // blankietowe dopuszczenie `alt=""` przepuscilo by kazdy inny obraz bez
+    // tekstu alternatywnego. Zdjecie pojawia sie tu, gdy inny test rownolegle
+    // opublikuje trenera z `photo_url`.
     await page.goto("/trenerzy");
     const broken = await page.evaluate(() =>
       Array.from(document.querySelectorAll("img"))
-        .filter(
-          (img) => !img.getAttribute("src") || img.getAttribute("alt") === null,
-        )
+        .filter((img) => {
+          if (!img.getAttribute("src")) return true;
+          const alt = img.getAttribute("alt");
+          if (alt === null) return true;
+          if (alt !== "") return false;
+          return !(
+            img.classList.contains("avatar-photo") ||
+            img.getAttribute("role") === "presentation" ||
+            img.getAttribute("aria-hidden") === "true"
+          );
+        })
         .map((img) => img.outerHTML.slice(0, 120)),
     );
     expect(broken).toEqual([]);
