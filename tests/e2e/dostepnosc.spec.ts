@@ -13,7 +13,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { clearThrottle, createInquiry } from "./helpers/data";
+import { clearThrottle, createInquiry, sfx } from "./helpers/data";
 import { awaitFormTokenMaturity } from "./helpers/form";
 import { serviceClient } from "./helpers/stack";
 
@@ -196,46 +196,67 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
     "formularz: calosc da sie wypelnic i wyslac bez myszy",
     { tag: "@form-submit" },
     async ({ page }) => {
-      // Ten test realnie wysyla zgloszenie, wiec liczy sie do limitu 3/10 min.
-      await clearThrottle();
-      await page.goto("/kontakt");
+      // Adres musi byc unikatowy na wykonanie: ten test jest powtarzany
+      // (`--repeat-each`), `inquiries` nie ma unikatu na e-mailu, a asercja
+      // nizej uzywa `.single()` — staly adres wywrocilby ja na drugim przebiegu
+      // bledem o wielu wierszach, czytanym jak defekt zapisu.
+      const email = `klawiatura-${sfx()}@example.invalid`;
+      try {
+        // Ten test realnie wysyla zgloszenie, wiec liczy sie do limitu 3/10 min.
+        await clearThrottle();
+        await page.goto("/kontakt");
 
-      // Focus na pierwszym polu i dalej wylacznie klawiatura.
-      await page.getByLabel("Imię i nazwisko").focus();
-      await page.keyboard.type("[TEST] Klawiatura Testowa");
-      await page.keyboard.press("Tab");
-      await page.keyboard.type("klawiatura@example.invalid");
+        // Focus na pierwszym polu i dalej wylacznie klawiatura.
+        await page.getByLabel("Imię i nazwisko").focus();
+        await page.keyboard.type("[TEST] Klawiatura Testowa");
+        await page.keyboard.press("Tab");
+        await page.keyboard.type(email);
 
-      // Nie zakladamy sztywnej kolejnosci pozostalych pol — sprawdzamy to, co
-      // jest istotne dla WCAG 2.1.1: kazde pole jest osiagalne i edytowalne
-      // z klawiatury, a zgoda RODO da sie zaznaczyc Spacja.
-      await page.getByLabel("Telefon").focus();
-      await page.keyboard.type("+48 600 100 200");
-      await page.getByLabel("Interesujące szkolenie lub obszar").focus();
-      await page.keyboard.type("[TEST] Obszar");
-      await page.getByLabel("Wiadomość").focus();
-      await page.keyboard.type("Zgloszenie wypelnione wylacznie klawiatura.");
+        // Nie zakladamy sztywnej kolejnosci pozostalych pol — sprawdzamy to, co
+        // jest istotne dla WCAG 2.1.1: kazde pole jest osiagalne i edytowalne
+        // z klawiatury, a zgoda RODO da sie zaznaczyc Spacja.
+        await page.getByLabel("Telefon").focus();
+        await page.keyboard.type("+48 600 100 200");
+        await page.getByLabel("Interesujące szkolenie lub obszar").focus();
+        await page.keyboard.type("[TEST] Obszar");
+        await page.getByLabel("Wiadomość").focus();
+        await page.keyboard.type("Zgloszenie wypelnione wylacznie klawiatura.");
 
-      const consent = page.getByRole("checkbox", {
-        name: /Potwierdzam zapoznanie się z informacją RODO/,
-      });
-      await consent.focus();
-      await page.keyboard.press("Space");
-      await expect(consent).toBeChecked();
+        const consent = page.getByRole("checkbox", {
+          name: /Potwierdzam zapoznanie się z informacją RODO/,
+        });
+        await consent.focus();
+        await page.keyboard.press("Space");
+        await expect(consent).toBeChecked();
 
-      // Przycisk wysylki jest osiagalny i reaguje na Enter.
-      const submit = page.getByRole("button", { name: "Wyślij zgłoszenie" });
-      await submit.focus();
-      await expect(submit).toBeFocused();
-      // Token czasowy (ADR-0004 §3) odrzuca wyslanie szybsze niz 3 s — i robi to
-      // "cicho", oddajac ekran sukcesu. Bez tego czekania test przeszedlby,
-      // nie zapisawszy niczego.
-      await awaitFormTokenMaturity(page);
-      await page.keyboard.press("Enter");
+        // Przycisk wysylki jest osiagalny i reaguje na Enter.
+        const submit = page.getByRole("button", { name: "Wyślij zgłoszenie" });
+        await submit.focus();
+        await expect(submit).toBeFocused();
+        // Token czasowy (ADR-0004 §3) odrzuca wyslanie szybsze niz 3 s — i robi to
+        // "cicho", oddajac ekran sukcesu. Bez tego czekania test przeszedlby,
+        // nie zapisawszy niczego.
+        await awaitFormTokenMaturity(page);
+        await page.keyboard.press("Enter");
 
-      await expect(page.getByRole("status")).toContainText(
-        "Dziękujemy za zgłoszenie",
-      );
+        await expect(page.getByRole("status")).toContainText(
+          "Dziękujemy za zgłoszenie",
+        );
+
+        // Ekran potwierdzenia nic nie dowodzi: handler oddaje 200 z tym samym
+        // komunikatem takze przy cichym odrzuceniu (za mlody token, honeypot,
+        // zly podpis). Dowodem przejscia sciezki klawiaturowej jest wiersz
+        // w bazie — bez tego test przechodzilby rowniez przed naprawa tokenu.
+        const { data } = await serviceClient()
+          .from("inquiries")
+          .select("full_name,rodo_ack")
+          .eq("email", email)
+          .single();
+        expect(data?.full_name).toBe("[TEST] Klawiatura Testowa");
+        expect(data?.rodo_ack).toBe(true);
+      } finally {
+        await serviceClient().from("inquiries").delete().eq("email", email);
+      }
     },
   );
 
