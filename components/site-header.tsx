@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
-import { ButtonLink, Icon } from "@/components/ui";
+import { ButtonLink, Icon, IconButton } from "@/components/ui";
 
 /**
  * Pasek nawigacji wzorca: sticky, wysokosc 68 px, tlo `rgba(255,255,255,.82)`
@@ -28,6 +28,25 @@ import { ButtonLink, Icon } from "@/components/ui";
  * Zestaw ikon bundlowanych w ISK-400 nie ma `menu` ani `x`, a granica ISK-399
  * zabrania dociagania ikon z CDN. `chevron-down` obrocony o 180 stopni czyta
  * sie jako ujawnianie tresci i jest dokladnie tym, czym ta kontrolka jest.
+ *
+ * NAZWA DOSTEPNA PRZELACZNIKA IDZIE PRZEZ `IconButton` (ISK-411 / CR-B2, I12)
+ * Do ISK-411 nazwa stala na tekscie w `<span className="ui-visually-hidden">`.
+ * Dzialalo, ale bylo zawieszone na JEDNEJ regule arkusza: zamiana
+ * `.ui-visually-hidden` na `display: none` (albo podmiana tego spana na
+ * `title`) zdejmowala przyciskowi nazwe dostepna i dawala naruszenie
+ * `button-name` o wadze `critical` — a jedyny komponent serwisu istniejacy
+ * WYLACZNIE ponizej 60 rem nie mial wtedy ani jednego testu, bo oba projekty
+ * Playwrighta chodza na 1280 px, gdzie ta kontrolka jest `display: none`.
+ *
+ * `IconButton` wymaga `label` w typie i oddaje go jako `aria-label`, wiec
+ * nazwa nie da sie juz zgubic zmiana arkusza — brak nazwy przestaje byc
+ * mozliwy, zamiast byc tylko pilnowany. Argument z poprzedniego komentarza
+ * ("etykieta zmienia sie ze stanem, wiec tekst, nie `aria-label`") nie bronil
+ * spana: `aria-label` zmienia sie ze stanem dokladnie tak samo, a stan i tak
+ * niesie maszynowo `aria-expanded`.
+ *
+ * Bramka: `tests/e2e/nawigacja-mobilna.spec.ts` (360 px, z ramieniem
+ * negatywnym — zdjecie nazwy MUSI wywrocic skan axe).
  */
 const LINKS = [
   { href: "/szkolenia", label: "Katalog" },
@@ -49,6 +68,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const panelId = useId();
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   /*
    * Panel zamyka sie na kazda zmiane adresu — nawigacja klientem nie
@@ -71,7 +91,26 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="site-header">
+    /*
+     * Escape zamyka panel i oddaje fokus przelacznikowi (UX-D2, ISK-406).
+     * Nasluch siedzi na `<header>`, a nie na `document`: wszystko, co moze byc
+     * wtedy ogniskowane — przelacznik i linki panelu — lezy wewnatrz tego
+     * elementu, wiec zdarzenie i tak tu dobabelkuje, a nasluch globalny
+     * wymagalby efektu i sprzatania po nim.
+     *
+     * Fokus wraca SYNCHRONICZNIE w tym miejscu, nie w `useEffect` na `open`:
+     * panel zamyka sie takze po kliknieciu linku (zmiana adresu, korekta stanu
+     * wyzej), a wtedy fokus nalezy do nowego dokumentu. Efekt na `[open]`
+     * odbieralby go i odrzucal na przelacznik po KAZDYM przejsciu.
+     */
+    <header
+      className="site-header"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !open) return;
+        setOpen(false);
+        toggleRef.current?.focus();
+      }}
+    >
       <div className="site-header-bar ui-container">
         <Link
           aria-label="Szkolenia ISKT — strona główna"
@@ -110,21 +149,18 @@ export function SiteHeader() {
             <Icon className="site-header-cta-icon" name="arrow-right" />
           </ButtonLink>
 
-          <button
+          <IconButton
             aria-controls={panelId}
             aria-expanded={open}
-            className="site-nav-toggle ui-button ui-button-neutral ui-button-sm ui-button-icon"
+            className="site-nav-toggle"
+            label={open ? "Zamknij menu" : "Otwórz menu"}
             onClick={() => setOpen((value) => !value)}
-            type="button"
+            ref={toggleRef}
+            size="sm"
+            variant="neutral"
           >
-            {/* Nazwa dostepna na tekscie, nie na `aria-label`: etykieta zmienia
-                sie wraz ze stanem, a `aria-expanded` i tak niesie stan
-                maszynowo. Tekst jest ukryty wzrokowo, nie dla czytnika. */}
-            <span className="ui-visually-hidden">
-              {open ? "Zamknij menu" : "Otwórz menu"}
-            </span>
             <Icon name="chevron-down" size={18} />
-          </button>
+          </IconButton>
         </div>
       </div>
 

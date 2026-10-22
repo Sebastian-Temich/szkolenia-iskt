@@ -33,19 +33,65 @@ function describe(violations: Awaited<ReturnType<typeof scan>>["violations"]) {
   );
 }
 
+/**
+ * ISK-411 / CR-I7: `/polityka-prywatnosci` nie bylo ani skanowane przez axe,
+ * ani w petli naglowkow — a jest to trasa wymagana prawnie i linkowana ze
+ * stopki kazdego widoku.
+ */
 const views: Array<[name: string, path: string]> = [
   ["strona glowna", "/"],
   ["katalog", "/szkolenia"],
   ["szczegol szkolenia", "/szkolenia/wprowadzenie-do-ai"],
   ["trenerzy", "/trenerzy"],
   ["kontakt", "/kontakt"],
+  ["polityka prywatnosci", "/polityka-prywatnosci"],
   ["logowanie", "/panel/logowanie"],
+];
+
+/**
+ * Trasy bledu — ISK-411 / CR-I7.
+ *
+ * Do tej pory `app/not-found.tsx` (56 linii, dodane w ISK-401) NIE BYLO
+ * renderowane przez zaden test, a `app/(public)/szkolenia/[slug]/not-found.tsx`
+ * mialo wylacznie naga asercje statusu (`public-pages.spec.ts`) — wzorzec
+ * wakatowego testu 404: status 404 oddaje takze wbudowany, nieostylowany ekran
+ * Next.js, wiec ta asercja przechodzila zarowno przed dodaniem tych widokow,
+ * jak i po.
+ *
+ * Status trzymamy w tablicy i asertujemy, bo to on odrozni nasz widok od
+ * przypadkowego 200 na zlej trasie.
+ */
+const widokiBledu: Array<[name: string, path: string, status: number]> = [
+  ["404 globalny", "/nie-ma-takiego-adresu", 404],
+  ["404 szczegolu szkolenia", "/szkolenia/nie-ma-takiego-szkolenia", 404],
 ];
 
 for (const [name, path] of views) {
   test(`axe: ${name} (${path}) bez naruszen krytycznych`, async ({ page }) => {
     const response = await page.goto(path);
     expect(response?.status()).toBe(200);
+    const results = await scan(page);
+    const critical = results.violations.filter(
+      (v) => v.impact === "critical" || v.impact === "serious",
+    );
+    expect(describe(critical)).toEqual([]);
+  });
+}
+
+for (const [name, path, status] of widokiBledu) {
+  test(`axe: ${name} (${path}) bez naruszen krytycznych`, async ({ page }) => {
+    const response = await page.goto(path);
+    expect(
+      response?.status(),
+      `${path} musi oddac ${status} — inaczej skanujemy nie ten widok`,
+    ).toBe(status);
+
+    // Dowod, ze to NASZ ekran, a nie wbudowany Next.js: tamten ma angielski
+    // komunikat i zero naszych klas. Bez tej asercji usuniecie
+    // `app/not-found.tsx` nie zmienilo by wyniku testu.
+    await expect(page.locator(".empty-state-title")).toBeVisible();
+    await expect(page.locator("h1")).toContainText("Nie znaleźliśmy");
+
     const results = await scan(page);
     const critical = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious",
@@ -64,19 +110,42 @@ for (const [name, path] of views) {
 // adnotacja jest zdjeta — te przypadki musza przechodzic normalnie, inaczej
 // bramka nie pilnuje niczego.
 //
-// `hasTable` zostaje, bo pilnuje czegos innego: skan pustej tabeli nie
-// dowodzi niczego. Pusta lista nie renderuje ani `th`, ani `td small`, wiec
-// test przeszedlby bez sprawdzenia kontrastu, ktorego dotyczy.
+// Trzeci element krotki to DOWOD, ze widok sie wyrenderowal — bo skan pustej
+// strony nie dowodzi niczego. Byl tu `hasTable: boolean` i pilnowal dokladnie
+// tego: pusta lista nie renderuje ani `th`, ani `td small`, wiec test
+// przechodzilby bez sprawdzenia kontrastu, ktorego dotyczy.
 // `/panel/szkolenia` i `/panel/trenerzy` maja dane z seeda [DEMO], ale
 // `inquiries` seed celowo nie zawiera — zgloszenie dla widoku
 // `/panel/zgloszenia` zakladamy wiec sami w `beforeAll`. Bez tego bramka jest
 // zielona lokalnie (gdzie zgloszenia zostaly po innych testach) i czerwona
 // w CI na swiezej bazie.
-const panelViews: Array<[name: string, path: string, hasTable: boolean]> = [
-  ["panel — start", "/panel", false],
-  ["panel — szkolenia", "/panel/szkolenia", true],
-  ["panel — trenerzy", "/panel/trenerzy", true],
-  ["panel — zgloszenia", "/panel/zgloszenia", true],
+//
+// ISK-411 / CR-I7 zamienia ten boolean na selektor, bo doklada trasy, ktorych
+// ta lista nie miala wcale: formularze edycji (trzy) i ekran braku uprawnien.
+// Dla nich "jest tresc" nie znaczy "jest wiersz tabeli", a skan formularza,
+// ktory sie nie zbudowal, byl by tak samo wakatowy jak skan pustej tabeli.
+// Formularze sa najwiekszym skupieniem kontrolek w produkcie (pola, etykiety,
+// `aria-describedby`, checkboxy trenerow), czyli miejscem najbardziej podatnym
+// na naruszenia — i jedynym, ktore nie mialo skanu. Adres `nowe` jest
+// swiadomy: nie wymaga zasiewu, wiec bramka nie zalezy od danych, a renderuje
+// ten sam formularz co edycja istniejacego rekordu.
+const panelViews: Array<[name: string, path: string, dowod: string]> = [
+  ["panel — start", "/panel", "h1"],
+  ["panel — szkolenia", "/panel/szkolenia", "tbody tr"],
+  ["panel — trenerzy", "/panel/trenerzy", "tbody tr"],
+  ["panel — zgloszenia", "/panel/zgloszenia", "tbody tr"],
+  ["panel — formularz szkolenia", "/panel/szkolenia/nowe", "form input"],
+  ["panel — formularz trenera", "/panel/trenerzy/nowe", "form input"],
+  [
+    "panel — formularz kategorii",
+    "/panel/szkolenia/kategorie/nowe",
+    "form input",
+  ],
+  [
+    "panel — brak uprawnien",
+    "/panel/brak-dostepu",
+    'form button[type="submit"]',
+  ],
 ];
 
 test.describe("axe: panel administratora (poza wymaganym minimum ADR-0005 D4)", () => {
@@ -84,15 +153,13 @@ test.describe("axe: panel administratora (poza wymaganym minimum ADR-0005 D4)", 
     await createInquiry();
   });
 
-  for (const [name, path, hasTable] of panelViews) {
+  for (const [name, path, dowod] of panelViews) {
     test(`${name} bez naruszen krytycznych`, async ({ page }) => {
       await loginAsAdmin(page);
       await page.goto(path);
 
-      // Skan pustej tabeli nie dowodzi niczego — upewniamy sie, ze jest tresc.
-      if (hasTable) {
-        await expect(page.locator("tbody tr").first()).toBeVisible();
-      }
+      // Skan widoku, ktory sie nie wyrenderowal, nie dowodzi niczego.
+      await expect(page.locator(dowod).first()).toBeVisible();
 
       const results = await scan(page);
       const critical = results.violations.filter(
@@ -328,32 +395,65 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
   });
 });
 
+/**
+ * Jeden `h1` i brak przeskokow w hierarchii (WCAG 1.3.1). Wyciagniete z petli
+ * w ISK-411, bo ta sama asercja obowiazuje teraz takze trasy bledu i CALY
+ * panel — do tej pory petla iterowala wylacznie po `views`, wiec ZADNA strona
+ * administracyjna nie miala egzekwowania jednego `h1` (CR-I7).
+ */
+async function sprawdzNaglowki(page: Page, path: string): Promise<void> {
+  const levels = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map((h) =>
+      Number(h.tagName.slice(1)),
+    ),
+  );
+
+  expect(
+    levels.filter((l) => l === 1).length,
+    `${path}: oczekuje dokladnie jednego h1, jest: ${levels.filter((l) => l === 1).length}`,
+  ).toBe(1);
+
+  // WCAG 1.3.1: poziom nie moze przeskoczyc o wiecej niz 1 w dol.
+  for (let i = 1; i < levels.length; i++) {
+    expect(
+      levels[i]! - levels[i - 1]!,
+      `Przeskok h${levels[i - 1]} -> h${levels[i]} w ${path}; cala hierarchia: ${levels.join(",")}`,
+    ).toBeLessThanOrEqual(1);
+  }
+}
+
 test.describe("semantyka tresci", () => {
   for (const [name, path] of views) {
     test(`${name}: dokladnie jeden h1 i brak przeskokow w hierarchii naglowkow`, async ({
       page,
     }) => {
       await page.goto(path);
-      const levels = await page.evaluate(() =>
-        Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map((h) =>
-          Number(h.tagName.slice(1)),
-        ),
-      );
-
-      expect(
-        levels.filter((l) => l === 1).length,
-        `Oczekuje dokladnie jednego h1, jest: ${levels.filter((l) => l === 1).length}`,
-      ).toBe(1);
-
-      // WCAG 1.3.1: poziom nie moze przeskoczyc o wiecej niz 1 w dol.
-      for (let i = 1; i < levels.length; i++) {
-        expect(
-          levels[i]! - levels[i - 1]!,
-          `Przeskok h${levels[i - 1]} -> h${levels[i]} w ${path}; cala hierarchia: ${levels.join(",")}`,
-        ).toBeLessThanOrEqual(1);
-      }
+      await sprawdzNaglowki(page, path);
     });
   }
+
+  for (const [name, path, status] of widokiBledu) {
+    test(`${name}: dokladnie jeden h1 i brak przeskokow w hierarchii naglowkow`, async ({
+      page,
+    }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(status);
+      await sprawdzNaglowki(page, path);
+    });
+  }
+
+  // CR-I7: panel nie mial tej bramki ani na jednej trasie.
+  test.describe("panel administratora", () => {
+    for (const [name, path] of panelViews) {
+      test(`${name}: dokladnie jeden h1 i brak przeskokow w hierarchii naglowkow`, async ({
+        page,
+      }) => {
+        await loginAsAdmin(page);
+        await page.goto(path);
+        await sprawdzNaglowki(page, path);
+      });
+    }
+  });
 
   test("trenerzy: brak zdjecia nie zostawia obrazka bez alt", async ({
     page,
