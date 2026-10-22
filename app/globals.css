@@ -150,14 +150,39 @@
   --control-h-xl: 56px;
   --field-h: var(--control-h-md); /* 46 px */
 
-  /* --- Pierscien focusu ---
-     `color-mix` jest tu swiadomie: pierscien ma byc polprzezroczysty, zeby
-     czytal sie na bialym tle i na `green-50`. UWAGA dla testow: computed style
-     zwraca `color(srgb ...)`, nie `rgb(...)` — nie parsowac koloru regexem
-     (helper `tests/e2e/helpers/kontrast.ts`). */
-  --focus-ring: color-mix(in srgb, var(--color-green-500) 55%, transparent);
+  /* --- Pierscien focusu (ISK-418 / F9, WCAG 2.1 SC 1.4.11) ---
+     Pierscien jest DWUTONOWY: ciemny rdzen marki + biala obwodka na zewnatrz.
+
+     Poprzednia wersja byla jednym polprzezroczystym tokenem
+     (`color-mix(green-500 55%, transparent)`), wiec jej faktyczny kolor zalezal
+     od tla — i na KAZDEJ z czterech rodzin powierzchni wychodzila ponizej
+     progu 3:1: biel 2,11, ink-900 2,07, green-700 1,45, green-50 2,04.
+
+     Samo podbicie alfy tego nie naprawia i nie jest to kwestia doboru odcienia:
+     prog 3:1 wobec bieli wymaga luminancji <= 0,30, a wobec pasma `green-700`
+     wymaga >= 0,306. ZADEN pojedynczy kolor nie spelnia obu naraz — stad dwa
+     tony. Rdzen niesie kontrast na tlach jasnych (biel, green-50), obwodka na
+     ciemnych (ink-900, green-700).
+
+     Dobor `green-800` nie jest dowolny. Dla pary <rdzen, biel> minimum
+     kontrastu po CALYM spektrum tla (nie tylko po czterech rodzinach) wynosi:
+     green-700 -> 2,98 (ponizej progu), green-800 -> 3,47, green-900 -> 3,74.
+     `green-800` to najjasniejszy, czyli najblizszy dotychczasowej tozsamosci
+     odcien marki, ktory daje gwarancje >= 3:1 na DOWOLNYM tle, takze takim,
+     ktorego dzis w produkcie nie ma. Mierzy to `tests/unit/pierscien-focusu`.
+
+     UWAGA dla testow: computed style zwraca kolory takze jako `color(srgb ...)`
+     — nie parsowac ich regexem (patrz `tests/e2e/helpers/kontrast.ts`). */
+  --focus-ring: var(--color-green-800);
+  --focus-ring-contrast: var(--color-neutral-0);
   --focus-ring-width: 3px;
   --focus-ring-offset: 2px;
+  --focus-ring-halo: 2px;
+  /* Promien bialej obwodki liczony od krawedzi elementu: musi objac odstep,
+     rdzen i wlasna grubosc, zeby obwodka wyszla POZA rdzen. */
+  --focus-ring-halo-spread: calc(
+    var(--focus-ring-offset) + var(--focus-ring-width) + var(--focus-ring-halo)
+  );
 
   /* --- Ruch --- */
   --dur-fast: 130ms;
@@ -1109,13 +1134,30 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* ISK-400: wartosci bez zmian, tylko wyciagniete do tokenow `--focus-ring*`,
-     zeby pola formularza (ktore zastepuja `outline` pierscieniem `box-shadow`)
-     uzywaly tej samej grubosci i tego samego koloru co reszta aplikacji. */
+  /* ISK-400: wartosci wyciagniete do tokenow `--focus-ring*`, zeby pola
+     formularza (ktore zastepuja `outline` pierscieniem `box-shadow`) uzywaly
+     tej samej grubosci i tego samego koloru co reszta aplikacji.
+
+     ISK-418: do `outline` dochodzi biala obwodka w `box-shadow`. Kolejnosc
+     malowania robi tu cala robote — `outline` idzie NA WIERZCHU cienia, wiec
+     jeden cien o promieniu `--focus-ring-halo-spread` daje po zlozeniu trzy
+     pasma: biel (odstep), rdzen (outline), biel (obwodka). Wewnetrzne pasmo
+     bieli jest potrzebne tak samo jak zewnetrzne: oddziela rdzen od WLASNEGO
+     tla elementu, ktore samo bywa ciemnozielone (przyciski `green-700`).
+
+     SKUTEK UBOCZNY, SWIADOMY: `box-shadow` nie sumuje sie z regula skladnika,
+     tylko ja zastepuje, wiec element z cieniem spoczynkowym
+     (`.ui-button-primary`, `.panel-button`, `a.panel-card`, karty katalogu)
+     traci ten cien NA CZAS FOKUSU. Alternatywa — przekazywanie cienia
+     wlasnego osobna zmienna przez kazdy skladnik z osobna — gnije przy
+     pierwszym nowym skladniku, ktory o niej zapomni, i zamienia regresje
+     widoczna (znikniety cien) na niewidoczna (znikniety wskaznik). Wybor jest
+     wiec po stronie dostepnosci; do akceptacji UX przy odbiorze ISK-418. */
   :focus-visible {
     border-radius: var(--radius-xs);
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
+    box-shadow: 0 0 0 var(--focus-ring-halo-spread) var(--focus-ring-contrast);
   }
 
   ::selection {
@@ -2339,7 +2381,14 @@
   .ui-field-control:focus-visible {
     outline: none;
     border-color: var(--color-green-700);
-    box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+    /* Dwa tony jak w regule bazowej, tylko oba w `box-shadow` i przyklejone do
+       krawedzi pola (bez odstepu) — wiec rdzen idzie PIERWSZY, a obwodka ma
+       promien wiekszy o swoja grubosc. Cien wypisany wczesniej lezy wyzej, stad
+       ta kolejnosc, odwrotna niz czyta sie od srodka. */
+    box-shadow:
+      0 0 0 var(--focus-ring-width) var(--focus-ring),
+      0 0 0 calc(var(--focus-ring-width) + var(--focus-ring-halo))
+        var(--focus-ring-contrast);
   }
   .ui-field-control::placeholder {
     color: var(--color-text-secondary);
@@ -2354,9 +2403,16 @@
   .ui-field-control[aria-invalid="true"] {
     border-color: var(--color-error-500);
   }
+  /* Wariant bledu: rdzen w kolorze bledu zamiast zieleni marki, obwodka bez
+     zmian. Poprzednie `color-mix(error-500 35%, transparent)` mialo ten sam
+     defekt co token bazowy, tylko ostrzejszy — przy alfie 0,35 na bieli
+     wychodzilo 1,5:1. Pola formularza stoja na bieli i na `green-50`, gdzie
+     nieprzezroczysty `error-500` daje odpowiednio 5,91:1 i 5,47:1. */
   .ui-field-control[aria-invalid="true"]:focus-visible {
-    box-shadow: 0 0 0 var(--focus-ring-width)
-      color-mix(in srgb, var(--color-error-500) 35%, transparent);
+    box-shadow:
+      0 0 0 var(--focus-ring-width) var(--color-error-500),
+      0 0 0 calc(var(--focus-ring-width) + var(--focus-ring-halo))
+        var(--focus-ring-contrast);
   }
   .ui-field-error {
     color: var(--color-error-500);
@@ -2513,13 +2569,12 @@
   .ui-segmented-option > span {
     pointer-events: none;
   }
-  /* Focus siedzi na inpucie, ale widoczny ma byc obrys pastylki. */
-  .ui-segmented-option:has(input:focus-visible) {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: var(--focus-ring-offset);
-  }
+  /* Input wypelnia pastylke (`inset: 0`), wiec biala obwodka z reguly bazowej
+     narysowalaby sie dookola CALEJ pastylki i przykryla jej wlasny obrys.
+     Wskaznik niesie element nadrzedny (regula na koncu bloku), input nic. */
   .ui-segmented-option input:focus-visible {
     outline: none;
+    box-shadow: none;
   }
   /* Wariant zielony (hero, zakladki panelu). */
   .ui-segmented-green .ui-segmented-option:has(input:checked) {
@@ -2532,6 +2587,16 @@
     background: var(--color-surface-card);
     color: var(--color-green-800);
     box-shadow: var(--shadow-xs);
+  }
+  /* Focus siedzi na inpucie, ale widoczny ma byc obrys pastylki.
+     Regula stoi PO wariantach i ma ich specyficznosc (stad `.ui-segmented`
+     z przodu): `...:has(input:checked)` ustawia wlasny `box-shadow`, wiec bez
+     tego wybrana pastylka zgubilaby biala obwodke i zostalby sam rdzen —
+     a to on jest niewidoczny na zielonym tle wariantu `green`. */
+  .ui-segmented .ui-segmented-option:has(input:focus-visible) {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+    box-shadow: 0 0 0 var(--focus-ring-halo-spread) var(--focus-ring-contrast);
   }
 
   /* ----------------------------------------------------------- filterpill -- */

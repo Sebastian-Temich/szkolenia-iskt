@@ -442,32 +442,55 @@ test.describe("ISK-400 — tokeny rytmu i formy", () => {
     expect(zastosowane.backgroundImage).toContain("rgb(10, 52, 0) 100%");
   });
 
-  test("`--focus-ring` jest polprzezroczysty i NIE jest rgb()", async ({
+  /**
+   * ISK-418 ODWRACA kontrakt tego testu.
+   *
+   * Do ISK-418 test wymagal, zeby `--focus-ring` BYL polprzezroczysty
+   * (alfa 0,4..0,7) — i wlasnie ta cecha byla defektem F9: kolor pierscienia
+   * zalezal wtedy od tla i na wszystkich czterech rodzinach powierzchni
+   * wychodzil ponizej progu 3:1 z WCAG 2.1 SC 1.4.11 (biel 2,11, ink-900
+   * 2,07, green-700 1,45, green-50 2,04). Test byl zielony przez caly ten
+   * czas, bo mierzyl ZGODNOSC Z ZAMYSLEM, a nie widocznosc wskaznika.
+   *
+   * Nowy kontrakt jest odwrotny: oba tony sa NIEPRZEZROCZYSTE, wiec ich
+   * kontrast nie zalezy od tego, na czym leza. Same wartosci kontrastu
+   * mierza `tests/unit/pierscien-focusu.test.ts` (dowolne tlo, arytmetycznie)
+   * i `tests/e2e/pierscien-focusu.spec.ts` (faktyczne przystanki Tab).
+   */
+  test("`--focus-ring` i `--focus-ring-contrast` sa nieprzezroczyste", async ({
     page,
   }) => {
     await zamontuj(page);
 
-    const ring = await page.evaluate(() => {
-      const value = getComputedStyle(document.documentElement)
-        .getPropertyValue("--focus-ring")
-        .trim();
-      // Alfa czytana z canvasa, nie parsowana z napisu: `color-mix` zwraca
-      // `color(srgb ...)`, ktorego regexp na `rgb(...)` nie zlapie.
+    const tony = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      // Alfa czytana z canvasa, nie parsowana z napisu: przegladarka potrafi
+      // oddac kolor jako `color(srgb ...)`, ktorego regexp na `rgb(...)`
+      // nie zlapie (pulapka zapisana na ISK-399).
       const canvas = document.createElement("canvas");
       canvas.width = 1;
       canvas.height = 1;
       const ctx = canvas.getContext("2d")!;
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = value;
-      ctx.fillRect(0, 0, 1, 1);
-      return { value, alpha: ctx.getImageData(0, 0, 1, 1).data[3]! / 255 };
+      const czytaj = (nazwa: string) => {
+        const value = root.getPropertyValue(nazwa).trim();
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = "rgba(0, 0, 0, 0)";
+        ctx.fillStyle = value;
+        ctx.fillRect(0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        return { value, rgb: [d[0]!, d[1]!, d[2]!], alpha: d[3]! / 255 };
+      };
+      return {
+        rdzen: czytaj("--focus-ring"),
+        obwodka: czytaj("--focus-ring-contrast"),
+      };
     });
 
-    // Pulapka zapisana na ISK-399: to NIE jest `rgb()`.
-    expect(ring.value.startsWith("rgb(")).toBe(false);
-    // ...a polprzezroczystosc jest realna, nie deklarowana.
-    expect(ring.alpha).toBeGreaterThan(0.4);
-    expect(ring.alpha).toBeLessThan(0.7);
+    expect(tony.rdzen.alpha).toBe(1);
+    expect(tony.obwodka.alpha).toBe(1);
+    // Rdzen to ciemna zielen marki (green-800), obwodka to biel.
+    expect(tony.rdzen.rgb).toEqual([18, 63, 20]);
+    expect(tony.obwodka.rgb).toEqual([255, 255, 255]);
   });
 
   test("nowe tokeny NIE przeslonily utilities Tailwinda (regresja ISK-355)", async ({
