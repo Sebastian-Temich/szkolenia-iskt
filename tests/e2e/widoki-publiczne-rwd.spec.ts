@@ -38,8 +38,18 @@ const WIDOKI = [
   "/polityka-prywatnosci",
 ] as const;
 
-/** 360 px to najwezszy ekran z zakresu zlecenia, 1440 — pelny desktop wzorca. */
-const SZEROKOSCI = [360, 768, 1440] as const;
+/**
+ * 320 px to najwezszy ekran, jaki ISK-412 ma pokryc, 1440 — pelny desktop.
+ *
+ * 320 PX DOLOZONE W ISK-412 I NIE JEST TO KOSMETYKA: bramka UX zmierzyla tam
+ * przepelnienie 4 px, ktorego ta bramka NIE WIDZIALA, bo zaczynala od 360 px.
+ * Zrodlem byla pastylka przelacznika rodzaju zgloszenia — `white-space: nowrap`
+ * razem ze stalym `padding-inline` ustawia jej szerokosc min-content szerzej
+ * niz karta, a `flex` nie kurczy elementu ponizej min-content, wiec pastylka
+ * wychodzila poza kadr zamiast sie zwezic. Przy 360 px miescila sie dokladnie,
+ * czyli defekt istnial tylko w pasmie, ktorego nikt nie mierzyl.
+ */
+const SZEROKOSCI = [320, 360, 768, 1440] as const;
 
 /**
  * Minimalna szerokosc toru siatki przy 360 px.
