@@ -769,46 +769,79 @@ test.describe("ISK-400 — komponenty: zmierzone wymiary i kolory", () => {
 });
 
 test.describe("ISK-400 — dostepnosc zmierzona", () => {
-  test("kazda kontrolka ma co najmniej 44 px wysokosci trafienia", async ({
-    page,
-  }) => {
-    await zamontuj(page);
+  /**
+   * ISK-411: ta bramka mierzyla WYLACZNIE wysokosc (`box.height < 44 - 0.5`).
+   * Szerokosc byla zbierana do komunikatu bledu i nigdy nie asertowana, wiec
+   * pigulka 20x44 przechodzila test nazwany „co najmniej 44 px". WCAG 2.1 AA
+   * 2.5.5 mowi o OBU wymiarach celu dotykowego.
+   *
+   * Drugi brak: filtry i kontrolka segmentowa byly mierzone tylko tutaj, i to
+   * przy 1440 px. `.ui-segmented-option` ma `flex: 1 1 auto`, a `.ui-filterpill`
+   * zawija sie — czyli oba moga zwezic sie dopiero na waskim ekranie, gdzie
+   * nikt ich nie mierzyl. Dlatego ten sam pomiar chodzi teraz na 1440 i 360 px.
+   */
+  for (const szerokosc of [1440, 360]) {
+    test(`kazda kontrolka ma co najmniej 44x44 px celu trafienia @ ${szerokosc}px`, async ({
+      page,
+    }) => {
+      await zamontuj(page, szerokosc);
 
-    const male = await page.evaluate(() => {
-      const selektory = [
-        "#ds .ui-button",
-        "#ds .ui-filterpill",
-        "#ds .ui-segmented-option",
-        "#ds .ui-checkbox",
-        "#ds .ui-field-control",
-      ];
-      const out: { selektor: string; text: string; w: number; h: number }[] =
-        [];
-      for (const s of selektory) {
-        for (const el of document.querySelectorAll(s)) {
-          const box = el.getBoundingClientRect();
-          if (box.width === 0 && box.height === 0) continue;
-          // Pola tekstowe maja 46 px z tokenu; pozostale kontrolki 44 px.
-          if (box.height < 44 - 0.5) {
-            out.push({
-              selektor: s,
-              text: (el.textContent ?? "").trim().slice(0, 40),
-              w: Math.round(box.width * 10) / 10,
-              h: Math.round(box.height * 10) / 10,
-            });
+      const male = await page.evaluate(() => {
+        const selektory = [
+          "#ds .ui-button",
+          "#ds .ui-filterpill",
+          "#ds .ui-segmented-option",
+          "#ds .ui-checkbox",
+          "#ds .ui-field-control",
+        ];
+        const out: {
+          selektor: string;
+          text: string;
+          w: number;
+          h: number;
+          wymiar: string;
+        }[] = [];
+        for (const s of selektory) {
+          for (const el of document.querySelectorAll(s)) {
+            const box = el.getBoundingClientRect();
+            if (box.width === 0 && box.height === 0) continue;
+            // Pola tekstowe maja 46 px z tokenu; pozostale kontrolki 44 px.
+            const zaNiski = box.height < 44 - 0.5;
+            const zaWaski = box.width < 44 - 0.5;
+            if (zaNiski || zaWaski) {
+              out.push({
+                selektor: s,
+                text: (el.textContent ?? "").trim().slice(0, 40),
+                w: Math.round(box.width * 10) / 10,
+                h: Math.round(box.height * 10) / 10,
+                wymiar: [zaWaski && "szerokosc", zaNiski && "wysokosc"]
+                  .filter(Boolean)
+                  .join(" i "),
+              });
+            }
           }
         }
-      }
-      return out;
-    });
+        return out;
+      });
 
-    expect(
-      male,
-      `Kontrolki ponizej 44 px: ${male
-        .map((m) => `${m.selektor} „${m.text}” ${m.w}x${m.h}`)
-        .join("; ")}`,
-    ).toStrictEqual([]);
-  });
+      expect(
+        male,
+        `Kontrolki ponizej 44 px @ ${szerokosc}px: ${male
+          .map((m) => `${m.selektor} „${m.text}” ${m.w}x${m.h} (${m.wymiar})`)
+          .join("; ")}`,
+      ).toStrictEqual([]);
+
+      // Pomiar musi miec na czym stac: gdyby harness przestal montowac
+      // kontrolki, petla wyzej oddalaby pusta tablice i test bylby zielony.
+      const zmierzone = await page.evaluate(
+        () =>
+          document.querySelectorAll(
+            "#ds .ui-button, #ds .ui-filterpill, #ds .ui-segmented-option, #ds .ui-checkbox, #ds .ui-field-control",
+          ).length,
+      );
+      expect(zmierzone, "Harness nie zamontowal kontrolek").toBeGreaterThan(10);
+    });
+  }
 
   test("przelacznik segmentowy ma semantyke grupy i stan zaznaczenia", async ({
     page,

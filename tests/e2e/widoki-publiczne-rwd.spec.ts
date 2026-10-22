@@ -1,32 +1,14 @@
 /**
- * ISK-401 / M2 — przepelnienie poziome mierzone na DZIECIACH, nie na korzeniu.
+ * ISK-401 / M2 — przepelnienie poziome mierzone na DZIECIACH, nie na korzeniu,
+ * oraz tory siatki rozwiazane do pikseli.
  *
- * DLACZEGO TEN PLIK ISTNIEJE, CHOC BRAMKA PRZEWIJANIA JUZ BYLA
- * Wszystkie dotychczasowe bramki przewijania w tym repozytorium (ISK-364 / P10
- * w `ux-blockers.spec.ts`, trzy testy w `public-pages.spec.ts`) sprawdzaja
- * `document.documentElement.scrollWidth <= window.innerWidth`. Ten pomiar jest
- * NIEFALSYFIKOWALNY w momencie, w ktorym korzen dokumentu dostaje
- * `overflow-x: hidden`: przegladarka przestaje wtedy raportowac przepelnienie
- * na korzeniu, element dalej wychodzi poza kadr, a bramka jest zielona. To nie
- * jest teoretyczne — zmierzony fakt w tym projekcie (ISK-399, lista pulapek
- * weryfikacyjnych): ukrycie przewijania na korzeniu zamaskowalo element szerszy
- * od kadru i gates przeszly.
- *
- * Dlatego tutaj chodzimy po KAZDYM elemencie dokumentu i pytamy o jego wlasna
- * geometrie. Element, ktory wystaje poza kadr, jest defektem nawet wtedy, gdy
- * korzen go przycina: tresc jest wtedy nieosiagalna, a nie "schowana".
- *
- * ZASADA WYLACZEN (trzy, kazde uzasadnione)
- *  1. zerowa geometria — element nie jest widoczny, wiec nie ma czego mierzyc;
- *  2. `position: fixed` — element jest wzgledem kadru, nie wzgledem dokumentu,
- *     i nie wnosi przewijania (tak tez liczy to przegladarka);
- *  3. przyciecie przez PRZODKA WEWNATRZ `body` (`overflow-x` inne niz
- *     `visible`) — ornament celowo wypuszczony poza sekcje, ktora go obcina, nie
- *     tworzy przewijania strony. `html` i `body` sa z tej reguly WYLACZONE
- *     swiadomie: przyciecie na korzeniu to dokladnie to alibi, ktorego ta bramka
- *     nie przyjmuje.
+ * Sam pomiar przepelnienia (i pelne uzasadnienie, dlaczego NIE przez
+ * `document.scrollWidth`) mieszka w `helpers/uklad.ts` — ISK-411 wyciagnal go
+ * tam, bo bramka nawigacji mobilnej mierzy to samo przy otwartym panelu.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { zmierzPrzepelnienie } from "./helpers/uklad";
 
 /** Wszystkie trasy publiczne — razem z dwiema, ktorych M2 nie przebudowal. */
 const WIDOKI = [
@@ -51,74 +33,6 @@ const SZEROKOSCI = [360, 768, 1440] as const;
  * w kadrze. 120 px to prog, ponizej ktorego kolumna przestaje byc kolumna.
  */
 const MIN_TOR_PX = 120;
-
-type Przepelnienie = {
-  kadr: number;
-  scrollWidth: number;
-  winowajcy: string[];
-};
-
-async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
-  return page.evaluate(() => {
-    // `clientWidth`, a nie `innerWidth`: gdyby pasek przewijania zajmowal
-    // miejsce w ukladzie, `innerWidth` bylby o jego szerokosc wieksze od kadru,
-    // w ktorym policzono `getBoundingClientRect` — i kazdy element dotykajacy
-    // prawej krawedzi "miescilby sie" o 15 px za duzo.
-    const kadr = document.documentElement.clientWidth;
-    const limit = kadr + 1;
-
-    const opis = (el: Element) => {
-      const klasy = Array.from(el.classList).slice(0, 4).join(".");
-      return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${
-        klasy ? `.${klasy}` : ""
-      }`;
-    };
-
-    /** Czytelna sciezka (cztery poziomy), zeby blad dal sie zdiagnozowac. */
-    const sciezka = (el: Element) => {
-      const czesci: string[] = [];
-      let node: Element | null = el;
-      for (let i = 0; node && i < 4; i += 1) {
-        czesci.unshift(opis(node));
-        node = node.parentElement;
-      }
-      return czesci.join(" > ").slice(0, 220);
-    };
-
-    /** Czy jakis przodek WEWNATRZ `body` obcina poziomo (patrz naglowek). */
-    const przycietyPrzezSekcje = (el: Element) => {
-      let node = el.parentElement;
-      while (node && node !== document.body) {
-        const overflowX = getComputedStyle(node).overflowX;
-        if (overflowX !== "visible") return true;
-        node = node.parentElement;
-      }
-      return false;
-    };
-
-    const winowajcy: string[] = [];
-    for (const el of Array.from(document.querySelectorAll("*"))) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
-      if (getComputedStyle(el).position === "fixed") continue;
-      if (rect.right <= limit && rect.width <= limit) continue;
-      if (przycietyPrzezSekcje(el)) continue;
-      winowajcy.push(
-        `${sciezka(el)} — right=${Math.round(rect.right)}, width=${Math.round(
-          rect.width,
-        )}, kadr=${kadr}`,
-      );
-      // Dwunastu winowajcow wystarcza do diagnozy; dalej to ta sama przyczyna.
-      if (winowajcy.length >= 12) break;
-    }
-
-    return {
-      kadr,
-      scrollWidth: document.documentElement.scrollWidth,
-      winowajcy,
-    };
-  });
-}
 
 for (const path of WIDOKI) {
   for (const width of SZEROKOSCI) {
