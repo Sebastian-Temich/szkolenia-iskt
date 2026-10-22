@@ -108,3 +108,21 @@ export const trainingSchema = z.object({
 });
 
 export const idSchema = z.uuid();
+
+/**
+ * Notatka wewnetrzna zgloszenia (ISK-402).
+ *
+ * Limit 2000 znakow jest LUSTREM ograniczenia z bazy
+ * (`check (char_length(admin_note) <= 2000)`, migracja `20261009120500`) —
+ * walidujemy go tutaj, zeby administrator zobaczyl komunikat formularza,
+ * a nie surowy `check_violation` z Postgresa. Tak samo jak pola SEO wyzej.
+ *
+ * Puste pole zapisuje `null`, nie `""`: kolumna jest `nullable`, a kolejnosc
+ * `.max()` → `.transform()` ma znaczenie, bo w zod 4 `.default()` podstawia
+ * WYNIK transformacji (patrz nota przy `trainingSchema`).
+ */
+export const inquiryNoteSchema = z
+  .string()
+  .trim()
+  .max(2000, "Notatka może mieć najwyżej 2000 znaków.")
+  .transform((value) => value || null);

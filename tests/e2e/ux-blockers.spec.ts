@@ -303,7 +303,29 @@ test.describe("P1 — kroj Inter jest faktycznie wczytany", () => {
   });
 });
 
+/**
+ * B6 — usuwanie wymaga potwierdzenia.
+ *
+ * ISK-402 / M3: potwierdzenie przestalo byc natywnym `<dialog>` z
+ * `showModal()` i jest teraz INLINE, w miejscu przyciskow wiersza — karta
+ * wymaga „zero modali" za wzorcem. Dlatego `getByRole("dialog")` ustepuje
+ * miejsca grupie `Potwierdzenie usuniecia: <nazwa>`.
+ *
+ * CZEGO TA ZMIANA NIE DOTKNELA: ani jednej asercji BEZPIECZENSTWA. Samo
+ * klikniecie „Usun" nadal nic nie usuwa, „Anuluj" nadal nic nie usuwa,
+ * Escape nadal nic nie usuwa, a potwierdzenie usuwa WYLACZNIE wskazany
+ * wiersz. Egzekwuje to serwer: `deleteCatalogItem` odrzuca zadanie bez pola
+ * `confirmDeleteId` rownego `id`, wiec pominiecie pytania (skrypt, wylaczony
+ * JavaScript, recznie zlozone zadanie) tez niczego nie usuwa.
+ */
 test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
+  /** Pytanie inline — grupa nazwana usuwana pozycja. */
+  function confirmFor(page: Page, name: string) {
+    return page.getByRole("group", {
+      name: `Potwierdzenie usunięcia: ${name}`,
+    });
+  }
+
   test("klikniecie „Usun” nie usuwa nic; pyta i nazywa pozycje", async ({
     page,
   }) => {
@@ -320,10 +342,21 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
       await row.getByRole("button", { name: "Usuń" }).click();
 
       // Pytanie nazywa usuwana pozycje — administrator widzi, co usuwa.
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible();
-      await expect(dialog).toContainText(training.title);
-      await expect(dialog).toContainText(/nie można cofnąć/i);
+      const confirm = confirmFor(page, training.title);
+      await expect(confirm).toBeVisible();
+      await expect(confirm).toContainText(training.title);
+      await expect(confirm).toContainText(/nie można cofnąć/i);
+
+      // Potwierdzenie podmienia rzad akcji, a nie staje w nim obok: dopoki
+      // pytanie jest otwarte, nie ma czym przypadkowo kliknac „Usun" ponownie.
+      //
+      // `exact: true` jest tu KONIECZNE. `getByRole` dopasowuje nazwe dostepna
+      // jako PODCIAG, bez rozroznienia wielkosci liter — bez tego „Usun"
+      // trafia takze w „Tak, usun trwale" z samego pytania, czyli asercja
+      // mierzylaby przycisk potwierdzenia i nie moglaby nigdy przejsc.
+      await expect(
+        row.getByRole("button", { name: "Usuń", exact: true }),
+      ).toHaveCount(0);
 
       // KLUCZOWA asercja: samo klikniecie nic nie usunelo.
       const stillThere = await serviceClient()
@@ -333,14 +366,19 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
       expect(stillThere.data ?? []).toHaveLength(1);
 
       // „Anuluj” tez nic nie usuwa.
-      await dialog.getByRole("button", { name: "Anuluj" }).click();
-      await expect(dialog).toBeHidden();
+      await confirm.getByRole("button", { name: "Anuluj" }).click();
+      await expect(confirm).toHaveCount(0);
       const afterCancel = await serviceClient()
         .from("trainings")
         .select("id")
         .eq("id", training.id);
       expect(afterCancel.data ?? []).toHaveLength(1);
       await expect(row).toBeVisible();
+
+      // Fokus wraca na przycisk, ktory otworzyl pytanie. `<dialog>` dawal to
+      // gratis; przy potwierdzeniu inline trzeba bylo dopisac to samemu, wiec
+      // ma wlasna asercje — bez niej klawiatura gubi miejsce w tabeli.
+      await expect(row.getByRole("button", { name: "Usuń" })).toBeFocused();
     } finally {
       await deleteTraining(training.id);
     }
@@ -357,10 +395,16 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
 
       const row = page.getByRole("row", { name: new RegExp(training.slug) });
       await row.getByRole("button", { name: "Usuń" }).click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      const confirm = confirmFor(page, training.title);
+      await expect(confirm).toBeVisible();
 
+      // Po otwarciu fokus stoi na „Anuluj" (nie na przycisku niszczacym),
+      // wiec Escape ma gdzie trafic — to warunek dzialania tej sciezki.
+      await expect(
+        confirm.getByRole("button", { name: "Anuluj" }),
+      ).toBeFocused();
       await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).toBeHidden();
+      await expect(confirm).toHaveCount(0);
 
       const after = await serviceClient()
         .from("trainings")
@@ -389,8 +433,7 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
 
       const row = page.getByRole("row", { name: new RegExp(target.slug) });
       await row.getByRole("button", { name: "Usuń" }).click();
-      await page
-        .getByRole("dialog")
+      await confirmFor(page, target.title)
         .getByRole("button", { name: "Tak, usuń trwale" })
         .click();
 
@@ -438,8 +481,8 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
       await expect(row).toBeVisible();
       await row.getByRole("button", { name: "Usuń" }).click();
 
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toContainText(created.full_name);
+      const confirm = confirmFor(page, created.full_name);
+      await expect(confirm).toContainText(created.full_name);
 
       const stillThere = await svc
         .from("trainers")
@@ -447,7 +490,7 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
         .eq("id", created.id);
       expect(stillThere.data ?? []).toHaveLength(1);
 
-      await dialog.getByRole("button", { name: "Tak, usuń trwale" }).click();
+      await confirm.getByRole("button", { name: "Tak, usuń trwale" }).click();
       await expect(row).toHaveCount(0);
 
       const gone = await svc.from("trainers").select("id").eq("id", created.id);

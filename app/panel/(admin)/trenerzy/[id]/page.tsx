@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Field, Icon, Input, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/panel/auth";
 
 import { saveTrainer } from "../../actions";
+import { SubmitButton } from "../../submit-button";
 
 export default async function TrainerEditor({
   params,
@@ -18,58 +21,93 @@ export default async function TrainerEditor({
   if (!isNew && !trainer) notFound();
   return (
     <section>
+      <Link className="panel-back-link" href="/panel/trenerzy">
+        <Icon name="arrow-left" size={16} />
+        Wróć do listy
+      </Link>
       <p className="panel-eyebrow">Profil prowadzącego</p>
       <h1>{isNew ? "Dodaj trenera" : trainer?.full_name}</h1>
-      <form action={saveTrainer} className="panel-form panel-form-wide">
+      {/* Podtytul wzorca. D4 z karty ISK-399: szczegol trenera
+          `/trenerzy/[slug]` jest POZA V1, wiec nie obiecujemy tu „CV zbuduje
+          sie automatycznie" jak wzorzec — zdanie opisuje to, co faktycznie
+          powstaje, czyli karte na liscie trenerow. */}
+      <p>
+        Uzupełnij profil — karta trenera na liście publicznej zbuduje się z tych
+        pól.
+      </p>
+      <form action={saveTrainer} className="panel-form panel-form-card">
         {!isNew ? <input type="hidden" name="id" value={id} /> : null}
         <div className="panel-fields">
-          <label>
-            Imię i nazwisko
-            <input
+          <Field id="trainer-full-name" label="Imię i nazwisko">
+            <Input
+              id="trainer-full-name"
               name="full_name"
               required
               defaultValue={trainer?.full_name ?? ""}
             />
-          </label>
-          <label>
-            Slug
-            <input name="slug" required defaultValue={trainer?.slug ?? ""} />
-          </label>
+          </Field>
+          <Field id="trainer-slug" label="Slug">
+            <Input
+              id="trainer-slug"
+              name="slug"
+              required
+              defaultValue={trainer?.slug ?? ""}
+            />
+          </Field>
         </div>
-        <label>
-          Nagłówek
-          <input name="headline" defaultValue={trainer?.headline ?? ""} />
-        </label>
-        <label>
-          Biogram
-          <textarea name="bio" rows={8} defaultValue={trainer?.bio ?? ""} />
-        </label>
-        <label>
-          Kompetencje (po przecinku)
-          <input
+        <Field id="trainer-headline" label="Nagłówek">
+          <Input
+            id="trainer-headline"
+            name="headline"
+            defaultValue={trainer?.headline ?? ""}
+          />
+        </Field>
+        <Field id="trainer-bio" label="Biogram">
+          <Textarea
+            id="trainer-bio"
+            name="bio"
+            rows={8}
+            defaultValue={trainer?.bio ?? ""}
+          />
+        </Field>
+        <Field id="trainer-competences" label="Kompetencje (po przecinku)">
+          <Input
+            id="trainer-competences"
             name="competences"
             defaultValue={trainer?.competences?.join(", ") ?? ""}
           />
-        </label>
-        <label>
-          URL zdjęcia
-          <input
+        </Field>
+        <Field
+          id="trainer-photo-url"
+          label="URL zdjęcia"
+          hint="Upload plików nie jest dostępny w MVP."
+        >
+          <Input
+            id="trainer-photo-url"
             name="photo_url"
             type="url"
             defaultValue={trainer?.photo_url ?? ""}
+            hint="Upload plików nie jest dostępny w MVP."
           />
-          <small>Upload plików nie jest dostępny w MVP.</small>
-        </label>
-        <label>
-          Kolejność
-          <input
+        </Field>
+        <Field id="trainer-sort" label="Kolejność">
+          <Input
+            id="trainer-sort"
             name="sort_order"
             type="number"
             min="0"
             defaultValue={trainer?.sort_order ?? 100}
           />
-        </label>
-        <button className="panel-button">Zapisz trenera</button>
+        </Field>
+        <div className="panel-form-actions">
+          <Link
+            className="panel-button panel-button-quiet"
+            href="/panel/trenerzy"
+          >
+            Anuluj
+          </Link>
+          <SubmitButton>Zapisz trenera</SubmitButton>
+        </div>
       </form>
     </section>
   );

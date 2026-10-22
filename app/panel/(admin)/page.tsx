@@ -1,23 +1,57 @@
 import Link from "next/link";
 
+import { IconChip } from "@/components/ui";
+
+/**
+ * Start panelu (ISK-402 / M3).
+ *
+ * H1 „Zarzadzanie oferta" wprost z karty i ze wzorca. Wczesniej stal tu
+ * „Panel administratora" — ten napis przeniosl sie na ekran logowania, a tutaj
+ * jest `panel-eyebrow`, czyli dokladnie jak we wzorcu. Zmiana pociagnela
+ * asercje w `tests/e2e/panel.spec.ts`.
+ *
+ * Wzorzec nie ma strony startowej panelu: wchodzi od razu w zakladke
+ * „Szkolenia". Produkt ma `/panel` jako osobna trase (i cztery bramki ja
+ * mierza), wiec zostaje jako spis obszarow — trzy karty w formie wzorca.
+ */
+const areas = [
+  {
+    href: "/panel/szkolenia",
+    icon: "graduation-cap",
+    title: "Szkolenia",
+    lead: "Twórz, edytuj i publikuj ofertę.",
+  },
+  {
+    href: "/panel/trenerzy",
+    icon: "award",
+    title: "Trenerzy",
+    lead: "Zarządzaj profilami prowadzących.",
+  },
+  {
+    href: "/panel/zgloszenia",
+    icon: "mail",
+    title: "Zgłoszenia",
+    lead: "Obsługuj kontakt od klientów.",
+  },
+] as const;
+
 export default function PanelHome() {
   return (
     <section>
-      <p className="panel-eyebrow">Centrum zarządzania</p>
-      <h1>Panel administratora</h1>
+      <div className="panel-title-row">
+        <div>
+          <p className="panel-eyebrow">Panel administratora</p>
+          <h1>Zarządzanie ofertą</h1>
+        </div>
+      </div>
       <div className="panel-grid">
-        <Link className="panel-card" href="/panel/szkolenia">
-          <h2>Szkolenia</h2>
-          <p>Twórz, edytuj i publikuj ofertę.</p>
-        </Link>
-        <Link className="panel-card" href="/panel/trenerzy">
-          <h2>Trenerzy</h2>
-          <p>Zarządzaj profilami prowadzących.</p>
-        </Link>
-        <Link className="panel-card" href="/panel/zgloszenia">
-          <h2>Zgłoszenia</h2>
-          <p>Obsługuj kontakt od klientów.</p>
-        </Link>
+        {areas.map((area) => (
+          <Link className="panel-card" href={area.href} key={area.href}>
+            <IconChip icon={area.icon} size="lg" tone="soft" />
+            <h2>{area.title}</h2>
+            <p>{area.lead}</p>
+          </Link>
+        ))}
       </div>
     </section>
   );

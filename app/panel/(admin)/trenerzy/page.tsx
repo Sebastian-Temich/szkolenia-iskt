@@ -1,12 +1,40 @@
 import Link from "next/link";
 
+import { Icon, IconChip, Notice } from "@/components/ui";
 import { requireAdmin } from "@/lib/panel/auth";
+import { FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
 
 import { deleteCatalogItem, setPublished } from "../actions";
-import { ConfirmDeleteButton } from "../confirm-delete-button";
+import { RowActions } from "../row-actions";
 
-export default async function TrainersPage() {
+/**
+ * Inicjaly do krazka na gradiencie marki — forma wzorca.
+ *
+ * Bierzemy pierwsza LITERE czlonu, a nie pierwszy znak: imiona w zasiewie
+ * i w danych testowych zaczynaja sie od prefiksu w nawiasie („[DEMO] Anna
+ * Testowa"), wiec pierwszy znak dawal krazki „[A" zamiast „AT". Tytuly
+ * („dr", „mgr inz.") swiadomie NIE sa odfiltrowane — wzorzec liczy inicjaly
+ * z calej nazwy i nie zna listy polskich tytulow naukowych.
+ */
+function initials(fullName: string): string {
+  return (
+    fullName
+      .split(/\s+/)
+      .map((part) => part.match(/\p{L}/u)?.[0])
+      .filter((letter): letter is string => Boolean(letter))
+      .slice(0, 2)
+      .map((letter) => letter.toUpperCase())
+      .join("") || "?"
+  );
+}
+
+export default async function TrainersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { supabase } = await requireAdmin();
+  const flash = flashMessage((await searchParams)[FLASH_PARAM]);
   const { data: trainers } = await supabase
     .from("trainers")
     .select("id,full_name,headline,slug,is_published")
@@ -19,11 +47,21 @@ export default async function TrainersPage() {
           <h1>Trenerzy</h1>
         </div>
         <Link className="panel-button" href="/panel/trenerzy/nowy">
+          <Icon name="plus" size={18} />
           Dodaj trenera
         </Link>
       </div>
+
+      {flash ? (
+        <Notice tone="success" className="panel-flash">
+          {flash}
+        </Notice>
+      ) : null}
+
       {!trainers?.length ? (
-        <p className="panel-empty">Brak trenerów.</p>
+        <p className="panel-empty">
+          Brak trenerów. Dodaj pierwszy profil przyciskiem powyżej.
+        </p>
       ) : (
         <>
           {/* ISK-364 / P8: na waskim ekranie kolumna „Akcje" wychodzi poza
@@ -40,21 +78,42 @@ export default async function TrainersPage() {
             aria-label="Lista trenerów — tabela przewijana w poziomie"
             tabIndex={0}
           >
-            <table>
+            <table className="panel-table">
               <thead>
                 <tr>
-                  <th>Osoba</th>
-                  <th>Status</th>
-                  <th>Akcje</th>
+                  <th scope="col">Trener</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" className="panel-table-col-actions">
+                    Akcje
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {trainers.map((trainer) => (
                   <tr key={trainer.id}>
-                    <td>
-                      <strong>{trainer.full_name}</strong>
-                      <small>{trainer.headline || `/${trainer.slug}`}</small>
-                    </td>
+                    <th scope="row">
+                      <span className="panel-table-person">
+                        {/* Krazek z inicjalami jest ORNAMENTEM obok pelnego
+                            imienia w tej samej komorce, wiec idzie w opakowaniu
+                            `aria-hidden`: inaczej czytnik ekranu przeczytalby
+                            „A N  Anna Nowak". `IconChip` sam ukrywa tylko
+                            warianty z ikona — przy tresci wlasnej nie moze
+                            zalozyc, ze jest ozdoba. */}
+                        <span aria-hidden="true">
+                          <IconChip size="md" tone="brand" circle>
+                            {initials(trainer.full_name)}
+                          </IconChip>
+                        </span>
+                        <span>
+                          <span className="panel-table-title">
+                            {trainer.full_name}
+                          </span>
+                          <span className="panel-table-meta">
+                            {trainer.headline || `/${trainer.slug}`}
+                          </span>
+                        </span>
+                      </span>
+                    </th>
                     <td>
                       <span
                         className={
@@ -66,34 +125,25 @@ export default async function TrainersPage() {
                         {trainer.is_published ? "Opublikowany" : "Szkic"}
                       </span>
                     </td>
-                    <td>
-                      <div className="panel-actions">
-                        <Link href={`/panel/trenerzy/${trainer.id}`}>
-                          Edytuj
-                        </Link>
-                        <form
-                          action={setPublished.bind(
-                            null,
-                            "trainer",
-                            trainer.id,
-                            !trainer.is_published,
-                          )}
-                        >
-                          <button>
-                            {trainer.is_published ? "Wycofaj" : "Publikuj"}
-                          </button>
-                        </form>
-                        <ConfirmDeleteButton
-                          action={deleteCatalogItem.bind(
-                            null,
-                            "trainer",
-                            trainer.id,
-                          )}
-                          itemId={trainer.id}
-                          itemName={trainer.full_name}
-                          itemKindLabel="trenera"
-                        />
-                      </div>
+                    <td className="panel-table-col-actions">
+                      <RowActions
+                        editHref={`/panel/trenerzy/${trainer.id}`}
+                        publishAction={setPublished.bind(
+                          null,
+                          "trainer",
+                          trainer.id,
+                          !trainer.is_published,
+                        )}
+                        published={Boolean(trainer.is_published)}
+                        deleteAction={deleteCatalogItem.bind(
+                          null,
+                          "trainer",
+                          trainer.id,
+                        )}
+                        itemId={trainer.id}
+                        itemName={trainer.full_name}
+                        itemKindLabel="trenera"
+                      />
                     </td>
                   </tr>
                 ))}
