@@ -7,6 +7,15 @@ export type Category = {
   slug: string;
   name: string;
   description: string | null;
+  /**
+   * Nazwa ikony obszaru. Kolumna istnieje od migracji E2 i jest wypelniona
+   * w zasiewie (`cpu`, `leaf`, `languages`, `code`, `flask`), ale do ISK-401
+   * nie czytal jej ani jeden widok — sekcja "Obszary" rysowala numer
+   * porzadkowy. Zestaw ikon nie zna nazw `code` ani `flask`, wiec mapowanie
+   * robi `lib/category-icon.ts`, a nie baza: przezwanie ikony w zestawie nie
+   * moze wymagac migracji.
+   */
+  icon: string | null;
 };
 
 export type Trainer = {
@@ -31,6 +40,17 @@ export type Training = {
   category: Category | null;
   level: string | null;
   duration_hours: number | null;
+  /**
+   * Cena katalogowa netto. Kolumna (`numeric(10,2)`) byla pobierana od E2 —
+   * zapytania ponizej selektuja `*` — ale nie bylo jej w tym typie, wiec
+   * zaden widok nie mial jak jej pokazac. PostgREST serializuje `numeric`
+   * jako liczbe JSON; `formatPriceNet()` i tak przyjmuje tez napis, bo to
+   * zachowanie zalezy od wersji PostgREST, a nie od naszego kontraktu.
+   *
+   * ISK-399 / D1: cena to WYLACZNIE ta wartosc. Wzorzec liczy "pelna x 0.2"
+   * i formatuje cene jako napis w danych prototypu — tego nie przenosimy.
+   */
+  price_net_pln: number | string | null;
   funding_available: boolean;
   funding_note: string | null;
   program: ProgramSection[];
@@ -65,15 +85,49 @@ function publicClient() {
   throw new Error(MISSING_PUBLIC_CONFIG);
 }
 
+/**
+ * Kolejnosc prowadzacych.
+ *
+ * `training_trainers.sort_order` istnieje od migracji E2, ale embed go nie
+ * pobieral i nie sortowal — PostgREST zwracal wiersze w kolejnosci, ktora nie
+ * jest czescia kontraktu, wiec karta "Prowadzacy" na szczegole szkolenia
+ * ustawiala ludzi losowo miedzy odpowiedziami. Sortujemy po stronie klienta,
+ * a nie przez `order({ referencedTable })`, bo ta sama funkcja mapujaca
+ * obsluguje `getTrainings` i `getTraining`, a sortowanie po stronie klienta
+ * da sie przetestowac jednostkowo bez bazy.
+ *
+ * `sort_order` rowne u dwoch osob jest w bazie dopuszczalne, wiec remis
+ * rozstrzyga `full_name` lokalnie — inaczej kolejnosc znow bylaby zalezna od
+ * zapytania.
+ */
+export type TrainerLink = {
+  sort_order: number | null;
+  trainer: Trainer | null;
+};
+
+/**
+ * Wyeksportowana osobno, zeby dala sie przetestowac jednostkowo bez bazy —
+ * `mapTraining` jest wewnetrzne i dostepne tylko przez zapytanie.
+ */
+export function orderTrainerLinks(links: TrainerLink[]): Trainer[] {
+  return links
+    .filter((link): link is TrainerLink & { trainer: Trainer } =>
+      Boolean(link.trainer),
+    )
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+        a.trainer.full_name.localeCompare(b.trainer.full_name, "pl"),
+    )
+    .map((link) => link.trainer);
+}
+
 function mapTraining(row: Record<string, unknown>): Training {
-  const links = (row.training_trainers ?? []) as Array<{
-    trainer: Trainer | null;
-  }>;
   return {
     ...(row as unknown as Omit<Training, "trainers">),
     program: (row.program ?? []) as ProgramSection[],
     learning_outcomes: (row.learning_outcomes ?? []) as string[],
-    trainers: links.map((link) => link.trainer).filter(Boolean) as Trainer[],
+    trainers: orderTrainerLinks((row.training_trainers ?? []) as TrainerLink[]),
   };
 }
 
@@ -82,7 +136,7 @@ export async function getCategories(): Promise<Category[]> {
   if (!client) return [];
   const { data, error } = await client
     .from("categories")
-    .select("id,slug,name,description")
+    .select("id,slug,name,description,icon")
     .eq("is_published", true)
     .order("sort_order");
   if (error) throw new Error("Nie udało się pobrać kategorii.");
@@ -98,7 +152,7 @@ export async function getTrainings(
   let query = client
     .from("trainings")
     .select(
-      "*,category:categories!inner(id,slug,name,description),training_trainers(trainer:trainers(id,slug,full_name,headline,bio,competences,photo_url))",
+      "*,category:categories!inner(id,slug,name,description,icon),training_trainers(sort_order,trainer:trainers(id,slug,full_name,headline,bio,competences,photo_url))",
     )
     .eq("is_published", true)
     .order("sort_order");
@@ -119,7 +173,7 @@ export async function getTraining(slug: string): Promise<Training | null> {
   const { data, error } = await client
     .from("trainings")
     .select(
-      "*,category:categories(id,slug,name,description),training_trainers(trainer:trainers(id,slug,full_name,headline,bio,competences,photo_url))",
+      "*,category:categories(id,slug,name,description,icon),training_trainers(sort_order,trainer:trainers(id,slug,full_name,headline,bio,competences,photo_url))",
     )
     .eq("slug", slug)
     .eq("is_published", true)
