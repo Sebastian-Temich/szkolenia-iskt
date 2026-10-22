@@ -5,10 +5,19 @@
  * Sam pomiar przepelnienia (i pelne uzasadnienie, dlaczego NIE przez
  * `document.scrollWidth`) mieszka w `helpers/uklad.ts` — ISK-411 wyciagnal go
  * tam, bo bramka nawigacji mobilnej mierzy to samo przy otwartym panelu.
+ * ISK-413 zawezil w tym samym pliku wyjatek na przyciecie przez przodka do
+ * ORNAMENTOW i dolozyl helpery wstrzykiwania; drugie ramie tej bramki
+ * (`describe` na koncu pliku) wymaga, zeby detektor zglosil element za szeroki
+ * wstrzyknięty w kazde poddrzewo przycinane przez przodka.
  */
 import { expect, test } from "@playwright/test";
 
-import { zmierzPrzepelnienie } from "./helpers/uklad";
+import {
+  oznaczKonteneryObcinajace,
+  usunWstrzyknieta,
+  wstrzyknijZaSzeroki,
+  zmierzPrzepelnienie,
+} from "./helpers/uklad";
 
 /** Wszystkie trasy publiczne — razem z dwiema, ktorych M2 nie przebudowal. */
 const WIDOKI = [
@@ -117,3 +126,168 @@ for (const path of WIDOKI) {
     ).toEqual([]);
   });
 }
+/**
+ * DRUGIE RAMIE BRAMKI (ISK-413 / CR-I3, punkt 4 karty M4b).
+ *
+ * CZEGO BRAKOWALO
+ * Testy wyzej dowodza tylko tego, ze dzisiejszy produkt nie ma elementow poza
+ * kadrem. Nie dowodza, ze detektor UMIE taki element znalezc — a przy poprzednim
+ * (szerokim) wyjatku na przyciecie przez przodka NIE UMIAL: `h1` hero, rzad CTA
+ * i tytul kazdej karty szkolenia byly zwolnione hurtem, bo `.home-hero` i
+ * `.ui-card-flush` maja `overflow: hidden`. Bramka swiecila na zielono i swiecila
+ * by dalej, gdyby tresc wyszla za kadr. Tu wstrzykujemy element szerszy od kadru
+ * i WYMAGAMY zgloszenia.
+ *
+ * DLACZEGO KONTENERY SA WYKRYWANE, A NIE WPISANE NA LISTE
+ * Lista selektorow starzeje sie w ciszy. Karta M4b wskazywala m.in.
+ * `.ui-panel { overflow: hidden }` — ta regula nie jest przypisana zadnemu
+ * elementowi w `app/` ani `components/`, czyli wskazywala na martwy kod,
+ * a prawdziwe poddrzewo (`.home-hero-inner`) nie bylo wymienione wcale.
+ * Dlatego ramie pyta STRONE, co faktycznie przycina, i wchodzi do kazdego
+ * takiego kontenera po kolei.
+ *
+ * KAZDY KONTENER DOSTAJE OBA WSTRZYKNIECIA
+ *  - element TRESCI (w drzewie dostepnosci, wskazywalny) — musi byc zgloszony;
+ *  - ORNAMENT (`aria-hidden` + `pointer-events: none`) — musi byc zwolniony.
+ * Pierwsze dowodzi, ze detektor dziala. Drugie dowodzi, ze wyjatek nadal
+ * dziala CELOWO, a nie dlatego, ze go po cichu wylaczono — bez tej polowy
+ * "poprawka" dajaca sie sprowadzic do usuniecia wyjatku tez by przeszla.
+ */
+test.describe("drugie ramie: detektor widzi tresc wewnatrz poddrzew przycinanych", () => {
+  // 360 px to kadr, w ktorym tresc wychodzi za krawedz najlatwiej, a zarazem
+  // ten, dla ktorego karta wprost wymienia naglowek hero, rzad CTA i tytul karty.
+  const KADR = { width: 360, height: 900 } as const;
+
+  for (const path of ["/", "/szkolenia"] as const) {
+    test(`${path} @ ${KADR.width}px: kazdy kontener przycinajacy jest przeszukiwany`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ ...KADR });
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+
+      // Punkt odniesienia. Gdyby strona JUZ miala winowajce, nie dalo by sie
+      // odroznic "detektor znalazl wstrzyknieta kontrolke" od "detektor zglasza
+      // to, co bylo wczesniej".
+      const przed = await zmierzPrzepelnienie(page);
+      expect(
+        przed.winowajcy,
+        `${path}: punkt odniesienia nie jest czysty:\n${przed.winowajcy.join("\n")}`,
+      ).toEqual([]);
+
+      const kontenery = await oznaczKonteneryObcinajace(page);
+      // Kontenery, ktore nie potrafia ulozyc pudelka HTML (element zastapiony
+      // w rodzaju `<img>`). Nie da sie w nich NICZEGO pokazac, wiec nie da sie
+      // tez niczego ukryc — pominiecie jest poprawne, ale musi byc WIDOCZNE
+      // w raporcie, zeby „pominelismy wszystko" nie przeszlo za zielone.
+      const pominiete: string[] = [];
+      let sprawdzone = 0;
+
+      for (const [indeks, opisKontenera] of kontenery.entries()) {
+        // --- ramie negatywne: TRESC musi byc zgloszona ---------------------
+        const tresc = await wstrzyknijZaSzeroki(page, {
+          indeks,
+          rodzaj: "tresc",
+        });
+        if (tresc.width === 0 || tresc.height === 0) {
+          await usunWstrzyknieta(page, tresc.id);
+          pominiete.push(opisKontenera);
+          continue;
+        }
+        const zTrescia = await zmierzPrzepelnienie(page);
+        expect(
+          zTrescia.winowajcy.join("\n"),
+          `${path}: element szerszy od kadru wstrzyknięty w ${opisKontenera} NIE zostal zgloszony — ` +
+            `detektor jest slepy na tresc wewnatrz tego poddrzewa`,
+        ).toContain(`#${tresc.id}`);
+        await usunWstrzyknieta(page, tresc.id);
+
+        // --- wyjatek nadal dziala: ORNAMENT musi byc zwolniony -------------
+        const ornament = await wstrzyknijZaSzeroki(page, {
+          indeks,
+          rodzaj: "ornament",
+        });
+        const zOrnamentem = await zmierzPrzepelnienie(page);
+        expect(
+          zOrnamentem.winowajcy,
+          `${path}: ornament w ${opisKontenera} zostal zgloszony jako winowajca — ` +
+            `wyjatek na ozdoby przestal dzialac (poswiaty hero wyjda na czerwono)`,
+        ).toEqual([]);
+        expect(
+          zOrnamentem.zwolnieni.join("\n"),
+          `${path}: ornament w ${opisKontenera} nie trafil na liste zwolnionych — ` +
+            `przeszedl inna sciezka, niz zaklada ten test`,
+        ).toContain(`#${ornament.id}`);
+        await usunWstrzyknieta(page, ornament.id);
+        sprawdzone += 1;
+      }
+
+      // Bramka anty-wakuacyjna. Liczy kontenery FAKTYCZNIE sprawdzone, a nie
+      // znalezione: gdyby arkusz przestal cokolwiek przycinac ALBO gdyby
+      // wszystkie trafienia byly elementami zastapionymi, ramie mierzyloby
+      // pusty zbior i przechodzilo bez ani jednej asercji — to jest ta pulapka,
+      // ktora w tym repozytorium nazwano „zielona bramka, martwa dana".
+      expect(
+        sprawdzone,
+        `${path}: ani jeden kontener przycinajacy nie zostal sprawdzony ` +
+          `(znalezione: ${kontenery.length}, pominiete jako nieukladajace pudelka: ${
+            pominiete.join(", ") || "brak"
+          })`,
+      ).toBeGreaterThan(0);
+
+      // Stan koncowy rowny stanowi wejsciowemu — wstrzykniecia nie zostawiaja
+      // osadu, ktory podpowiadalby wynik kolejnym asercjom.
+      const po = await zmierzPrzepelnienie(page);
+      expect(po.winowajcy).toEqual([]);
+    });
+  }
+
+  test("asercja `scrollWidth` jest slepa na tresc w przycietym poddrzewie", async ({
+    page,
+  }) => {
+    // Ten test nie bada produktu — dokumentuje POMIAREM, dlaczego glowna
+    // asercja chodzi po dzieciach, a `scrollWidth` zostaje tylko dodatkiem
+    // (patrz komentarz przy tamtej asercji). Bez tego dowodu "zostaje, bo tani"
+    // jest opinia; z nim jest faktem zmierzonym w tym repozytorium.
+    await page.setViewportSize({ width: 360, height: 900 });
+    expect((await page.goto("/"))?.status()).toBe(200);
+
+    const kontenery = await oznaczKonteneryObcinajace(page);
+    expect(kontenery.length).toBeGreaterThan(0);
+
+    // Pierwszy kontener, ktory NAPRAWDE uklada pudelko — indeks 0 na sztywno
+    // zalezalby od kolejnosci w drzewie i wywrocilby ten test na elemencie
+    // zastapionym, bez zadnego zwiazku z mierzona wlasnoscia.
+    let tresc: Awaited<ReturnType<typeof wstrzyknijZaSzeroki>> | null = null;
+    for (let indeks = 0; indeks < kontenery.length; indeks += 1) {
+      const proba = await wstrzyknijZaSzeroki(page, {
+        indeks,
+        rodzaj: "tresc",
+      });
+      if (proba.width > 0 && proba.height > 0) {
+        tresc = proba;
+        break;
+      }
+      await usunWstrzyknieta(page, proba.id);
+    }
+    expect(
+      tresc,
+      "zaden kontener przycinajacy nie ulozyl pudelka — nie ma czym zmierzyc slepoty `scrollWidth`",
+    ).not.toBeNull();
+    const id = tresc!.id;
+
+    const metryki = await zmierzPrzepelnienie(page);
+
+    // Element wystaje 200 px za kadr i detektor dzieci go widzi...
+    expect(metryki.winowajcy.join("\n")).toContain(`#${id}`);
+    // ...a `scrollWidth` dalej raportuje kadr co do piksela, bo przodek
+    // przycina. Dokladnie tak przechodzily poprzednie bramki przewijania.
+    expect(
+      metryki.scrollWidth,
+      `scrollWidth ${metryki.scrollWidth} zglosil przepelnienie, ktore przodek przycina — ` +
+        `jesli to sie zmienilo, komentarz przy asercji dodatkowej jest nieaktualny`,
+    ).toBeLessThanOrEqual(metryki.kadr + 1);
+
+    await usunWstrzyknieta(page, id);
+  });
+});
