@@ -62,13 +62,15 @@ test.describe("D5.7 — administrator tworzy, publikuje i wycofuje szkolenie", (
     await page.getByLabel("Cena netto PLN").fill("900");
     // ISK-374 BL-C: pola, od ktorych zalezy publiczny frontend. Wczesniej formularz
     // ich nie mial, wiec szkolenie dodane w panelu nie moglo trafic do sekcji
-    // "Najczesciej wybierane" ani miec wlasnych metadanych SEO.
+    // "Szkolenia, ktore wyrozniamy" ani miec wlasnych metadanych SEO.
     await page
       .getByLabel("Czego się nauczysz")
       .fill("Ocena ryzyka\nProcedury kontrolne");
     await page.getByLabel("Dla kogo").fill("Zespoły techniczne");
     await page
-      .getByLabel("Pokaż w sekcji „Najczęściej wybierane” na stronie głównej")
+      .getByLabel(
+        "Pokaż w sekcji „Szkolenia, które wyróżniamy” na stronie głównej",
+      )
       .check();
     await page.getByLabel("Tytuł SEO").fill(`SEO ${slug}`);
     await page
@@ -115,7 +117,7 @@ test.describe("D5.7 — administrator tworzy, publikuje i wycofuje szkolenie", (
       timeout: actionTimeout,
     });
 
-    // Flaga "Najczesciej wybierane" ustawiona w panelu wypelnia sekcje na stronie
+    // Flaga "Szkolenia, ktore wyrozniamy" ustawiona w panelu wypelnia sekcje na stronie
     // glownej — wczesniej nie bylo jej jak ustawic, wiec sekcja nigdy nie zawierala
     // tresci utworzonych przez administratora.
     await page.goto("/");

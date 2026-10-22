@@ -29,7 +29,18 @@ import { getCategories } from "@/lib/public-catalog";
  */
 export async function SiteFooter() {
   const categories = await getCategories();
-  const year = 2026;
+  /**
+   * ISK-409: bylo `const year = 2026`, renderowane jako "© 2026 ISKT" — napis
+   * falszywy od 2027-01-01 i to bez zadnego sygnalu, ze sie zestarzal.
+   *
+   * `new Date()` w komponencie serwerowym wyliczyloby rok w chwili RENDERU,
+   * a nie builda, tylko dlatego ze wszystkie trasy publiczne maja
+   * `revalidate = 300` — stopka odswieza sie wiec najpozniej 5 minut po
+   * zmianie roku. Gdyby ktos kiedys zdjal `revalidate` i trasa stala sie
+   * w pelni statyczna, rok zapiekl by sie na nowo w czasie builda; wtedy
+   * jedynym poprawnym rozwiazaniem jest policzyc go po stronie klienta.
+   */
+  const year = new Date().getFullYear();
 
   return (
     <footer className="site-footer">

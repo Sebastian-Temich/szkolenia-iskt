@@ -38,7 +38,7 @@ describe("schemat formularza szkolenia", () => {
 
   /**
    * ISK-374 BL-C: te pola czyta publiczny frontend (`is_featured` — sekcja
-   * „Najczęściej wybierane” na stronie głównej, `seo_*` — metadane strony,
+   * „Szkolenia, które wyróżniamy” na stronie głównej, `seo_*` — metadane strony,
    * `learning_outcomes`/`target_audience` — strona szczegółu), a formularz panelu
    * ich nie obejmował. Test pilnuje, że pozostają w kontrakcie zapisu.
    */

@@ -2643,6 +2643,34 @@
    marki w naglowku).
    ========================================================================== */
 @layer components {
+  /* ------------------------------------------------- pasek srodowiska demo */
+  /* ISK-409 / UX-B3: jeden sygnal o danych przykladowych zamiast `[DEMO]`
+     wszytego w nazwy wlasne w zasiewie.
+
+     KONTRAST JEST POLICZONY, NIE DOBRANY NA OKO
+     `--color-ink-900` (#0e1511) na `--color-warning-50` (#fbf3de) daje ~15:1,
+     czyli AA i AAA z duzym zapasem. Oczywisty wybor `--color-warning-500`
+     (#b8860b) na tym samym tle daje ~3,3:1 — PONIZEJ AA dla tekstu 14 px,
+     wiec skan axe w `dostepnosc.spec.ts` zglosilby `color-contrast` jako
+     `serious`. Dlatego akcentem jest TLO, a nie kolor pisma.
+
+     Pasek celowo NIE jest `position: sticky`: dwa przyklejone pasma nad soba
+     zabieraja na telefonie ponad 100 px wysokosci ekranu, a naglowek
+     (`.site-header`) jest wazniejszy, bo zawiera nawigacje i CTA. */
+  .demo-banner {
+    border-bottom: 1px solid var(--color-warning-500);
+    background: var(--color-warning-50);
+  }
+  .demo-banner-text {
+    margin: 0;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    color: var(--color-ink-900);
+    font-size: 13.5px;
+    line-height: 1.45;
+    text-align: center;
+  }
+
   /* --------------------------------------------------------------- naglowek */
   /* Nadpisuje stary `.site-header` (z-index 20, tlo 94%, blur 14px). */
   .site-header {

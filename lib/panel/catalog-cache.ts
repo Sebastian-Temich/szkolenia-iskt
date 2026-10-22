@@ -8,7 +8,7 @@ export function invalidatePublicCatalog({
   updateTag,
 }: CatalogInvalidators) {
   updateTag("catalog");
-  // Strona główna też czyta katalog — sekcja „Najczęściej wybierane” filtruje
+  // Strona główna też czyta katalog — sekcja „Szkolenia, które wyróżniamy” filtruje
   // `is_featured`, a flagę da się teraz ustawić z panelu (ISK-374 BL-C). Bez tej
   // inwalidacji zmiana byłaby widoczna na „/” dopiero po wygaśnięciu ISR (300 s).
   revalidatePath("/");

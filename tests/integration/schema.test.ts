@@ -16,17 +16,76 @@ const EXPECTED_TABLES = [
 ]
 
 describe('Schemat i niezmienniki bezpieczenstwa', () => {
+  // ISK-409 / UX-B3: ten test rozpoznawal zasiew po prefiksie `[DEMO]` w nazwie
+  // wlasnej (`like('name', '[DEMO]%')`). Prefiks zostal z nazw wlasnych zdjety,
+  // wiec rozpoznajemy zasiew po SLUGACH — kluczu naturalnym, ktory jest stabilny
+  // i nie jest trescia redakcyjna. Asercja jest MOCNIEJSZA niz poprzednia: ta
+  // liczyla wiersze (dowolne piec z `[DEMO]` przechodzilo), ta wymaga obecnosci
+  // dokladnie tych wierszy, od ktorych zaleza bramki e2e.
+  //
+  // Zawieranie, a nie rownosc zbiorow: zestaw integracyjny dziala na jednej
+  // bazie i inne pliki dopisuja do niej wlasne wiersze (`panel-audit` zaklada
+  // szkolenia przez RPC), wiec `toEqual` na pelnej liscie zalezaloby od
+  // kolejnosci plikow.
   test('P5: po db reset seed demonstracyjny jest obecny (schemat odtworzony od zera)', async () => {
     const svc = serviceClient()
-    const cats = await svc.from('categories').select('slug').like('name', '[DEMO]%')
-    expect(cats.error).toBeNull()
-    expect((cats.data ?? []).length).toBeGreaterThanOrEqual(5)
+    const slugi = async (tabela: string) => {
+      const res = await svc.from(tabela).select('slug')
+      expect(res.error, tabela).toBeNull()
+      return (res.data ?? []).map((row: { slug: string }) => row.slug)
+    }
 
-    const trainings = await svc.from('trainings').select('slug').like('title', '[DEMO]%')
-    expect((trainings.data ?? []).length).toBeGreaterThanOrEqual(3)
+    expect(await slugi('categories')).toEqual(
+      expect.arrayContaining(['ai', 'esg', 'jezyk-angielski', 'projekty-br', 'rozwoj-oprogramowania']),
+    )
+    expect(await slugi('trainings')).toEqual(
+      expect.arrayContaining(['angielski-techniczny', 'wprowadzenie-do-ai', 'zrownowazony-rozwoj-esg']),
+    )
+    expect(await slugi('trainers')).toEqual(
+      expect.arrayContaining(['anna-testowa', 'jan-przykladowy']),
+    )
+  })
 
-    const trainers = await svc.from('trainers').select('slug').like('full_name', '[DEMO]%')
-    expect((trainers.data ?? []).length).toBeGreaterThanOrEqual(2)
+  // Bramka konwencji, ktorej do ISK-409 nie bylo. Sygnal o danych przykladowych
+  // podajemy RAZ, w pasku nad naglowkiem (`app/(public)/layout.tsx`) — nie
+  // w nazwach wlasnych. Bez tego negatywu nic nie powstrzyma kolejnego zasiewu
+  // od wszycia `[DEMO]` z powrotem w `name`/`title`/`full_name` i powrotu do 29
+  // widocznych wystapien na stronie glownej.
+  //
+  // Mierzymy WYLACZNIE wiersze zasiewu (po slugu). Wiersze zakladane przez inne
+  // testy nosza wlasny prefiks `[TEST]` i nie sa przedmiotem tej konwencji;
+  // wciagniecie ich tutaj zrobiloby z tego testu bramke zaleznosci miedzy
+  // plikami.
+  test('P5 (konwencja): nazwy wlasne w zasiewie NIE nosza prefiksu [DEMO]', async () => {
+    const svc = serviceClient()
+    const KATEGORIE = ['ai', 'esg', 'jezyk-angielski', 'projekty-br', 'rozwoj-oprogramowania']
+    const SZKOLENIA = ['angielski-techniczny', 'wprowadzenie-do-ai', 'zrownowazony-rozwoj-esg']
+    const sprawdzane: Array<[string, string, string[]]> = [
+      ['categories', 'name', KATEGORIE],
+      ['trainings', 'title', SZKOLENIA],
+      ['trainings', 'seo_title', SZKOLENIA],
+      ['trainers', 'full_name', ['anna-testowa', 'jan-przykladowy']],
+    ]
+
+    for (const [tabela, kolumna, slugi] of sprawdzane) {
+      // `select('*')`, a nie `select(\`slug,${kolumna}\`)`: generyki klienta
+      // Supabase parsuja liste kolumn na poziomie TYPU, wiec nazwa kolumny
+      // zlozona w czasie wykonania daje `ParserError` i blad kompilacji.
+      const res = await svc.from(tabela).select('*').in('slug', slugi)
+      expect(res.error, `${tabela}.${kolumna}`).toBeNull()
+      const wiersze = (res.data ?? []) as unknown as Array<Record<string, string | null>>
+      // Kontrola zalozenia: pusta odpowiedz dalaby pusta liste naruszen
+      // i zielony, niczego nie mierzacy test.
+      expect(wiersze.length, `${tabela}: brak wierszy zasiewu`).toBe(slugi.length)
+
+      const naruszenia = wiersze
+        .filter((row) => (row[kolumna] ?? '').includes('[DEMO]'))
+        .map((row) => `${row.slug} -> ${row[kolumna]}`)
+      expect(
+        naruszenia,
+        `${tabela}.${kolumna} nosi [DEMO] w nazwie wlasnej — znacznik ma stac przy TWIERDZENIACH, a sygnal o srodowisku demo jest podawany raz w app/(public)/layout.tsx`,
+      ).toEqual([])
+    }
   })
 
   test('P5 (funkcje): wymagane funkcje pomocnicze i utrzymaniowe istnieja', async () => {
