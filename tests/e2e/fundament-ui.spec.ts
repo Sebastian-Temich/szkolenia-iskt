@@ -212,48 +212,105 @@ function makieta(): string {
  * kontenerem Reacta, wiec wezel wstrzyknity przed hydratacja zostaje przez
  * nia usuniety jako niezgodny z drzewem wirtualnym — pierwsza wersja tego
  * testu padala na "element(s) not found" i wygladalo to na zly selektor, a nie
- * na hydratacje. Dlatego: wchodzimy na strone RAZ, zabieramy z niej caly
- * `<head>` (linki do arkuszy, w trybie dev takze wstrzyknite `<style>`,
- * preload kroju) i budujemy z tego osobny dokument przez `setContent`.
+ * na hydratacje. Dlatego: wchodzimy na strone RAZ, zabieramy z niej arkusz
+ * i budujemy z tego osobny dokument przez `setContent`.
  *
- * `<script>` wypada z zabranego `<head>` swiadomie: inaczej runtime Next.js
- * probowalby hydratowac dokument, ktory nie jest jego drzewem.
+ * DLACZEGO WKLEJAMY TRESC ARKUSZA, A NIE `<link>` Z `<head>`
+ * Pierwsza wersja przenosila caly `<head>`, czyli `<link rel="stylesheet">`
+ * z `/_next/...`. Nowy dokument musial wtedy POBRAC arkusz ponownie, a Next
+ * w trybie dev wystawia go w dwoch plikach. Przy pelnym przebiegu (osiem
+ * workerow uderza w niezkompilowany serwer dev naraz) pobranie bywalo
+ * niekompletne i pomiar schodzil na STYL DOMYSLNY PRZEGLADARKI — a ten czyta
+ * sie jak defekt projektowy, nie jak brak arkusza. Zmierzone objawy: kontrast
+ * „1,99:1" na przycisku nieaktywnym (`rgba(16,16,16,0.3)` to kolor UA dla
+ * `button[disabled]`, nie nasz token) i „1:1" na pigulce aktywnej, podczas
+ * gdy oba elementy mierzone pojedynczo byly poprawne (biel na green-700).
+ * Zabieramy wiec REGULY, nie odnosniki: `cssText` w kolejnosci arkuszy
+ * i regul, wklejone jako jeden `<style>`. Fixture nie ma juz zadnego zadania
+ * sieciowego na CSS, a jeden `<style>` zachowuje kolejnosc `@layer`
+ * (`theme, base, components, utilities`), od ktorej zalezy, czy `.ui-*`
+ * z warstwy `components` w ogole wygrywa.
+ *
+ * `<script>` nie jedzie swiadomie: inaczej runtime Next.js probowalby
+ * hydratowac dokument, ktory nie jest jego drzewem.
  *
  * Klasa z `<html>` jedzie razem — to na niej `next/font/local` ustawia
  * `--font-inter`, bez niej pomiar typografii leciałby krojem systemowym
- * (ten sam defekt co ISK-364 / B2).
+ * (ten sam defekt co ISK-364 / B2). `@font-face` przychodzi z trescia
+ * arkusza, a `url()` kroju jest sciezka absolutna (`/_next/static/media/...`),
+ * wiec przeniesienie regul nie psuje jej rozwiazywania.
  */
 async function zamontuj(page: Page, width = 1440): Promise<void> {
   await page.setViewportSize({ width, height: 1200 });
   await page.goto("/");
 
+  /** Tresc wszystkich arkuszy strony, w kolejnosci wystapienia. */
+  const zbierzCss = () =>
+    page.evaluate(() =>
+      Array.from(document.styleSheets)
+        .map((sheet) => {
+          try {
+            return Array.from(sheet.cssRules)
+              .map((rule) => rule.cssText)
+              .join("\n");
+          } catch {
+            // Arkusz z innego zrodla — `cssRules` rzuca. Nasze sa wlasne.
+            return "";
+          }
+        })
+        .join("\n"),
+    );
+
+  // Arkusz musi byc zaladowany i SPARSOWANY, zanim go zabierzemy. Sprawdzamy
+  // to regula, ktora na pewno istnieje w arkuszu produktu — bez niej
+  // skopiowalibysmy pusty napis i caly pomiar poszedlby na stylu domyslnym.
+  await expect
+    .poll(async () => (await zbierzCss()).includes(".ui-button-primary"), {
+      message: "Arkusz produktu nie zawiera regul .ui-* — nie ma czego mierzyc",
+    })
+    .toBe(true);
+
   const szkielet = await page.evaluate(() => ({
-    head: document.head.innerHTML.replace(
-      /<script\b[^>]*>[\s\S]*?<\/script>/gi,
-      "",
-    ),
     htmlClass: document.documentElement.className,
     bodyClass: document.body.className,
   }));
+  const css = await zbierzCss();
 
   await page.setContent(
-    `<!doctype html><html class="${szkielet.htmlClass}"><head>${szkielet.head}</head>` +
+    `<!doctype html><html class="${szkielet.htmlClass}"><head><style>${css}</style></head>` +
       `<body class="${szkielet.bodyClass}"><main>${makieta()}</main></body></html>`,
     { waitUntil: "load" },
   );
 
-  // Arkusz musi byc NAPRAWDE zastosowany, inaczej kazdy pomiar zwroci wartosc
-  // domyslna przegladarki i test bylby zielony na pustym CSS.
+  // WARUNKI WSTEPNE POMIARU. Jesli ktorys nie zachodzi, to NIE jest defekt
+  // projektowy — to niekompletny fixture, i ma sie zglaszac wlasnym
+  // komunikatem, a nie jako „kontrast ponizej AA" piec asercji dalej.
   await expect(page.locator("#ds")).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          getComputedStyle(document.querySelector("#ds .m-btn-md")!)
-            .borderTopLeftRadius,
-      ),
-    )
-    .not.toBe("0px");
+  const wstepne = await page.evaluate(() => {
+    const btn = document.querySelector("#ds .m-btn-md");
+    const pill = document.querySelector("#ds .m-pill-active");
+    return {
+      makietaKompletna: Boolean(btn) && Boolean(pill),
+      promien: btn ? getComputedStyle(btn).borderTopLeftRadius : null,
+      tloPrimary: btn ? getComputedStyle(btn).backgroundColor : null,
+    };
+  });
+  expect(
+    wstepne.makietaKompletna,
+    "Makieta wstawila sie niekompletnie — brak .m-btn-md albo .m-pill-active",
+  ).toBe(true);
+  // Dwie wlasciwosci z DWOCH roznych regul warstwy `components`: sama
+  // `.ui-button` (promien) i wariant `.ui-button-primary` (tlo). Zmierzony
+  // przebieg mial juz stan, w ktorym promien byl poprawny, a tlo wariantu
+  // zostalo przezroczyste — jedna wlasciwosc tego nie wylapuje.
+  expect(
+    wstepne.promien,
+    "Arkusz nie zastosowal sie: .ui-button nie ma promienia",
+  ).not.toBe("0px");
+  expect(
+    wstepne.tloPrimary,
+    "Arkusz nie zastosowal sie: .ui-button-primary nie ma tla",
+  ).toBe("rgb(30, 85, 29)");
 }
 
 /** Zmierzone wlasciwosci jednego elementu makiety. */
