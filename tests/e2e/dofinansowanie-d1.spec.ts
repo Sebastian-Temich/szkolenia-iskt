@@ -8,9 +8,9 @@
  * sa warunkowane kolumna `funding_available`, a tresc bierze sie z `funding_note`.
  * Produkt robi to poprawnie — ale do tej pory ani jeden test o to nie pytal:
  * `grep -F "detail-funding" tests/` nie dawal zadnego trafienia, a zasiany
- * przypadek negatywny (`zrownowazony-rozwoj-esg`, `funding_available = false`)
- * nie byl odwiedzany przez zaden spec. Powrot do bezwarunkowego zdania o KFS/BUR
- * przeszedlby przez cale CI na zielono.
+ * przypadek negatywny (`funding_available = false`) nie byl odwiedzany przez
+ * zaden spec. Powrot do bezwarunkowego zdania o KFS/BUR przeszedlby przez cale
+ * CI na zielono.
  *
  * To ta sama klasa defektu „zielona bramka, martwa kolumna", przeciw ktorej
  * napisano `katalog-dane.spec.ts` dla `price_net_pln`, `categories.icon`
@@ -18,13 +18,17 @@
  *
  * DLACZEGO DANE SA TWORZONE, A NIE DOPISANE DO ZASIEWU
  * Arm pozytywny musi dowiesc, ze na ekranie stoi tresc Z KOLUMNY, a nie tekst
- * zapasowy z komponentu. Zasiew [DEMO] ma `funding_note` NULL we WSZYSTKICH
- * trzech szkoleniach, wiec na samym zasiewie obie wartosci sa nierozroznialne.
- * Zamiast dopisywac kolumne do `supabase/seed.sql` (plik rownolegle zmienia
- * karta F1 / ISK-409) test zaklada wlasne szkolenia kluczem service_role
- * i sprzata po sobie — jest hermetyczny i nie konkuruje o ten plik.
- * Zasiany przypadek negatywny jest sprawdzany DODATKOWO, bo jego nieodwiedzanie
- * bylo czescia zarzutu.
+ * zapasowy z komponentu. Zasiew jest wspolna wlasnoscia kilku kart i zmienia sie
+ * pod testem: w chwili pisania tej karty `funding_note` byla NULL we wszystkich
+ * trzech szkoleniach [DEMO] (czyli „tresc z kolumny" i „zapas" byly
+ * nierozroznialne), a karta F1 (ISK-409) dopisala noty i przestawila
+ * `zrownowazony-rozwoj-esg` na `funding_available = true`. Dlatego trzy ramiona
+ * zakladaja WLASNE szkolenia kluczem service_role i sprzataja po sobie — sa
+ * hermetyczne i nie konkuruja o `supabase/seed.sql`.
+ *
+ * Arm zasiewu jest DODATKOWY, bo nieodwiedzanie zasianego przypadku negatywnego
+ * bylo czescia zarzutu — i WYSZUKUJE ten przypadek w bazie, zamiast wpisywac
+ * slug na sztywno. Wpisany slug raz juz sie zestarzal (patrz komentarz w tescie).
  */
 import { expect, test, type Page } from "@playwright/test";
 
@@ -37,9 +41,6 @@ import { serviceClient } from "./helpers/stack";
  * jest nieodroznialne od „renderujemy staly tekst pod warunkiem na flage".
  */
 const ZAPAS = "To szkolenie może kwalifikować się do dofinansowania";
-
-/** Zasiany przypadek negatywny, ktorego dotad nie odwiedzal zaden test. */
-const SLUG_ZASIEWU_BEZ_DOFINANSOWANIA = "zrownowazony-rozwoj-esg";
 
 /**
  * Widoczna tresc `main`, a nie calego `body`.
@@ -219,19 +220,39 @@ test.describe("D1: karta i badge dofinansowania sa warunkowane kolumna", () => {
   }) => {
     // Zarzut CR-I4 brzmial wprost: zasiany przypadek negatywny istnieje,
     // ale nie wchodzi na niego zaden test. Wchodzi.
+    //
+    // Slug jest WYSZUKIWANY, a nie wpisany na sztywno. Pierwsza wersja celowala
+    // w `zrownowazony-rozwoj-esg` i zrobila sie czerwona, gdy karta F1
+    // (ISK-409) przestawila to szkolenie na `funding_available = true`
+    // i dopisala mu nota (zmierzone w CI, przebieg 39865183332 — kontrola
+    // zalozenia zadzialala dokladnie tak, jak miala). Zasiew jest wspolna
+    // wlasnoscia kilku kart, wiec test pyta BAZE, ktore szkolenie jest dzisiaj
+    // przypadkiem negatywnym, zamiast zakladac, ze to wciaz to samo.
     const { data, error } = await serviceClient()
       .from("trainings")
-      .select("funding_available")
-      .eq("slug", SLUG_ZASIEWU_BEZ_DOFINANSOWANIA)
-      .single();
+      .select("slug,funding_available")
+      .eq("is_published", true)
+      .eq("funding_available", false)
+      // Bez tego filtra zapytanie moglo by trafic we WLASNE szkolenie tego
+      // specu (arm negatywny tez ma flage falszywa) i „arm zasiewu" mierzylby
+      // dane, ktore sam zalozyl. Prefiks pochodzi z `createTraining()`.
+      .not("slug", "like", "test-szkolenie-%")
+      .order("sort_order")
+      .limit(1);
     if (error) throw error;
+    const zasiane = data as Array<{ slug: string; funding_available: boolean }>;
+    // Brak JAKIEGOKOLWIEK zasianego przypadku negatywnego to defekt zasiewu,
+    // nie powod do cichego przejscia: negatywna sciezka D1 zostalaby wtedy bez
+    // pokrycia na danych demonstracyjnych, czyli dokladnie w stanie, przeciw
+    // ktoremu ta karta powstala.
     expect(
-      data.funding_available,
-      `zasiew zmienil sie: ${SLUG_ZASIEWU_BEZ_DOFINANSOWANIA} ma juz dofinansowanie, ` +
-        `wiec ten test nie mierzy przypadku negatywnego — wybierz inne szkolenie`,
-    ).toBe(false);
+      zasiane.length,
+      "zasiew nie ma ANI JEDNEGO opublikowanego szkolenia z `funding_available = false` — " +
+        "negatywna sciezka D1 nie ma pokrycia na danych [DEMO]",
+    ).toBe(1);
+    const slug = zasiane[0]!.slug;
 
-    await page.goto(`/szkolenia/${SLUG_ZASIEWU_BEZ_DOFINANSOWANIA}`);
+    await page.goto(`/szkolenia/${slug}`);
     await expect(page.locator("h1.detail-title")).toBeVisible();
 
     const slady = await sladyDofinansowania(page);
