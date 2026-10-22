@@ -52,3 +52,36 @@ export function formatDurationHours(hours: number | null): string | null {
 export function formatProgramIndex(index: number): string {
   return String(index + 1).padStart(2, "0");
 }
+
+/**
+ * Prefiksy danych nieprodukcyjnych z `supabase/seed.sql` — nie sa czescia
+ * nazwiska, wiec nie moga wnosic litery do skrotu. Flaga `g`, bo prefiks moze
+ * wystapic wiecej niz raz; podmieniamy na spacje, a nie na nic, zeby
+ * „[DEMO]Jan" nie zlepilo sie z kolejnym czlonem.
+ */
+const PREFIKS_DANYCH_TESTOWYCH = /\[(?:DEMO|TEST)\]/gu;
+
+/**
+ * Inicjaly trenera do krazka — JEDYNE miejsce, w ktorym licza sie w aplikacji
+ * (ISK-399 / F8). Wczesniej `/panel/trenerzy` mialo wlasna kopie, ktora NIE
+ * zdejmowala prefiksu `[DEMO]`, wiec ten sam czlowiek dostawal „DJ" w panelu
+ * i „JP" na stronie publicznej; funkcja siedzi tutaj, a nie przy komponencie
+ * awatara, bo ten ma `"use client"` i w komponencie SERWEROWYM jego eksporty
+ * sa odnosnikami do klienta, a nie funkcjami do wywolania.
+ *
+ * Bierzemy pierwsza LITERE czlonu, a nie pierwszy znak: inaczej interpunkcja
+ * i resztki nawiasow trafiaja na krazek. Tytuly („dr", „mgr inz.") swiadomie
+ * NIE sa odfiltrowane — wzorzec liczy inicjaly z calej nazwy i nie zna listy
+ * polskich tytulow naukowych.
+ */
+export function trainerInitials(fullName: string): string {
+  return (
+    fullName
+      .replace(PREFIKS_DANYCH_TESTOWYCH, " ")
+      .split(/\s+/)
+      .map((part) => part.match(/\p{L}/u)?.[0]?.toUpperCase())
+      .filter((letter): letter is string => Boolean(letter))
+      .slice(0, 2)
+      .join("") || "?"
+  );
+}
