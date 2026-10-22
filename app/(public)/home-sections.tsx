@@ -239,42 +239,47 @@ export function HomeSections({ categories, featured }: Props) {
       {/* ------------------------------------------- najczesciej wybierane -- */}
       <section className="ui-section">
         <div className="ui-container">
-          <SectionHeading
-            action={
-              <ButtonLink href="/szkolenia" size="md" variant="ghost">
-                Cały katalog
-                <Icon name="arrow-right" size={18} />
-              </ButtonLink>
-            }
-            eyebrow="Wyróżnione szkolenia"
-            title="Najczęściej wybierane"
-          />
+          {/* Opakowanie naglowka I siatki (ISK-412 / UX-B2): przy mniej niz
+              trzech kartach zweza sie CALE pasmo, zeby naglowek nie rozpinal
+              pelnych 1104 px nad karta szerokosci jednego toru. */}
+          <div className={featuredBandClassName(featured.length)}>
+            <SectionHeading
+              action={
+                <ButtonLink href="/szkolenia" size="md" variant="ghost">
+                  Cały katalog
+                  <Icon name="arrow-right" size={18} />
+                </ButtonLink>
+              }
+              eyebrow="Wyróżnione szkolenia"
+              title="Najczęściej wybierane"
+            />
 
-          {featured.length > 0 ? (
-            <div className={featuredGridClassName(featured.length)}>
-              {featured.map((training) => (
-                <TrainingCard
-                  headingLevel="h3"
-                  key={training.id}
-                  training={training}
-                  variant="band"
-                />
-              ))}
-            </div>
-          ) : (
-            /* Wzorzec renderuje tu naglowek nad pusta siatka, gdy nic nie jest
-               wyroznione. Panel potrafi odznaczyc `is_featured` wszystkim. */
-            <Card className="empty-state" padding="roomy">
-              <h3 className="empty-state-title">
-                Nie mamy teraz wyróżnionych szkoleń
-              </h3>
-              <p>Cały katalog jest dostępny bez zmian.</p>
-              <ButtonLink href="/szkolenia" size="sm" variant="primary">
-                Przejdź do katalogu
-                <Icon name="arrow-right" size={18} />
-              </ButtonLink>
-            </Card>
-          )}
+            {featured.length > 0 ? (
+              <div className={featuredGridClassName(featured.length)}>
+                {featured.map((training) => (
+                  <TrainingCard
+                    headingLevel="h3"
+                    key={training.id}
+                    training={training}
+                    variant="band"
+                  />
+                ))}
+              </div>
+            ) : (
+              /* Wzorzec renderuje tu naglowek nad pusta siatka, gdy nic nie jest
+                 wyroznione. Panel potrafi odznaczyc `is_featured` wszystkim. */
+              <Card className="empty-state" padding="roomy">
+                <h3 className="empty-state-title">
+                  Nie mamy teraz wyróżnionych szkoleń
+                </h3>
+                <p>Cały katalog jest dostępny bez zmian.</p>
+                <ButtonLink href="/szkolenia" size="sm" variant="primary">
+                  Przejdź do katalogu
+                  <Icon name="arrow-right" size={18} />
+                </ButtonLink>
+              </Card>
+            )}
+          </div>
         </div>
       </section>
 
@@ -362,6 +367,61 @@ export function HomeSections({ categories, featured }: Props) {
                 Zapytaj o dofinansowanie
                 <Icon name="arrow-right" size={18} />
               </ButtonLink>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------------- #zakres -- */}
+      {/* ISK-412 — pasmo `ink-900` wraca, ale BEZ LICZB.
+          Powod jest KOMPOZYCYJNY, nie tresciowy (werdykt bramki UX): wzorzec
+          stawia dwa panele z rzedu i dopiero ciemny panel ustanawia panel jako
+          srodek wyrazu oraz domyka ciag sekcji przed jasnym pasmem formularza.
+          Bez niego panel gradientowy dofinansowan zostawal jedynym nasyconym
+          elementem na stronie.
+
+          Cztery pozycje opisuja ZAKRES DZIALANIA, nie wyniki — zadnych progow,
+          licznikow, ocen ani SLA (D1). Stare pasmo chwalilo sie tu liczba
+          przeszkolonych osob i procentem zadowolenia; takich danych nikt nie
+          dostarczyl ani nie potwierdzil, wiec nie wracaja w zadnej formie. */}
+      <section className="ui-section" id="zakres">
+        <div className="ui-container">
+          <div className="ui-panel ui-panel-dark">
+            <span aria-hidden="true" className="ui-panel-glow" />
+            <div className="ui-panel-body">
+              <SectionHeading
+                className="home-funding-heading"
+                eyebrow="Zakres działania"
+                lead="[DEMO] Czym się zajmujemy — bez obietnic, których nie da się sprawdzić. Szczegóły każdego programu są w jego opisie."
+                onDark
+                title="Jak pracujemy"
+              />
+
+              <ul className="home-scope-grid">
+                {[
+                  {
+                    title: "Szkolenia otwarte",
+                    text: "[DEMO] Zapisy indywidualne na programy z katalogu, przez formularz zgłoszenia.",
+                  },
+                  {
+                    title: "Szkolenia zamknięte",
+                    text: "[DEMO] Program i zakres ustalane z organizacją przed rozpoczęciem.",
+                  },
+                  {
+                    title: "Online i stacjonarnie",
+                    text: "[DEMO] Forma prowadzenia i terminy ustalane razem z grupą.",
+                  },
+                  {
+                    title: "Wsparcie formalne",
+                    text: "[DEMO] Sprawdzamy możliwość dofinansowania i pomagamy z dokumentami.",
+                  },
+                ].map((item) => (
+                  <li className="home-scope-card" key={item.title}>
+                    <h3 className="home-scope-title">{item.title}</h3>
+                    <p className="home-scope-text">{item.text}</p>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -499,4 +559,26 @@ export function areaGridClassName(count: number): string {
 export function featuredGridClassName(count: number): string {
   if (count >= 4) return "home-featured-grid";
   return `home-featured-grid home-featured-grid-${count}`;
+}
+
+/**
+ * Pasmo sekcji wyroznionych — naglowek i siatka zwezaja sie RAZEM.
+ *
+ * ISK-412 / UX-B2. Zwezenie samej siatki (ISK-401) zostawialo naglowek
+ * rozpiety na pelnych 1104 px nad karta szerokosci 352 px, czyli po 362 px
+ * pustki z kazdej strony. Bramka UX nazwala to „66% pustego pasma” i wskazala,
+ * ze zasiew kanoniczny ma DOKLADNIE JEDNO wyroznione szkolenie — to jest stan
+ * odbioru, nie przypadek brzegowy.
+ *
+ * Zwezenie dotyczy wiec wspolnego opakowania naglowka i siatki. Przy trzech
+ * i czterech kartach pasmo zostaje pelne, bo rzad jest wtedy domkniety.
+ *
+ * DLACZEGO NIE DOPELNIAMY KART
+ * Bramka UX wprost zatwierdzila uzasadnienie zostawione w kodzie: dosypanie
+ * kart NIEwyroznionych zamienia „wyroznione” w „pierwsze cztery z katalogu”,
+ * czyli klamie o znaczeniu flagi `is_featured`, ktora ustawia administrator.
+ */
+export function featuredBandClassName(count: number): string | undefined {
+  if (count === 1 || count === 2) return `home-featured-band-${count}`;
+  return undefined;
 }
