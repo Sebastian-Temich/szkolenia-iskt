@@ -3382,6 +3382,49 @@
     line-height: 1.55;
   }
 
+  /* ------------------------------------------------------ #zakres --------- */
+  /* ISK-412 — pasmo `ink-900` wraca, ale BEZ LICZB.
+     Powod przywrocenia jest KOMPOZYCYJNY, nie tresciowy (werdykt bramki UX):
+     wzorzec stawia dwa panele z rzedu i dopiero ciemny panel ustanawia panel
+     jako srodek wyrazu oraz domyka ciag sekcji przed jasnym pasmem formularza.
+     Bez niego panel gradientowy dofinansowan zostawal JEDYNYM nasyconym
+     elementem strony i wygladal na przypadek.
+
+     Tresc opisuje ZAKRES DZIALANIA, nie wyniki — zadnych progow, ocen,
+     licznikow ani SLA, wiec mieci sie w D1. Stare pasmo mialo tu "500+
+     przeszkolonych" i "98% zadowolenia"; takich liczb nikt nie potwierdzil
+     i dlatego nie wracaja w zadnej formie. */
+  .home-scope-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* Jak `.home-funding-card`: stoi bez `.ui-card`, wiec obudowa jest tutaj. */
+  .home-scope-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: var(--radius-card);
+    background: rgb(255 255 255 / 6%);
+    color: var(--color-text-on-brand);
+  }
+  .home-scope-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .home-scope-text {
+    margin: 0;
+    color: rgb(255 255 255 / 85%);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
   /* -------------------------------------------------------- #kontakt ------ */
   .home-contact {
     display: grid;
@@ -4016,6 +4059,7 @@
     .home-area-grid,
     .home-featured-grid,
     .home-steps,
+    .home-scope-grid,
     .catalog-grid,
     .trainer-grid,
     .footer-grid {
@@ -4114,6 +4158,7 @@
     .home-area-grid,
     .home-featured-grid,
     .home-steps,
+    .home-scope-grid,
     .catalog-grid,
     .trainer-grid,
     .footer-grid {
@@ -4225,27 +4270,69 @@
    bo ma w danych cztery pozycje na sztywno; w produkcie liczba wyroznionych
    jest decyzja administratora i moze byc dowolna od 0 do 4.
 
-   Reguly sa zamkniete w `@media (min-width: 64rem)` SWIADOMIE: modyfikator ma
-   te sama wage co `.home-featured-grid`, a stoi w pliku pozniej, wiec bez tego
-   ograniczenia wygralby z zapytaniami medialnymi powyzej i zablokowalby siatke
-   na ukladzie desktopowym przy 360 px.
+   ISK-412 / UX-B2 — ZWEZA SIE CALE PASMO, RAZEM Z NAGLOWKIEM
+   Samo zwezenie siatki nie wystarczylo: naglowek dalej rozpinal pelne 1104 px
+   nad karta szerokosci 380 px, czyli po 362 px pustki z kazdej strony. Zasiew
+   kanoniczny ma DOKLADNIE JEDNO wyroznione szkolenie, wiec to jest stan, ktory
+   ISKT widzi na odbiorze — nie przypadek brzegowy.
+
+   Dlatego modyfikator siada na WSPOLNYM opakowaniu naglowka i siatki
+   (`.home-featured-band-*`), a nie na samej siatce. Naglowek i karty maja wtedy
+   jedna szerokosc i pasmo czyta sie jak zamierzona kolumna, a nie jak uklad,
+   z ktorego wypadla tresc.
+
+   SZEROKOSCI NIE SA OKRAGLE, SA POLICZONE
+   Kontener to `75rem` (1200 px) minus `2 x 48 px` paddingu = 1104 px. Przy
+   trzech kartach i odstepie 24 px tor ma `(1104 - 48) / 3 = 352 px`. Pasma dla
+   jednej i dwoch kart sa wielokrotnosciami TEGO toru (352 px i
+   `2 x 352 + 24 = 728 px`), wiec karta wyrozniona ma zawsze te sama szerokosc
+   niezaleznie od tego, ile ich jest. Poprzednie `380 px` i `320 px` wprowadzaly
+   trzecia i czwarta szerokosc karty w produkcie (ISK-412, uwaga o 380 vs 352).
+
+   `max-width` na pasmie jest bezpieczne na kazdej szerokosci ekranu: dopoki
+   kadr jest wezszy od pasma, regula nie robi nic (320 px kadru < 352 px pasma),
+   wiec nie potrzebuje oslony `@media`.
+
+   Reguly KOLUMN zostaja oslonione zapytaniami medialnymi: modyfikator ma te
+   sama wage co `.home-featured-grid`, a stoi poza warstwa `@layer components`,
+   wiec bez oslony wygralby takze z zapytaniami medialnymi warstwy
+   i zablokowalby uklad desktopowy przy 360 px.
 
    Poza warstwa `@layer components` — tak samo jak reguly awatara wyzej —
    zeby mialy pierwszenstwo nad warstwa, w ktorej siedzi wariant bazowy.
    ========================================================================== */
+.home-featured-band-1 {
+  max-width: 352px;
+  margin-inline: auto;
+}
+.home-featured-band-2 {
+  max-width: 728px;
+  margin-inline: auto;
+}
+/* W zwezonym pasmie akcja ("Caly katalog →") schodzi pod tytul na KAZDEJ
+   szerokosci — obok tytulu w 352 px kolumnie nie ma dla niej miejsca. */
+.home-featured-band-1 .ui-section-heading-row,
+.home-featured-band-2 .ui-section-heading-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Jedna karta: jeden tor na kazdej szerokosci — pasmo juz ogranicza wymiar. */
+.home-featured-grid-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.home-featured-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* 40rem (640 px): dwie karty obok siebie przestaja byc czytelne. Regula stoi
+   poza warstwa i PO modyfikatorze wyzej, wiec go nadpisuje. */
+@media (max-width: 40rem) {
+  .home-featured-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (min-width: 64rem) {
   .home-featured-grid-3 {
     grid-template-columns: repeat(3, 1fr);
-  }
-  /* Dwie karty: pelna szerokosc podzielona na pol bylaby nieczytelnie szeroka,
-     wiec rzad jest zwezony i wysrodkowany — ten sam zabieg co w siatce
-     obszarow, gdzie ostatni rzad centrujemy zamiast zostawiac dziure. */
-  .home-featured-grid-2 {
-    grid-template-columns: repeat(2, minmax(0, 320px));
-    justify-content: center;
-  }
-  .home-featured-grid-1 {
-    grid-template-columns: minmax(0, 380px);
-    justify-content: center;
   }
 }
