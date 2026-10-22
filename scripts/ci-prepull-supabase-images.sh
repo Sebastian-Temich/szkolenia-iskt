@@ -36,12 +36,19 @@ FALLBACK_REGISTRY="${SUPABASE_FALLBACK_IMAGE_REGISTRY:-public.ecr.aws}"
 ATTEMPTS="${SUPABASE_PREPULL_ATTEMPTS:-5}"
 BASE_DELAY="${SUPABASE_PREPULL_BASE_DELAY:-3}"
 LOG="${SUPABASE_PREPULL_LOG:-supabase-prepull.log}"
-EXPECTED_IMAGE_COUNT=13
+EXPECTED_IMAGE_COUNT=14
 
 # Obrazy, ktorych `supabase services` nie raportuje (nie sa "serwisami" projektu,
 # ale CLI startuje je lokalnie). Przypiete do CLI 2.109.1 — wersja CLI jest przypieta
 # w `ci.yml` (`supabase/setup-cli@v1` z `version:`), wiec zestaw obrazow jest staly.
+#
+# `kong` przeoczono w pierwszym podejsciu (przebieg 39850884343): 12 obrazow CLI
+# zglosil jako „Skipped - Image is already present locally", a `kong` jako „Pulling"
+# i wlasnie na nim padl start. Dlatego licznik „obrazy pobierane w trakcie startu"
+# jest ponizej TWARDA bramka — zeby kolejne przeoczenie nie czekalo na chora chwile
+# rejestru, zeby sie ujawnic.
 AUXILIARY_IMAGES="
+kong:2.8.1
 mailpit:v1.30.2
 vector:0.53.0-alpine
 imgproxy:v3.8.0

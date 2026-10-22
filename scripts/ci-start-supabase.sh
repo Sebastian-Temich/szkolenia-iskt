@@ -25,7 +25,7 @@ set -uo pipefail
 
 LOG="${SUPABASE_START_LOG:-supabase-start.log}"
 EXPECTED_REGISTRY="ghcr.io"
-EXPECTED_IMAGE_COUNT=13
+EXPECTED_IMAGE_COUNT=14
 
 docker_supabase_images() {
   docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | sort -u || true
@@ -57,6 +57,18 @@ throttled=$(grep -ciE 'toomanyrequests|rate exceeded' "$LOG" || true)
 ecr_in_log=$(grep -c 'public\.ecr\.aws' "$LOG" || true)
 from_ghcr=$(docker_supabase_images | grep -c '^ghcr\.io/supabase/' || true)
 
+# Czy start sam cokolwiek pobieral? CLI wypisuje `<serwis> Pulling` (vs
+# `<serwis> Skipped - Image is already present locally`); linie warstw koncza sie
+# na `Pulling fs layer`, wiec zakotwiczenie na koncu linii je wyklucza. CLI DOPELNIA
+# te linie spacjami z obu stron (zmierzone na `od -c` logu przebiegu 39850884343) —
+# bez tolerancji na biale znaki wzorzec nie trafia w nic. Liczymy dodatkowo przyrost
+# obrazow, bo to miara niezalezna od brzmienia komunikatow CLI.
+pulled_services=$(tr -d '\r' <"$LOG" |
+  grep -oE '^[[:space:]]*[A-Za-z][A-Za-z0-9]*[[:space:]]+Pulling[[:space:]]*$' |
+  awk '{print $1}' | sort -u | tr '\n' ' ')
+pulled_count=$(printf '%s' "$pulled_services" | wc -w | tr -d ' ')
+image_delta=$((from_ghcr - cached_before))
+
 # Raport celowo NIE zawiera doslownych ciagow `toomanyrequests`, `rate exceeded`
 # ani adresu ECR Public: kryterium odbioru tej karty brzmi „zero wystapien w logu
 # przebiegu", wiec wlasny raport nie moze zasmiecac tego grepa swoimi trafieniami.
@@ -65,6 +77,7 @@ summary "- rejestr: \`${SUPABASE_INTERNAL_IMAGE_REGISTRY:-ECR Public (domyslny)}
 summary "- obrazy w cache przed startem: ${cached_before} (oczekiwane: ${EXPECTED_IMAGE_COUNT})"
 summary "- obrazy obecne jako \`ghcr.io/supabase/*\`: ${from_ghcr} (oczekiwane: ${EXPECTED_IMAGE_COUNT})"
 summary "- odwolania do ECR Public w logu startu: ${ecr_in_log}"
+summary "- obrazy pobierane w trakcie startu: ${pulled_count} (wymagane: 0)${pulled_services:+ — ${pulled_services}}"
 summary "- trafienia limitu czestosci rejestru w trakcie startu: ${throttled} (oczekiwane: 0)"
 
 if [[ "$throttled" -gt 0 ]]; then
@@ -76,6 +89,19 @@ fi
 # zliczanie dawaloby falszywy alarm.
 if [[ "$from_ghcr" -eq 0 || "$ecr_in_log" -gt 0 ]]; then
   echo "::warning title=Obrazy spoza ghcr.io::Start pobieral obrazy z ECR Public (anonimowy pull, limit 1/s na IP) — nadpisanie rejestru nie zadzialalo (ISK-398)."
+fi
+
+# TWARDA bramka ISK-420 i jednoczesnie odpowiedz na punkt 4 zgloszenia. Celowo nie
+# bramkujemy licznika trafien limitu — ten zalezy od pogody w rejestrze i czerwienilby
+# dostawe od drgniecia infrastruktury. Bramkujemy to, co jest w pelni pod nasza
+# kontrola i deterministyczne: start NIE MOZE niczego pobierac. Niezerowa wartosc
+# oznacza, ze lista w `ci-prepull-supabase-images.sh` rozjechala sie z CLI (tak
+# przeoczono `kong` na przebiegu 39850884343) — a wtedy kolejna chora chwila rejestru
+# znowu zatrzyma cala dostawe. Taki rozjazd pojawia sie wylacznie przy swiadomej
+# zmianie wersji CLI w `ci.yml`, wiec nie jest to zrodlo losowej czerwieni.
+if [[ "$pulled_count" -gt 0 || "$image_delta" -gt 0 ]]; then
+  echo "::error title=Start pobieral obrazy::Start pobieral obrazy (${pulled_count}: ${pulled_services:-<nieznane>}, przyrost obrazow: ${image_delta}), a powinien zastac wszystko w cache. Dodaj brakujace obrazy do AUXILIARY_IMAGES w scripts/ci-prepull-supabase-images.sh (ISK-420)."
+  [[ "$status" -eq 0 ]] && status=1
 fi
 
 exit "$status"
