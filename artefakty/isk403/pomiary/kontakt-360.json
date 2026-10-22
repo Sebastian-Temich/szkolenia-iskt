@@ -1,0 +1,66 @@
+{
+  "klucz": "kontakt",
+  "sciezka": "/kontakt",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/kontakt",
+  "tytul": "Kontakt — Szkolenia ISKT",
+  "zrzut": "kontakt-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Zapytaj o szkolenie"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "main",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [
+    {
+      "selektor": "a.home-contact-link",
+      "tekst": "biuro@iskt.pl",
+      "width": 95.9,
+      "height": 22.5
+    },
+    {
+      "selektor": "input#rodoAck",
+      "tekst": "",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "selektor": "a.underline",
+      "tekst": "Pełna informacja o przetwarzaniu danych ",
+      "width": 220.9,
+      "height": 37
+    },
+    {
+      "selektor": "input#company_website",
+      "tekst": "",
+      "width": 187,
+      "height": 24
+    }
+  ],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

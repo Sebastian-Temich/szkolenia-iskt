@@ -1,0 +1,37 @@
+{
+  "klucz": "panel-logowanie",
+  "sciezka": "/panel/logowanie",
+  "szerokosc": 768,
+  "url": "http://localhost:4473/panel/logowanie",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-logowanie-768.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Panel administratora"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

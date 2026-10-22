@@ -1,0 +1,39 @@
+{
+  "klucz": "panel-trenerzy",
+  "sciezka": "/panel/trenerzy",
+  "szerokosc": 768,
+  "url": "http://localhost:4473/panel/trenerzy",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-trenerzy-768.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Trenerzy"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Nawigacja panelu]",
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

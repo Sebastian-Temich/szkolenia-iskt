@@ -1,0 +1,342 @@
+[
+  {
+    "indeks": 1,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 2,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 3,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 4,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 5,
+    "selektor": "button.panel-button.panel-button-ghost",
+    "tekst": "Wyloguj",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 7,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 8,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 9,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 10,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 11,
+    "selektor": "button.panel-button.panel-button-ghost",
+    "tekst": "Wyloguj",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 13,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 14,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 15,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 16,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 17,
+    "selektor": "button.panel-button.panel-button-ghost",
+    "tekst": "Wyloguj",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 19,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 20,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 21,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 22,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 23,
+    "selektor": "button.panel-button.panel-button-ghost",
+    "tekst": "Wyloguj",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 25,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 26,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 27,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 28,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 29,
+    "selektor": "button.panel-button.panel-button-ghost",
+    "tekst": "Wyloguj",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 31,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 32,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 33,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 34,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 35,
+    "selektor": "button.panel-button.panel-button-ghost",
+    "tekst": "Wyloguj",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 37,
+    "selektor": "a.panel-brand",
+    "tekst": "ISKT Panel",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 130)",
+    "tloOtoczenia": "rgb(254, 255, 254)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 38,
+    "selektor": "a",
+    "tekst": "Szkolenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 39,
+    "selektor": "a",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 40,
+    "selektor": "a",
+    "tekst": "Zgłoszenia",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  }
+]

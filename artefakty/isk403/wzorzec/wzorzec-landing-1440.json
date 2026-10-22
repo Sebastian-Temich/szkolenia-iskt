@@ -1,0 +1,13 @@
+{
+  "szerokosc": 1440,
+  "liczbaPozaViewportem": 1,
+  "poza": [
+    {
+      "selektor": "div > main > section > div",
+      "right": 1600,
+      "width": 480,
+      "left": 1120,
+      "naddatek": 160
+    }
+  ]
+}

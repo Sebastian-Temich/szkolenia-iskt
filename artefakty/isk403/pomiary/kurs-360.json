@@ -1,0 +1,63 @@
+{
+  "klucz": "kurs",
+  "sciezka": "/szkolenia/wprowadzenie-do-ai",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/szkolenia/wprowadzenie-do-ai",
+  "tytul": "[DEMO] Wprowadzenie do AI | ISKT",
+  "zrzut": "kurs-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "[DEMO] Wprowadzenie do AI"
+      },
+      {
+        "poziom": 2,
+        "tekst": "O szkoleniu"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Czego się nauczysz"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Program szkolenia"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Modul 1"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Dla kogo jest to szkolenie"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "main",
+    "nav[Ścieżka nawigacji]",
+    "aside",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

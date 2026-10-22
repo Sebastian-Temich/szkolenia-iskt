@@ -1,0 +1,70 @@
+{
+  "klucz": "polityka",
+  "sciezka": "/polityka-prywatnosci",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/polityka-prywatnosci",
+  "tytul": "Polityka prywatności — Szkolenia ISKT",
+  "zrzut": "polityka-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Polityka prywatności"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Administrator danych"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Cele i podstawy prawne przetwarzania"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Zakres przetwarzanych danych"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Odbiorcy danych i procesorzy"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Okres przechowywania"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Prawa osoby, której dane dotyczą"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Dobrowolność podania danych"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "main",
+    "header",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

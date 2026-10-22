@@ -1,0 +1,50 @@
+{
+  "klucz": "trenerzy",
+  "sciezka": "/trenerzy",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/trenerzy",
+  "tytul": "Trenerzy | ISKT",
+  "zrzut": "trenerzy-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Ekspertki i eksperci, którzy Cię poprowadzą"
+      },
+      {
+        "poziom": 2,
+        "tekst": "[DEMO] Jan Przykladowy"
+      },
+      {
+        "poziom": 2,
+        "tekst": "[DEMO] Anna Testowa"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "main",
+    "header",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

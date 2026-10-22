@@ -1,0 +1,392 @@
+[
+  {
+    "indeks": 1,
+    "selektor": "a.site-brand",
+    "tekst": "ISKTRozwijaj swoje kompetencje z ISKT",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 2,
+    "selektor": "a.site-nav-link",
+    "tekst": "Katalog",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 3,
+    "selektor": "a.site-nav-link",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 4,
+    "selektor": "a.site-nav-link",
+    "tekst": "Kontakt",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 5,
+    "selektor": "a.ui-button.ui-button-sm",
+    "tekst": "Zapytaj o szkolenie",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 6,
+    "selektor": "input",
+    "tekst": "",
+    "maPierscien": false,
+    "kolorPierscienia": "<brak>",
+    "tloOtoczenia": "rgb(30, 85, 29)",
+    "kontrast": 0,
+    "szerokoscPierscienia": 0
+  },
+  {
+    "indeks": 7,
+    "selektor": "a.ui-button.ui-button-xl",
+    "tekst": "Zapisz się na szkolenie",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 8,
+    "selektor": "a.ui-button.ui-button-xl",
+    "tekst": "Przeglądaj katalog",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 9,
+    "selektor": "a.ui-button.ui-button-sm",
+    "tekst": "Szkolenia otwarte",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 10,
+    "selektor": "a.ui-button.ui-button-sm",
+    "tekst": "Szkolenie zamknięte",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 11,
+    "selektor": "a.ui-card.ui-card-roomy",
+    "tekst": "[DEMO] Sztuczna inteligencjaPrzykladowy ",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(155, 184, 122)",
+    "tloOtoczenia": "rgb(242, 248, 236)",
+    "kontrast": 2.04,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 12,
+    "selektor": "a.ui-card.ui-card-roomy",
+    "tekst": "[DEMO] ESGPrzykladowy opis kategorii ESG",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(155, 184, 122)",
+    "tloOtoczenia": "rgb(242, 248, 236)",
+    "kontrast": 2.04,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 13,
+    "selektor": "a.ui-card.ui-card-roomy",
+    "tekst": "[DEMO] Jezyk angielskiPrzykladowy opis k",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(155, 184, 122)",
+    "tloOtoczenia": "rgb(242, 248, 236)",
+    "kontrast": 2.04,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 14,
+    "selektor": "a.ui-card.ui-card-roomy",
+    "tekst": "[DEMO] Rozwoj oprogramowaniaPrzykladowy ",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(155, 184, 122)",
+    "tloOtoczenia": "rgb(242, 248, 236)",
+    "kontrast": 2.04,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 15,
+    "selektor": "a.ui-card.ui-card-roomy",
+    "tekst": "[DEMO] Projekty B+RPrzykladowy opis kate",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(155, 184, 122)",
+    "tloOtoczenia": "rgb(242, 248, 236)",
+    "kontrast": 2.04,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 16,
+    "selektor": "a.ui-button.ui-button-md",
+    "tekst": "Cały katalog",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 17,
+    "selektor": "a.training-card.training-card-band",
+    "tekst": "[DEMO] Sztuczna inteligencjaDofinansowan",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 18,
+    "selektor": "a.ui-button.ui-button-lg",
+    "tekst": "Zapytaj o dofinansowanie",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 19,
+    "selektor": "a.home-contact-link",
+    "tekst": "biuro@iskt.pl",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(155, 184, 122)",
+    "tloOtoczenia": "rgb(242, 248, 236)",
+    "kontrast": 2.04,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 20,
+    "selektor": "input",
+    "tekst": "",
+    "maPierscien": false,
+    "kolorPierscienia": "<brak>",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 0,
+    "szerokoscPierscienia": 0
+  },
+  {
+    "indeks": 21,
+    "selektor": "a.ui-button.ui-button-lg",
+    "tekst": "Przejdź do formularza",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 22,
+    "selektor": "a.footer-link",
+    "tekst": "[DEMO] Sztuczna inteligencja",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 23,
+    "selektor": "a.footer-link",
+    "tekst": "[DEMO] ESG",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 24,
+    "selektor": "a.footer-link",
+    "tekst": "[DEMO] Jezyk angielski",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 25,
+    "selektor": "a.footer-link",
+    "tekst": "[DEMO] Rozwoj oprogramowania",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 26,
+    "selektor": "a.footer-link",
+    "tekst": "[DEMO] Projekty B+R",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 27,
+    "selektor": "a.footer-link",
+    "tekst": "Katalog szkoleń",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 28,
+    "selektor": "a.footer-link",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 29,
+    "selektor": "a.footer-link",
+    "tekst": "Kontakt",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 30,
+    "selektor": "a.footer-link",
+    "tekst": "Polityka prywatności",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 31,
+    "selektor": "a.footer-link",
+    "tekst": "biuro@iskt.pl",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 33,
+    "selektor": "a.site-brand",
+    "tekst": "ISKTRozwijaj swoje kompetencje z ISKT",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 34,
+    "selektor": "a.site-nav-link",
+    "tekst": "Katalog",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 35,
+    "selektor": "a.site-nav-link",
+    "tekst": "Trenerzy",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 36,
+    "selektor": "a.site-nav-link",
+    "tekst": "Kontakt",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 37,
+    "selektor": "a.ui-button.ui-button-sm",
+    "tekst": "Zapytaj o szkolenie",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 38,
+    "selektor": "input",
+    "tekst": "",
+    "maPierscien": false,
+    "kolorPierscienia": "<brak>",
+    "tloOtoczenia": "rgb(30, 85, 29)",
+    "kontrast": 0,
+    "szerokoscPierscienia": 0
+  },
+  {
+    "indeks": 39,
+    "selektor": "a.ui-button.ui-button-xl",
+    "tekst": "Zapisz się na szkolenie",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  },
+  {
+    "indeks": 40,
+    "selektor": "a.ui-button.ui-button-xl",
+    "tekst": "Przeglądaj katalog",
+    "maPierscien": true,
+    "kolorPierscienia": "rgb(161, 187, 131)",
+    "tloOtoczenia": "rgb(255, 255, 255)",
+    "kontrast": 2.11,
+    "szerokoscPierscienia": 3
+  }
+]

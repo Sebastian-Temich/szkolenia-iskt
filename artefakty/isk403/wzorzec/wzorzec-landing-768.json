@@ -1,0 +1,20 @@
+{
+  "szerokosc": 768,
+  "liczbaPozaViewportem": 2,
+  "poza": [
+    {
+      "selektor": "div > main > section > div",
+      "right": 928,
+      "width": 480,
+      "left": 448,
+      "naddatek": 160
+    },
+    {
+      "selektor": "section#dofinansowania > div > div",
+      "right": 830,
+      "width": 420,
+      "left": 410,
+      "naddatek": 62
+    }
+  ]
+}

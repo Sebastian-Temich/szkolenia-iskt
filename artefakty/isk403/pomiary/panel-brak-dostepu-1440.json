@@ -1,0 +1,37 @@
+{
+  "klucz": "panel-brak-dostepu",
+  "sciezka": "/panel/brak-dostepu",
+  "szerokosc": 1440,
+  "url": "http://localhost:4473/panel/brak-dostepu",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-brak-dostepu-1440.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "To konto nie ma dostępu do panelu"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "klucz": "katalog",
+  "sciezka": "/szkolenia",
+  "szerokosc": 768,
+  "url": "http://localhost:4473/szkolenia",
+  "tytul": "Katalog szkoleń | ISKT",
+  "zrzut": "katalog-768.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Znajdź szkolenie dla siebie lub zespołu"
+      },
+      {
+        "poziom": 2,
+        "tekst": "[DEMO] Wprowadzenie do AI"
+      },
+      {
+        "poziom": 2,
+        "tekst": "[DEMO] Zrownowazony rozwoj i ESG w praktyce"
+      },
+      {
+        "poziom": 2,
+        "tekst": "[DEMO] Angielski techniczny dla IT"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "main",
+    "header",
+    "nav[Filtr obszarów]",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

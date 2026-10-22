@@ -1,0 +1,43 @@
+{
+  "klucz": "panel-szkolenia",
+  "sciezka": "/panel/szkolenia",
+  "szerokosc": 1440,
+  "url": "http://localhost:4473/panel/szkolenia",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-szkolenia-1440.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Szkolenia"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Kategorie"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Nawigacja panelu]",
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

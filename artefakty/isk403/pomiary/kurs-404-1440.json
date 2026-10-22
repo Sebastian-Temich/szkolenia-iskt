@@ -1,0 +1,42 @@
+{
+  "klucz": "kurs-404",
+  "sciezka": "/szkolenia/nie-ma-takiego-szkolenia",
+  "szerokosc": 1440,
+  "url": "http://localhost:4473/szkolenia/nie-ma-takiego-szkolenia",
+  "tytul": "Nie znaleziono szkolenia | ISKT",
+  "zrzut": "kurs-404-1440.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Nie znaleźliśmy tego szkolenia"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Główna nawigacja]",
+    "main",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

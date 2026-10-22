@@ -1,0 +1,51 @@
+{
+  "klucz": "panel-pulpit",
+  "sciezka": "/panel",
+  "szerokosc": 1440,
+  "url": "http://localhost:4473/panel",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-pulpit-1440.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Zarządzanie ofertą"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Szkolenia"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Trenerzy"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Zgłoszenia"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Nawigacja panelu]",
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}
