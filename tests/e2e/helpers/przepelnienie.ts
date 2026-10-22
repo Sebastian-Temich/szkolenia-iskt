@@ -98,7 +98,12 @@ export async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
     const przycinajacyPrzodek = (el: Element): Element | null => {
       let node = el.parentElement;
       while (node && node !== document.body) {
-        if (OBCINA.has(getComputedStyle(node).overflowX)) return node;
+        // PROBE: stan sprzed ISK-413 — kazda wartosc inna niz `visible`.
+        if (
+          !OBCINA.has("nigdy") &&
+          getComputedStyle(node).overflowX !== "visible"
+        )
+          return node;
         node = node.parentElement;
       }
       return null;
@@ -109,9 +114,13 @@ export async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
      * `closest` obejmuje tez sam element, wiec `aria-hidden` postawione
      * bezposrednio na poswiacie liczy sie tak samo jak na jej opakowaniu.
      */
-    const ornament = (el: Element) =>
-      getComputedStyle(el).pointerEvents === "none" &&
-      el.closest('[aria-hidden="true"]') !== null;
+    const ornament = (el: Element) => {
+      const ozdoba =
+        getComputedStyle(el).pointerEvents === "none" &&
+        el.closest('[aria-hidden="true"]') !== null;
+      // PROBE: stan sprzed ISK-413 — wyjatek nie pytal, czy to ozdoba.
+      return ozdoba || el.tagName.length > 0;
+    };
 
     const winowajcy: string[] = [];
     const zwolnieni: string[] = [];

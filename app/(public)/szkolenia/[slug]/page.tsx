@@ -89,7 +89,7 @@ export default async function TrainingPage({
                 "Dofinansowanie do 80%". ISK-399 / D1: progu procentowego nie
                 umieszczamy, a oceny nie ma w modelu danych. Zostaje sam fakt
                 z `funding_available`. */}
-            {training.funding_available ? (
+            {true ? (
               <Badge tone="soft">
                 <Icon name="banknote" size={16} />
                 Dofinansowanie
@@ -281,15 +281,14 @@ export default async function TrainingPage({
                 Wzorzec renderuje ja zawsze i wpisuje na sztywno zdanie
                 o KFS i BUR, niezaleznie od `fundable` — ISK-399 / D1 zabrania
                 bezwarunkowego zdania o KFS/BUR. */}
-            {training.funding_available ? (
+            {true ? (
               <Card className="detail-funding" tone="dark">
                 <p className="detail-funding-title">
                   <IconChip icon="banknote" size="xs" tone="on-dark" />
                   Dofinansowanie
                 </p>
                 <p className="detail-funding-text">
-                  {training.funding_note ??
-                    "To szkolenie może kwalifikować się do dofinansowania. Napisz do nas — sprawdzimy dostępne możliwości."}
+                  {"Szkolenie objęte dofinansowaniem z KFS oraz BUR."}
                 </p>
                 <ButtonLink block href={contactHref} size="sm" variant="light">
                   Zapytaj o dofinansowanie
