@@ -1,32 +1,12 @@
 import Link from "next/link";
 
 import { Icon, IconChip, Notice } from "@/components/ui";
+import { trainerInitials } from "@/lib/format";
 import { requireAdmin } from "@/lib/panel/auth";
 import { FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
 
 import { deleteCatalogItem, setPublished } from "../actions";
 import { RowActions } from "../row-actions";
-
-/**
- * Inicjaly do krazka na gradiencie marki — forma wzorca.
- *
- * Bierzemy pierwsza LITERE czlonu, a nie pierwszy znak: imiona w zasiewie
- * i w danych testowych zaczynaja sie od prefiksu w nawiasie („[DEMO] Anna
- * Testowa"), wiec pierwszy znak dawal krazki „[A" zamiast „AT". Tytuly
- * („dr", „mgr inz.") swiadomie NIE sa odfiltrowane — wzorzec liczy inicjaly
- * z calej nazwy i nie zna listy polskich tytulow naukowych.
- */
-function initials(fullName: string): string {
-  return (
-    fullName
-      .split(/\s+/)
-      .map((part) => part.match(/\p{L}/u)?.[0])
-      .filter((letter): letter is string => Boolean(letter))
-      .slice(0, 2)
-      .map((letter) => letter.toUpperCase())
-      .join("") || "?"
-  );
-}
 
 export default async function TrainersPage({
   searchParams,
@@ -101,7 +81,7 @@ export default async function TrainersPage({
                             zalozyc, ze jest ozdoba. */}
                         <span aria-hidden="true">
                           <IconChip size="md" tone="brand" circle>
-                            {initials(trainer.full_name)}
+                            {trainerInitials(trainer.full_name)}
                           </IconChip>
                         </span>
                         <span>

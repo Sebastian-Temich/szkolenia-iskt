@@ -3,20 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
-/**
- * Inicjaly z imienia i nazwiska. Prefiks `[DEMO]` z seeda nie jest czescia
- * nazwiska, wiec nie moze trafic do skrotu.
- */
-export function trainerInitials(fullName: string): string {
-  return fullName
-    .replace("[DEMO]", "")
-    .replace("[TEST]", "")
-    .trim()
-    .split(/\s+/)
-    .map((part) => part[0] ?? "")
-    .slice(0, 2)
-    .join("");
-}
+import { trainerInitials } from "@/lib/format";
 
 type Props = {
   photoUrl: string | null;
