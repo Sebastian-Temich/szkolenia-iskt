@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { AUDIENCE_COPY, AUDIENCE_DEFAULT } from "../../lib/audience";
 import {
   createDraftTraining,
   type DraftTraining,
@@ -8,8 +9,15 @@ import {
 // Skany axe dla tych samych widokow mieszkaja w `dostepnosc.spec.ts` — tutaj
 // zostaje wylacznie dowod, ze widok sie renderuje i zwraca poprawny status.
 // Wczesniej ta sama strona byla skanowana trzykrotnie (home/kontakt/public).
+//
+// H1 strony glownej zamrazal napis "Kompetencje, które zmieniają" — tresc,
+// ktorej w produkcie nie ma: tytulem steruje przelacznik audytorium, a stanem
+// domyslnym jest `osoba`. Tekst bierzemy z `lib/audience.ts`, a nie przepisujemy
+// go tutaj: przepisana kopia rozjezdza sie przy pierwszej zmianie copy i wtedy
+// bramka albo klamie (zielona na napisie, ktorego nikt nie widzi), albo zglasza
+// regresje widoku, ktora jest literowka w tescie.
 const pages = [
-  ["/", "Kompetencje, które zmieniają"],
+  ["/", AUDIENCE_COPY[AUDIENCE_DEFAULT].heroTitle],
   ["/szkolenia", "Znajdź szkolenie"],
   ["/szkolenia/wprowadzenie-do-ai", "[DEMO] Wprowadzenie do AI"],
   ["/trenerzy", "Ekspertki i eksperci"],
@@ -137,8 +145,38 @@ test("nieistniejace szkolenie zwraca 404", async ({ page }) => {
 
 test("filtr i wyszukiwanie są zapisane w URL", async ({ page }) => {
   await page.goto("/szkolenia");
+
+  // Ta bramka zamrazala kontrolke, nie kontrakt: `getByLabel("Obszar")
+  // .selectOption("ai")` wymagalo `<select name="category">`, ktorego juz nie
+  // ma. Filtr obszaru jest teraz rzedem linkow (`FilterPillLink`), a adres
+  // (`?category=`, `?q=`) pozostal bez zmian — mierzymy wiec to samo, tylko
+  // przez kontrolke, ktora w produkcie istnieje. Celujemy w `href`, a nie
+  // w nazwe kategorii z zasiewu: nazwa jest dana, adres jest kontraktem.
+  const filtry = page.getByRole("navigation", { name: "Filtr obszarów" });
+  await filtry.locator('a[href*="category=ai"]').click();
+  await expect(page).toHaveURL(/category=ai/);
+  // Wybrany obszar niesie `aria-current="page"`, a nie samo tlo (WCAG 1.4.1):
+  // `<select>` oglaszal stan sam z siebie, pigulka-link bez tego nie oglasza go
+  await expect(filtry.locator('a[aria-current="page"]')).toHaveAttribute(
+    "href",
+    /category=ai/,
+  );
+
+  await expect(
+    page.getByRole("heading", { name: "[DEMO] Wprowadzenie do AI" }),
+  ).toBeVisible();
+  // NEGATYW, ktorego ta bramka nigdy nie miala. Dotad dowodzila wylacznie, ze
+  // pozycja z wybranego obszaru JEST na liscie — filtr, ktory nie filtruje
+  // (nieskuteczne `eq` na osadzonej tabeli, pominiete `!inner`), przechodzil
+  // przez nia bez sladu. Szkolenie z innego obszaru musi zniknac.
+  await expect(
+    page.getByRole("link", { name: /Zrownowazony rozwoj i ESG/ }),
+  ).toHaveCount(0);
+
+  // Fraza dochodzi do adresu RAZEM z obszarem. Pole `category` jest ukryte
+  // i stoi POZA `.catalog-form`, powiazane z nim atrybutem `form` — gdyby to
+  // powiazanie zniklo, wpisanie frazy kasowaloby filtr (tak robi wzorzec).
   await page.getByLabel("Wyszukaj").fill("AI");
-  await page.getByLabel("Obszar").selectOption("ai");
   await page.getByRole("button", { name: "Pokaż wyniki" }).click();
   await expect(page).toHaveURL(/category=ai/);
   await expect(page).toHaveURL(/q=AI/);
@@ -174,16 +212,35 @@ for (const width of [360, 768, 1280]) {
   // Regresja klasy ISK-355: nazwa wlasnej klasy kolidujaca z utility Tailwinda
   // (warstwa `utilities` wygrywa z `components`) kasuje marginesy i wysrodkowanie,
   // a sama strona dalej renderuje sie "poprawnie". Mierzymy wiec realny uklad.
+  //
+  // Kontener strony glownej to `.ui-container`, a nie `.page-shell` — stara
+  // asercja celowala w klase, ktorej na `/` nie ma, czyli `layout === null`
+  // i blad "oczekuje niepustego". Zmiana nie jest wymiana selektora jeden za
+  // jeden: `.page-shell` zwezal sam element (`width: min(...)`), wiec margines
+  // bylo widac na pudelku, a `.ui-container` robi luz `padding-inline`, wiec
+  // pudelko DOTYKA krawedzi kadru z zalozenia i `box.left` bywa rowne 0.
+  // Mierzymy wiec pudelko TRESCI (`box + padding`): to ta sama wlasnosc widziana
+  // przez czlowieka (tekst nie przykleja sie do krawedzi) i dodatkowo dowod, ze
+  // token `--container-pad` naprawde sie zastosowal, a nie zostal przeslonięty.
   test(`tresc ma marginesy boczne i jest wysrodkowana przy ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     const layout = await page.evaluate(() => {
-      const shell = document.querySelector("main .page-shell");
+      const shell = document.querySelector("main .ui-container");
       if (!shell) return null;
       const box = shell.getBoundingClientRect();
-      return { left: box.left, right: window.innerWidth - box.right };
+      const style = getComputedStyle(shell);
+      // `clientWidth`, nie `innerWidth`: gdyby pasek przewijania zajmowal
+      // miejsce w ukladzie, `innerWidth` byloby o jego szerokosc wieksze niz
+      // kadr, w ktorym policzono `box.right` — i symetryczny uklad wygladalby
+      // na przesuniety o ~15 px.
+      const kadr = document.documentElement.clientWidth;
+      return {
+        left: box.left + Number.parseFloat(style.paddingLeft),
+        right: kadr - (box.right - Number.parseFloat(style.paddingRight)),
+      };
     });
     expect(layout).not.toBeNull();
     expect(layout!.left).toBeGreaterThan(0);

@@ -102,8 +102,16 @@ test.describe("P2 — obramowania pol uzywaja tokenu, nie currentColor", () => {
     page,
   }) => {
     await page.goto("/szkolenia");
+    // `input[type=hidden]` jest WYLACZONE z pomiaru, a nie z wymogu: pole
+    // ukryte nie ma renderowanej krawedzi, wiec preflight Tailwinda v4
+    // zostawia mu `border-color: currentColor` i probka zglaszalaby #0e1511
+    // jako defekt koloru, ktorego nikt nie widzi. Filtr obszaru przy aktywnej
+    // kategorii wnosi dokladnie takie pole (`name="category"`, powiazane
+    // z formularzem atrybutem `form`), wiec bez tego zawezenia bramka padalaby
+    // na kazdym adresie z `?category=`. To precyzja pomiaru, nie zluzowanie:
+    // prog `#d4d9cd` i warunek niepustej probki zostaja bez zmian.
     const colors = await page.$$eval(
-      ".catalog-form input, .catalog-form select",
+      ".catalog-form input:not([type='hidden']), .catalog-form select",
       (nodes) => nodes.map((node) => getComputedStyle(node).borderTopColor),
     );
     expect(colors.length).toBeGreaterThan(0);
@@ -363,13 +371,49 @@ test.describe("P5 — cele dotykowe w warstwie publicznej", () => {
 
   test("strona glowna: karty, naglowki sekcji i stopka", async ({ page }) => {
     await page.goto("/");
-    // Nazwane wprost, bo to te pomiary z raportu: 125,7 x 18,7 i 120,1 x 24.
-    const cardLink = page.locator(".card-footer a").first();
-    if (await cardLink.count()) {
-      const box = await cardLink.boundingBox();
-      expect(box!.height).toBeGreaterThanOrEqual(MIN_TOUCH_PX);
+
+    // Pomiar z raportu dotyczyl odnosnika "Zobacz szczegoly" w `.card-footer`
+    // (125,7 x 18,7 px). Tego odnosnika NIE MA: cala karta jest jednym `Link`,
+    // a "Zobacz szczegoly" to `span` w jego wnetrzu. Stary selektor nie moglby
+    // nic zmierzyc (`if (count)` cicho pomijal pomiar), wiec mierzymy cel,
+    // ktory faktycznie istnieje — i mierzymy go MOCNIEJ: cala karta musi
+    // spelniac 44 px w OBU wymiarach, nie tylko w wysokosci.
+    const cards = page.locator("a.training-card");
+    await expect(cards.first()).toBeVisible();
+    const cardBoxes = await cards.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return {
+          text: (node.getAttribute("aria-label") ?? "").slice(0, 40),
+          width: Math.round(rect.width * 10) / 10,
+          height: Math.round(rect.height * 10) / 10,
+          // Nowa, mocniejsza gwarancja: w karcie nie ma DRUGIEGO odnosnika.
+          // Poprzednia wersja miala dwa `a` do tego samego adresu (tytul
+          // i stopka karty) — zagniezdzony element interaktywny to niepoprawny
+          // HTML i drugi przystanek Tabem po tej samej tresci. Zliczamy `a`
+          // WEWNATRZ karty: zero znaczy, ze odnosnikiem jest sama karta.
+          zagniezdzoneLinki: node.querySelectorAll("a").length,
+        };
+      }),
+    );
+    expect(cardBoxes.length).toBeGreaterThan(0);
+    for (const box of cardBoxes) {
+      expect(box.width, `karta: ${box.text}`).toBeGreaterThanOrEqual(
+        MIN_TOUCH_PX,
+      );
+      expect(box.height, `karta: ${box.text}`).toBeGreaterThanOrEqual(
+        MIN_TOUCH_PX,
+      );
+      expect(
+        box.zagniezdzoneLinki,
+        `karta „${box.text}" ma zagniezdzony odnosnik — niepoprawny HTML i drugi Tab po tej samej tresci`,
+      ).toBe(0);
     }
-    const catalogLink = page.getByRole("link", { name: /Pełny katalog/ });
+
+    // "Pełny katalog" bylo etykieta poprzedniej wersji; wzorzec nazywa to
+    // "Cały katalog" i stawia w slocie akcji naglowka sekcji. Mierzona
+    // wlasnosc (wysokosc celu dotykowego) bez zmian.
+    const catalogLink = page.getByRole("link", { name: /Cały katalog/ });
     const catalogBox = await catalogLink.boundingBox();
     expect(catalogBox!.height).toBeGreaterThanOrEqual(MIN_TOUCH_PX);
 

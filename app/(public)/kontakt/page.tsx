@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
-import { RODO_CLAUSE_TEXT, isRodoClauseApproved } from "@/lib/rodo/clause";
+import { toAudience } from "@/lib/audience";
 import { getTraining } from "@/lib/public-catalog";
+import { RODO_CLAUSE_TEXT, isRodoClauseApproved } from "@/lib/rodo/clause";
 import { issueFormToken } from "@/lib/security/form-token";
 
 import { ContactSection } from "./contact-section";
@@ -24,6 +25,12 @@ export const dynamic = "force-dynamic";
  * `trainingId` z adresu: przegladarka nie moze podstawic dowolnego UUID, a
  * `getTraining` zwraca wylacznie pozycje opublikowane. Nieznany lub wycofany
  * slug daje `null` i formularz zachowuje sie jak wejscie bez parametru.
+ *
+ * `?rodzaj=osoba|firma` (ISK-401 / M2) jest drugim parametrem wejsciowym: strona
+ * glowna linkuje tu z wybranym audytorium, zeby osoba nie wybierala dwa razy
+ * tego samego. `toAudience` sprowadza KAZDA wartosc do dozwolonego rodzaju
+ * (`lib/audience.ts`), wiec `?rodzaj=cokolwiek` daje stan domyslny, a nie wyjatek
+ * — parametr adresu jest wejsciem spoza typu i nie moze wywrocic renderu.
  */
 export default async function KontaktPage({
   searchParams,
@@ -34,19 +41,24 @@ export default async function KontaktPage({
   const formToken = tokenSecret ? issueFormToken(tokenSecret) : "";
   const clauseApproved = isRodoClauseApproved();
 
-  const { szkolenie } = await searchParams;
+  const { szkolenie, rodzaj } = await searchParams;
   const slug = typeof szkolenie === "string" ? szkolenie.trim() : "";
   const training = slug ? await getTraining(slug) : null;
+  const kind = toAudience(typeof rodzaj === "string" ? rodzaj.trim() : rodzaj);
 
   return (
-    <main className="max-w-container px-gutter py-section mx-auto min-h-screen">
+    // Ten sam rytm i kontener, co katalog i trenerzy (`ui-section ui-section-head`
+    // + `ui-container`). Do ISK-401 strona uzywala wlasnej powloki
+    // `max-w-container px-gutter py-section`, czyli siodmego ukladu na szesc widokow.
+    <main className="ui-section ui-section-head">
       {/* Naglowek, lead i ostrzezenie o klauzuli przeniesione do `ContactSection`
           (ISK-373 / P13): po udanej wysylce musza opisywac stan po wyslaniu, a
           serwerowy komponent nie wie, ze formularz zostal juz wyslany. */}
       <ContactSection
-        formToken={formToken}
-        rodoClauseText={RODO_CLAUSE_TEXT}
         clauseApproved={clauseApproved}
+        formToken={formToken}
+        kind={kind}
+        rodoClauseText={RODO_CLAUSE_TEXT}
         training={
           training
             ? { id: training.id, title: training.title, slug: training.slug }

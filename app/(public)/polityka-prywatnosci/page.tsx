@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { PageHeader, SubsectionTitle } from "@/components/ui";
 import { RODO_CLAUSE_APPROVED, getRodoClauseVersion } from "@/lib/rodo/clause";
 
 export const metadata: Metadata = {
@@ -13,6 +14,10 @@ export const metadata: Metadata = {
 // Zadanie techniczne to WYLACZNIE trwala, linkowalna trasa `/polityka-prywatnosci`, routing
 // i odnosniki (stopka + checkbox formularza). TRESCI NIE GENERUJE AGENT — dostarcza ja ISKT.
 // Ponizsze naglowki to szkielet klauzuli informacyjnej (art. 13/14 RODO) do wypelnienia.
+//
+// ISK-401 / M2 ruszylo tutaj WYLACZNIE uklad i kolory (powloka `ui-section`/`ui-container`,
+// `PageHeader`, `SubsectionTitle`). Zadna z pozycji K1-K13 nie zostala przepisana ani
+// skrocona — autorstwo tresci prawnej pozostaje po stronie ISKT.
 // =============================================================================
 
 type Section = { heading: string; placeholder: string };
@@ -59,40 +64,55 @@ export default function PolitykaPrywatnosciPage() {
   const clauseVersion = getRodoClauseVersion();
 
   return (
-    <main className="max-w-container px-gutter py-section mx-auto min-h-screen">
-      <article aria-labelledby="polityka-title" className="max-w-2xl">
-        <h1
-          id="polityka-title"
-          className="text-primary text-3xl font-bold tracking-tight sm:text-4xl"
-        >
-          Polityka prywatności
-        </h1>
-        <p className="text-secondary mt-4 text-lg leading-relaxed">
-          Informacja o przetwarzaniu danych osobowych osób korzystających z formularza
-          kontaktowego serwisu szkoleń ISKT.
-        </p>
+    <main className="ui-section ui-section-head">
+      <div className="ui-container">
+        {/* `PageHeader` daje H1 w jednej, wspolnej skali (`.ui-page-title`) i lead
+            wyciszony tokenem `--color-text-secondary` (`.ui-page-lead`).
+            Do ISK-401 H1 nosil klase `text-primary`, czyli zielen MARKI
+            (`--color-primary` = green-700) — nie kolor tekstu; a lead i wszystkie
+            akapity mialy `text-secondary`, ktora nie kompiluje sie do niczego
+            (tokenu `--color-secondary` nie ma), wiec „wyciszona” tresc renderowala
+            sie niemal czarnym ink-900. */}
+        <PageHeader
+          eyebrow="Informacja RODO"
+          lead="Informacja o przetwarzaniu danych osobowych osób korzystających z formularza kontaktowego serwisu szkoleń ISKT."
+          title="Polityka prywatności"
+        />
 
-        {!RODO_CLAUSE_APPROVED ? (
-          <p
-            role="note"
-            className="border-warning-500 bg-warning-50 mt-6 rounded border-l-4 p-3 text-sm"
-          >
-            Uwaga: treść polityki prywatności jest obecnie szkieletem oczekującym na zatwierdzoną
-            treść prawną od ISKT. Strona działa wyłącznie w środowisku lokalnym.
+        {/* Kolumna tresci jest wezsza niz kontener — dluga linia tekstu prawnego
+            jest nieczytelna (ok. 65–75 znakow to gorna granica). */}
+        <article className="max-w-2xl">
+          {!RODO_CLAUSE_APPROVED ? (
+            // `role="note"` zostaje: to nota redakcyjna o stanie dokumentu, a nie
+            // wynik operacji (`role="status"` z komponentu `Notice`) ani ostrzezenie
+            // przerywajace czytnik (`role="alert"`). Klasy wizualne bierzemy z
+            // `.ui-notice`, zeby nie powstal drugi styl komunikatu w projekcie.
+            <p className="ui-notice ui-notice-info" role="note">
+              <span>
+                Uwaga: treść polityki prywatności jest obecnie szkieletem
+                oczekującym na zatwierdzoną treść prawną od ISKT. Strona działa
+                wyłącznie w środowisku lokalnym.
+              </span>
+            </p>
+          ) : null}
+
+          <div className="mt-8 flex flex-col gap-8">
+            {SECTIONS.map((section) => (
+              <section className="flex flex-col gap-2" key={section.heading}>
+                {/* Jedna skala naglowka podsekcji dla calego serwisu (1,6 rem). */}
+                <SubsectionTitle>{section.heading}</SubsectionTitle>
+                <p className="text-text-secondary leading-relaxed">
+                  {section.placeholder}
+                </p>
+              </section>
+            ))}
+          </div>
+
+          <p className="text-text-secondary mt-10 text-sm">
+            Wersja klauzuli informacyjnej: {clauseVersion}
           </p>
-        ) : null}
-
-        <div className="mt-8 flex flex-col gap-6">
-          {SECTIONS.map((section) => (
-            <section key={section.heading} className="flex flex-col gap-2">
-              <h2 className="text-primary text-xl font-semibold">{section.heading}</h2>
-              <p className="text-secondary leading-relaxed">{section.placeholder}</p>
-            </section>
-          ))}
-        </div>
-
-        <p className="text-secondary mt-10 text-sm">Wersja klauzuli informacyjnej: {clauseVersion}</p>
-      </article>
+        </article>
+      </div>
     </main>
   );
 }

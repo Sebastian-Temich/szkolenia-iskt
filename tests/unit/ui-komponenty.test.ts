@@ -424,6 +424,43 @@ describe("SegmentedControl", () => {
     expect(html).not.toContain("<button");
   });
 
+  it("kazda opcja jest etykieta owijajaca swoje radio", () => {
+    // ISK-401. Regresja defektu, ktorego caly ten plik przegapil: pastylki byly
+    // `span`ami, a tekst opcji jej drugim dzieckiem. Sasiedni `span` NIE jest
+    // etykieta, wiec nazwa dostepna kazdego radia byla pusta — axe zglaszalo
+    // krytyczna regule `label`, a `getByRole("radio", { name: "Firma" })` nie
+    // trafialo w nic. Na ekranie wygladalo to poprawnie, wiec tylko asercja
+    // o POWIAZANIE moze tego pilnowac.
+    //
+    // Zadna asercja w tescie wyzej nie wychwycila tego, bo wszystkie pytaly
+    // o obecnosc znacznikow, a nie o ich zagniezdzenie.
+    const html = render(
+      h(SegmentedControl, {
+        name: "aud",
+        legend: "Dla kogo",
+        options: opcje,
+        value: "osoba",
+      }),
+    );
+
+    // Dwie opcje, obie jako `label` z klasa pastylki.
+    const etykiety = html.match(/<label class="ui-segmented-option"[^>]*>/g);
+    expect(etykiety).toHaveLength(2);
+
+    // ...i kazdy `input` lezy WEWNATRZ swojej etykiety. Tniemy po `</label>`,
+    // zeby sprawdzic zawartosc kazdej osobno — dwa inputy w jednej etykiecie
+    // i zero w drugiej daloby te sama liczbe znacznikow.
+    const bloki = html.split("</label>").slice(0, 2);
+    for (const blok of bloki) {
+      expect(blok).toContain('<label class="ui-segmented-option"');
+      expect(blok.match(/<input[^>]*>/g)).toHaveLength(1);
+    }
+
+    // Tekst opcji musi byc w etykiecie, bo stad bierze sie nazwa dostepna.
+    expect(bloki[0]).toContain("Osoba indywidualna");
+    expect(bloki[1]).toContain("Firma");
+  });
+
   it("zaznaczenie niesie :checked, a nie tylko tlo", () => {
     const html = render(
       h(SegmentedControl, {

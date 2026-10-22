@@ -87,7 +87,23 @@ export function SegmentedControl<T extends string>({
         )}
       >
         {options.map((option) => (
-          <span className="ui-segmented-option" key={option.value}>
+          /*
+           * ISK-401: pastylka MUSI byc `label`, nie `span`.
+           *
+           * M1 owijal kazde radio `span`em, a tekst opcji stawial jako jego
+           * drugie dziecko. Sasiedni `span` nie jest etykieta, wiec nazwa
+           * dostepna kazdego radia byla PUSTA: `getByRole("radio", { name:
+           * "Firma" })` nie trafialo w nic, a axe zglaszalo krytyczna regule
+           * `label` na kazdym widoku z ta kontrolka. Defekt nie byl widoczny
+           * w testach M1, bo zadna asercja nie pytala o nazwe dostepna — a na
+           * ekranie pastylka wygladala poprawnie.
+           *
+           * `label` owijajacy kontrolke daje powiazanie niejawne, czyli nazwe
+           * z tresci etykiety, bez `htmlFor` i bez `id` na kazdej opcji.
+           * Kliknięcie dalej trafia w input (jest rozciagniety `inset: 0`),
+           * a strzalki dalej dzialaja — to zachowanie natywne grupy radio.
+           */
+          <label className="ui-segmented-option" key={option.value}>
             <input
               type="radio"
               name={name}
@@ -101,7 +117,7 @@ export function SegmentedControl<T extends string>({
               readOnly={onChange ? undefined : true}
             />
             <span>{option.label}</span>
-          </span>
+          </label>
         ))}
       </div>
     </fieldset>

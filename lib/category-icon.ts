@@ -30,7 +30,10 @@ export const CATEGORY_ICON_FALLBACK: IconName = "layers";
 export function categoryIconName(icon: string | null | undefined): IconName {
   if (!icon) return CATEGORY_ICON_FALLBACK;
   const key = icon.trim().toLowerCase();
-  if (key in ALIASES) return ALIASES[key];
+  // `ALIASES[key]` jest `IconName | undefined` przy `noUncheckedIndexedAccess`,
+  // wiec `key in ALIASES` nie zawezą typu — potrzebny jest odczyt do zmiennej.
+  const alias = ALIASES[key];
+  if (alias) return alias;
   return (ICON_NAMES as readonly string[]).includes(key)
     ? (key as IconName)
     : CATEGORY_ICON_FALLBACK;

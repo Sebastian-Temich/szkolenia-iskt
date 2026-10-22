@@ -1,9 +1,26 @@
-import Link from "next/link";
-import { TrainingCard } from "@/components/training-card";
 import { getCategories, getTrainings } from "@/lib/public-catalog";
+
+import { HomeSections } from "./home-sections";
 
 export const revalidate = 300;
 
+/**
+ * Strona glowna. Zapytania do bazy zostaja tutaj, po stronie serwera; kompozycja
+ * sekcji i jeden wspoldzielony stan audytorium siedza w `home-sections.tsx`.
+ *
+ * `revalidate` ZOSTAJE: trasa musi byc preranderowana, bo profil CSP tras
+ * publicznych (`next.config.ts`) nie ma nonce, a nonce w zapisanym HTML byloby
+ * stale, czyli bezwartosciowe. Bramka `tests/e2e/naglowki-bezpieczenstwa.spec.ts`
+ * mierzy to wprost ("trasy publiczne nie dostaja nonce, bo sa preranderowane").
+ * Dlatego strona glowna NIE wydaje tokenu formularza i nie hostuje formularza
+ * zgloszenia — odstepstwo opisane w `home-sections.tsx`.
+ *
+ * Wyroznione bierzemy wylacznie z `is_featured`, maksymalnie cztery (wzorzec ma
+ * tu siatke 4-kolumnowa). Wzorzec dopelnia brakujace miejsca szkoleniami
+ * NIEwyroznionymi, zeby zawsze bylo ich cztery — tego nie przenosimy: sekcja
+ * nazywa sie "Wyróżnione szkolenia", wiec nie moze pokazywac pozycji, ktorych
+ * administrator nie wyroznil. Gdy nie ma zadnej, sekcja ma stan pusty.
+ */
 export default async function Home() {
   const [categories, trainings] = await Promise.all([
     getCategories(),
@@ -11,90 +28,11 @@ export default async function Home() {
   ]);
   const featured = trainings
     .filter((training) => training.is_featured)
-    .slice(0, 3);
+    .slice(0, 4);
 
   return (
     <main>
-      <section className="hero">
-        <div className="hero-grid page-shell">
-          <div>
-            <p className="eyebrow">— Szkolenia dla biznesu i specjalistów</p>
-            <h1>Kompetencje, które zmieniają wiedzę w działanie.</h1>
-            <p className="lead">
-              [DEMO] Praktyczne programy prowadzone przez ekspertów. Wybierz
-              temat, który pomoże Tobie i Twojemu zespołowi zrobić kolejny krok.
-            </p>
-            <div className="button-row">
-              <Link className="button" href="/szkolenia">
-                Zobacz szkolenia →
-              </Link>
-              <Link className="button button-ghost" href="/kontakt">
-                Porozmawiajmy
-              </Link>
-            </div>
-          </div>
-          <div className="hero-panel" aria-label="Najważniejsze informacje">
-            <span className="hero-orbit">ISKT</span>
-            <p>Wiedza</p>
-            <strong>Praktyka</strong>
-            <p>Rozwój</p>
-          </div>
-        </div>
-      </section>
-      <section className="section">
-        <div className="page-shell">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Obszary rozwoju</p>
-              <h2>Znajdź właściwy kierunek</h2>
-            </div>
-            <Link href="/szkolenia">Pełny katalog →</Link>
-          </div>
-          <div className="category-grid">
-            {categories.map((category, index) => (
-              <Link
-                className="category-card"
-                href={`/szkolenia?category=${category.slug}`}
-                key={category.id}
-              >
-                <span>0{index + 1}</span>
-                <h3>{category.name}</h3>
-                <p>{category.description}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-      <section className="section section-tint">
-        <div className="page-shell">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Najczęściej wybierane</p>
-              <h2>Szkolenia, od których warto zacząć</h2>
-            </div>
-          </div>
-          <div className="training-grid">
-            {featured.map((training) => (
-              <TrainingCard key={training.id} training={training} />
-            ))}
-          </div>
-        </div>
-      </section>
-      <section className="section">
-        <div className="cta page-shell">
-          <div>
-            <p className="eyebrow eyebrow-light">Dobierzmy program</p>
-            <h2>Nie wiesz, które szkolenie wybrać?</h2>
-            <p>
-              Opowiedz nam o potrzebach zespołu. To miejsce przygotowane pod
-              formularz E4.
-            </p>
-          </div>
-          <Link className="button button-light" href="/kontakt">
-            Przejdź do kontaktu →
-          </Link>
-        </div>
-      </section>
+      <HomeSections categories={categories} featured={featured} />
     </main>
   );
 }
