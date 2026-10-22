@@ -2702,6 +2702,37 @@
       background var(--dur-base) var(--ease-standard),
       color var(--dur-base) var(--ease-standard);
   }
+
+  /* ISK-412 — PRZEPELNIENIE 4 PX PRZY 320 PX MIALO ZRODLO TUTAJ.
+     Zmierzone przed poprawka: `label.ui-segmented-option` z etykieta „Osoba
+     indywidualna” konczyl sie na 324 px przy kadrze 320 px. Przyczyna nie byla
+     w szerokosci karty, tylko w tym, ze pastylka NIE DAWALA SIE SCISNAC:
+     `white-space: nowrap` razem z `padding-inline: 20px` ustawia jej szerokosc
+     min-content na ~182 px, a `flex` nie kurczy elementu ponizej min-content.
+     Dwie pastylki nie mialy jak zmiescic sie w karcie przy 320 px — i zamiast
+     sie zwezic, wychodzily poza kadr.
+
+     Ponizej 30rem (480 px) etykieta moze sie wiec ZLAMAC, a padding schodzi do
+     12 px. `min-width: 0` jest konieczne: bez niego domyslne `min-width: auto`
+     elementu flex blokuje zwezenie nawet przy lamaniu tekstu.
+
+     `min-height` POWTARZAMY SWIADOMIE, mimo ze reguly bazowej nie zmieniamy:
+     zwezanie pastylki nie moze zmniejszyc celu dotykowego, a ta reguła jest
+     tym, co obowiazuje na najwezszych ekranach — czyli dokladnie tam, gdzie
+     44 px jest najwazniejsze. `tests/unit/inquiry-form.test.ts` czyta ten
+     warunek z arkusza, a `tests/e2e/dostepnosc.spec.ts` mierzy go w kadrze.
+
+     Pastylki zostaja OBOK SIEBIE — to przelacznik, a jego sens polega na
+     porownaniu dwoch opcji jednym spojrzeniem. */
+  @media (max-width: 30rem) {
+    .ui-segmented-option {
+      min-width: 0;
+      min-height: var(--control-h-sm);
+      padding-inline: 12px;
+      white-space: normal;
+      text-align: center;
+    }
+  }
   .ui-segmented-option input {
     position: absolute;
     inset: 0;
