@@ -19,7 +19,7 @@ import {
 const pages = [
   ["/", AUDIENCE_COPY[AUDIENCE_DEFAULT].heroTitle],
   ["/szkolenia", "Znajdź szkolenie"],
-  ["/szkolenia/wprowadzenie-do-ai", "[DEMO] Wprowadzenie do AI"],
+  ["/szkolenia/wprowadzenie-do-ai", "Wprowadzenie do AI"],
   ["/trenerzy", "Ekspertki i eksperci"],
   // Strone /kontakt dostarcza E4 (hostuje formularz) — stad jej naglowek.
   ["/kontakt", "Zapytaj o szkolenie"],
@@ -163,7 +163,7 @@ test("filtr i wyszukiwanie są zapisane w URL", async ({ page }) => {
   );
 
   await expect(
-    page.getByRole("heading", { name: "[DEMO] Wprowadzenie do AI" }),
+    page.getByRole("heading", { name: "Wprowadzenie do AI" }),
   ).toBeVisible();
   // NEGATYW, ktorego ta bramka nigdy nie miala. Dotad dowodzila wylacznie, ze
   // pozycja z wybranego obszaru JEST na liscie — filtr, ktory nie filtruje
@@ -181,7 +181,7 @@ test("filtr i wyszukiwanie są zapisane w URL", async ({ page }) => {
   await expect(page).toHaveURL(/category=ai/);
   await expect(page).toHaveURL(/q=AI/);
   await expect(
-    page.getByRole("heading", { name: "[DEMO] Wprowadzenie do AI" }),
+    page.getByRole("heading", { name: "Wprowadzenie do AI" }),
   ).toBeVisible();
 });
 

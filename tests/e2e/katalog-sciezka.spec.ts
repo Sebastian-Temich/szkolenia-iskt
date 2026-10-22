@@ -48,7 +48,7 @@ test.describe("D5.1 — przejscie od strony glownej do szczegolu szkolenia", () 
 
     // 2. Przejscie do katalogu linkiem ze strony glownej (nie przez adres).
     // Etykieta wzorca brzmi "Cały katalog" i siedzi w slocie akcji naglowka
-    // sekcji "Najczęściej wybierane"; "Pełny katalog" bylo nazwa poprzedniej
+    // sekcji "Szkolenia, które wyróżniamy"; "Pełny katalog" bylo nazwa poprzedniej
     // wersji. Asercja dalej mierzy to samo: ze z `/` wychodzi sie do katalogu
     // kliknieciem, a nie wpisaniem adresu.
     await page

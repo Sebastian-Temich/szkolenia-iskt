@@ -209,7 +209,7 @@ export default async function TrainingEditor({
           id="training-featured"
           name="is_featured"
           boxed
-          label="Pokaż w sekcji „Najczęściej wybierane” na stronie głównej"
+          label="Pokaż w sekcji „Szkolenia, które wyróżniamy” na stronie głównej"
           defaultChecked={training?.is_featured ?? false}
         />
         <div className="panel-fields">

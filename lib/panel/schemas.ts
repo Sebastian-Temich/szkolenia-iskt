@@ -66,8 +66,8 @@ export const trainerSchema = z.object({
 
 /**
  * ISK-374 BL-C: formularz obejmował podzbiór kolumn `trainings`, a brakujące pola są
- * czytane przez publiczny frontend — `is_featured` decyduje o sekcji „Najczęściej
- * wybierane” na stronie głównej, `seo_*` o tytule i opisie w wynikach wyszukiwania,
+ * czytane przez publiczny frontend — `is_featured` decyduje o sekcji „Szkolenia,
+ * które wyróżniamy” na stronie głównej, `seo_*` o tytule i opisie w wynikach wyszukiwania,
  * `learning_outcomes` i `target_audience` o treści strony szczegółu. Bez nich szkolenie
  * utworzone w panelu nie mogło trafić na stronę główną ani mieć własnych metadanych.
  *

@@ -8,9 +8,9 @@ import type { Training } from "@/lib/public-catalog";
 type Props = {
   training: Training;
   /**
-   * `band` to wariant wzorca z pasmem gradientu 96 px — sekcja "Najczesciej
-   * wybierane" na stronie glownej. `plain` to wariant katalogu, ktory zamiast
-   * pasma otwiera chip ikony obszaru.
+   * `band` to wariant wzorca z pasmem gradientu 96 px — sekcja "Szkolenia,
+   * ktore wyrozniamy" na stronie glownej. `plain` to wariant katalogu, ktory
+   * zamiast pasma otwiera chip ikony obszaru.
    */
   variant?: "plain" | "band";
   /**
@@ -80,6 +80,20 @@ export function TrainingCard({
           {variant === "plain" ? (
             <IconChip icon={icon} size="md" tone="soft" />
           ) : null}
+          {/* ISK-409: zastepnik brzmial kiedys "[DEMO] Szkolenie" i znacznik
+              byl tam CELOWY. Usuniecie go jest swiadome, nie przeoczeniem:
+              1. Sciezka jest nieosiagalna w produkcie. `trainings.category_id`
+                 jest `not null`, a `getTrainings()`/`getTraining()` lacza
+                 kategorie przez `!inner`, wiec wiersz bez kategorii nie
+                 przechodzi przez zapytanie. Zastepnik chroni wylacznie przed
+                 bledem w liscie kolumn embeda.
+              2. Gdyby mimo to wypadl, "[DEMO]" byloby FALSZYWE: oznaczaloby
+                 jako dane przykladowe karte, ktora moze pochodzic z realnego
+                 wiersza administratora. Znacznik ma oznaczac fikcje, a nie
+                 brakujacy embed.
+              3. Sygnal o srodowisku demonstracyjnym jest teraz podawany RAZ,
+                 w pasku nad naglowkiem (`app/(public)/layout.tsx`), wiec
+                 nazwy wlasne i ich zastepniki go nie powtarzaja. */}
           <span className="training-card-category">
             {training.category?.name ?? "Szkolenie"}
           </span>

@@ -99,13 +99,27 @@ export function HomeSections({ categories, featured }: Props) {
 
           {/* Trzy pozycje z ikona `check`. Wzorzec ma tu "Dofinansowanie do 80%"
               i "Certyfikat ISKT" — ISK-399 / D1 zabrania progu procentowego,
-              a potwierdzenia ukonczenia ISKT nie potwierdzilo, wiec tresc jest
-              oznaczona jako demonstracyjna i nie obiecuje liczb. */}
+              a potwierdzenia ukonczenia ISKT nie potwierdzilo.
+              ISK-409 / CR-I2: poprzednia wersja tego komentarza twierdzila, ze
+              tresc jest "oznaczona jako demonstracyjna" — nie byla. Trzy punkty
+              brzmialy "Praktyczne programy" (ocena jakosci, ktorej nikt nie
+              wystawil), "Online i stacjonarnie" (MODEL DANYCH NIE MA KOLUMNY
+              FORMATU DOSTAWY — ten sam commit przyznaje to w
+              `app/(public)/szkolenia/[slug]/page.tsx`, gdzie pozycja "format"
+              jest celowo pominieta) i "Prowadzenie przez ekspertów" (ocena
+              kompetencji).
+              ROZWIAZANIE: nie dopisujemy `[DEMO]` do marketingu, tylko
+              zamieniamy twierdzenia na FAKTY O KATALOGU. Kazdy z trzech
+              punktow wskazuje sekcje, ktora realnie istnieje w widoku
+              szczegolu i stoi na kolumnie z bazy: `program` ->
+              "Program szkolenia", `training_trainers` -> "Prowadzący",
+              `funding_available` -> badge "Dofinansowanie". Dlatego NIE nosza
+              `[DEMO]`: nie ma tu nic fikcyjnego do oznaczenia. */}
           <ul className="home-hero-points">
             {[
-              "Praktyczne programy",
-              "Online i stacjonarnie",
-              "Prowadzenie przez ekspertów",
+              "Program i efekty kształcenia w opisie szkolenia",
+              "Prowadzący wskazani przy szkoleniu",
+              "Dofinansowanie oznaczone w katalogu",
             ].map((point) => (
               <li className="home-hero-point" key={point}>
                 <Icon name="check" size={18} />
@@ -236,7 +250,16 @@ export function HomeSections({ categories, featured }: Props) {
         </div>
       </section>
 
-      {/* ------------------------------------------- najczesciej wybierane -- */}
+      {/* ------------------------------------------- wyroznione szkolenia -- */}
+      {/* ISK-409 / CR-I1: tytul brzmial "Najczęściej wybierane" — twierdzenie
+          o zachowaniu uzytkownikow, podczas gdy zawartosc sekcji pochodzi
+          w calosci z RECZNEJ flagi `is_featured`, odhaczanej w panelu. Nie ma
+          w produkcie ani jednego licznika wyswietlen, zgloszen czy sprzedazy,
+          wiec "najczesciej" nie bylo oparte na niczym. Funkcjonalnie byl to
+          zakazany przez D1 badge "Popularne", tylko przeniesiony do `<h2>`.
+          Nowy tytul mowi dokladnie to, co robi flaga, i w pierwszej osobie —
+          to redakcyjny wybor administratora, a nie statystyka. Nadtytul
+          "Wyróżnione szkolenia" byl juz prawdziwy i zostaje bez zmian. */}
       <section className="ui-section">
         <div className="ui-container">
           <SectionHeading
@@ -247,7 +270,7 @@ export function HomeSections({ categories, featured }: Props) {
               </ButtonLink>
             }
             eyebrow="Wyróżnione szkolenia"
-            title="Najczęściej wybierane"
+            title="Szkolenia, które wyróżniamy"
           />
 
           {featured.length > 0 ? (
