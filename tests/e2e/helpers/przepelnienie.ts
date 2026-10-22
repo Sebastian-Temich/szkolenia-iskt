@@ -121,8 +121,17 @@ export async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
       if (getComputedStyle(el).position === "fixed") continue;
       if (rect.right <= limit && rect.width <= limit) continue;
 
-      const obcinajacy = przycinajacyPrzodek(el);
-      if (obcinajacy && ornament(el)) {
+      // PROBE: przywrocony SZEROKI wyjatek z przed ISK-413 — kazdy przodek
+      // z `overflow-x` innym niz `visible`, bez warunku ornamentu.
+      const obcinajacy = (() => {
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          if (getComputedStyle(node).overflowX !== "visible") return node;
+          node = node.parentElement;
+        }
+        return null;
+      })();
+      if (obcinajacy) {
         if (zwolnieni.length < limitRaportu) {
           zwolnieni.push(`${opis(el)} — obcinany przez ${opis(obcinajacy)}`);
         }
