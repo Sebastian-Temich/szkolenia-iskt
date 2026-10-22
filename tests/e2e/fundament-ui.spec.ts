@@ -117,6 +117,10 @@ function makieta(): string {
       h(IconChip, { className: "m-chip-lg", size: "lg", icon: "cpu" }),
       h(IconChip, { className: "m-chip-xl", size: "xl", icon: "award" }),
       h(IconChip, { className: "m-chip-solid", tone: "solid", icon: "search" }),
+      // Nosnik `--gradient-brand`. Gradient mierzymy na ZASTOSOWANYM
+      // `background-image`, a nie na tekscie tokenu — patrz komentarz przy
+      // asercjach tokenow.
+      h(IconChip, { className: "m-chip-brand", tone: "brand", icon: "leaf" }),
       // --- badge ---
       h(Badge, { className: "m-badge-tint", tone: "tint" }, "Dofinansowanie"),
       h(
@@ -313,6 +317,15 @@ async function zamontuj(page: Page, width = 1440): Promise<void> {
   ).toBe("rgb(30, 85, 29)");
 }
 
+/**
+ * Wartosc bez bialych znakow — do porownywania TEKSTU wlasciwosci
+ * niestandardowej, ktory arkusz produkcyjny oddaje zminifikowany
+ * (`clamp(4rem, 9vw, 7.5rem)` w `next dev`, `clamp(4rem,9vw,7.5rem)`
+ * po `next build`). Stosowane do OBU stron porownania, wiec tresc jest dalej
+ * sprawdzana dokladnie — poza samym formatowaniem, ktore nie jest wymaganiem.
+ */
+const bezSpacji = (value: string) => value.replace(/\s+/g, "");
+
 /** Zmierzone wlasciwosci jednego elementu makiety. */
 async function zmierz(
   page: Page,
@@ -350,8 +363,6 @@ test.describe("ISK-400 — tokeny rytmu i formy", () => {
         radiusCard: read("--radius-card"),
         radiusPanel: read("--radius-panel"),
         radiusPill: read("--radius-pill"),
-        shadowBrand: read("--shadow-brand"),
-        gradientBrand: read("--gradient-brand"),
         focusRingWidth: read("--focus-ring-width"),
         focusRingOffset: read("--focus-ring-offset"),
         controlSm: read("--control-h-sm"),
@@ -360,8 +371,19 @@ test.describe("ISK-400 — tokeny rytmu i formy", () => {
     });
 
     // Rytm — wartosci z `_ds/tokens/spacing.css`.
-    expect(tokeny.sectionPadY).toBe("clamp(4rem, 9vw, 7.5rem)");
-    expect(tokeny.containerPad).toBe("clamp(1.25rem, 5vw, 3rem)");
+    //
+    // Porownanie bez bialych znakow, bo wartosc wlasciwosci niestandardowej
+    // to TEKST tokenu, oddawany tak, jak stoi w arkuszu — a arkusz
+    // produkcyjny jest zminifikowany. Zmierzone: `next dev` daje
+    // „clamp(4rem, 9vw, 7.5rem)", `next build` to samo bez spacji. Tresc
+    // (kazda liczba i jednostka) jest dalej sprawdzana dokladnie; nie
+    // sprawdzamy wylacznie formatowania, ktore nie jest wymaganiem.
+    expect(bezSpacji(tokeny.sectionPadY)).toBe(
+      bezSpacji("clamp(4rem, 9vw, 7.5rem)"),
+    );
+    expect(bezSpacji(tokeny.containerPad)).toBe(
+      bezSpacji("clamp(1.25rem, 5vw, 3rem)"),
+    );
     // 75rem = 1200 px. Token trzymamy w `rem`, bo cala skala promieni
     // i odstepow w `@theme` jest w `rem`.
     expect(tokeny.containerMax).toBe("75rem");
@@ -369,17 +391,55 @@ test.describe("ISK-400 — tokeny rytmu i formy", () => {
     expect(tokeny.radiusCard).toBe("1rem");
     expect(tokeny.radiusPanel).toBe("2rem");
     expect(tokeny.radiusPill).toBe("999px");
-    // Cien CTA jest zielono-podbarwiony (rgb 30 85 29), nie czarny.
-    expect(tokeny.shadowBrand).toContain("30 85 29");
-    // Gradient marki: green-500 -> green-700 (60%) -> green-900.
-    expect(tokeny.gradientBrand).toContain("120deg");
-    expect(tokeny.gradientBrand).toContain("60%");
     // Pierscien focusu: 3 px + offset 2 px.
     expect(tokeny.focusRingWidth).toBe("3px");
     expect(tokeny.focusRingOffset).toBe("2px");
     // 44 px to minimum celu dotykowego — token, nie liczba w regule.
     expect(tokeny.controlSm).toBe("44px");
     expect(tokeny.fieldH).toBe("46px");
+  });
+
+  /**
+   * Cien marki i gradient marki — mierzone na ZASTOSOWANEJ wlasciwosci,
+   * nie na tekscie tokenu.
+   *
+   * Tekst tokenu niesie kolor w zapisie z arkusza, a minifikacja go
+   * przepisuje: `--shadow-brand` to w `next dev`
+   * `... rgb(30 85 29 / 0.35)`, a po `next build` `... #1e551d59`. Asercja
+   * `toContain("30 85 29")` przechodzila wiec lokalnie i padala na artefakcie
+   * produkcyjnym — czyli dokladnie tam, gdzie mierzy CI (`PLAYWRIGHT_USE_BUILD`).
+   * Wlasciwosci `box-shadow` i `background-image` sa inne: przegladarka
+   * NORMALIZUJE w nich kolor do `rgb()/rgba()`. Zmierzone w obu trybach —
+   * wynik identyczny co do znaku. Dlatego mierzymy skutek, a nie zapis;
+   * to przy okazji mocniejsza asercja, bo dowodzi, ze token zostal
+   * ZASTOSOWANY, a nie tylko zadeklarowany.
+   */
+  test("cien i gradient marki sa zielone w zastosowanej wlasciwosci", async ({
+    page,
+  }) => {
+    await zamontuj(page);
+
+    const zastosowane = await page.evaluate(() => {
+      const btn = document.querySelector("#ds .m-btn-md")!;
+      const chip = document.querySelector("#ds .m-chip-brand")!;
+      return {
+        boxShadow: getComputedStyle(btn).boxShadow,
+        backgroundImage: getComputedStyle(chip).backgroundImage,
+      };
+    });
+
+    // Cien CTA jest zielono-podbarwiony (green-700), nie czarny — to byl
+    // wymog karty, a czarny cien jest najczestszym odstepstwem od wzorca.
+    expect(zastosowane.boxShadow).toContain("rgba(30, 85, 29");
+    expect(zastosowane.boxShadow).not.toContain("rgba(0, 0, 0");
+    // ...i naprawde jest cieniem, a nie samym kolorem.
+    expect(zastosowane.boxShadow).toContain("12px 30px -10px");
+
+    // Gradient marki: green-500 -> green-700 (60%) -> green-900, 120deg.
+    expect(zastosowane.backgroundImage).toContain("120deg");
+    expect(zastosowane.backgroundImage).toContain("rgb(84, 132, 29) 0%");
+    expect(zastosowane.backgroundImage).toContain("rgb(30, 85, 29) 60%");
+    expect(zastosowane.backgroundImage).toContain("rgb(10, 52, 0) 100%");
   });
 
   test("`--focus-ring` jest polprzezroczysty i NIE jest rgb()", async ({
