@@ -416,6 +416,92 @@ test.describe("B6 — usuwanie wymaga potwierdzenia", () => {
     }
   });
 
+  /**
+   * ISK-414 — zamkniecie fokusu, ktore dawal `<dialog>` z `showModal()`.
+   *
+   * Przy potwierdzeniu inline Escape wisial na samej GRUPIE, a „Anuluj" byl
+   * w niej ostatnim elementem fokusowalnym: Tab wychodzil na „Edytuj"
+   * nastepnego wiersza i zostawial wiersz uzbrojony oraz nieodwolywalny
+   * Escapem. Tu mierzymy jedno i drugie — krazenie Tab w pytaniu oraz to, ze
+   * uzbrojony moze byc najwyzej JEDEN wiersz.
+   *
+   * Bezpieczenstwo stoi osobno (serwer porownuje `confirmDeleteId`), wiec kazdy
+   * krok konczy sie sprawdzeniem, ze nic nie zostalo usuniete.
+   */
+  test("pytanie zamyka fokus: Tab krazy, Escape dziala, uzbrojony jest jeden wiersz", async ({
+    page,
+  }) => {
+    const armed = await createTraining({
+      published: false,
+      titlePrefix: "[TEST] Fokus uzbrojony",
+    });
+    const neighbour = await createTraining({
+      published: false,
+      titlePrefix: "[TEST] Fokus sasiad",
+    });
+    try {
+      await loginAsAdmin(page);
+      await page.goto("/panel/szkolenia");
+
+      const row = page.getByRole("row", { name: new RegExp(armed.slug) });
+      await expect(row).toBeVisible();
+      await row.getByRole("button", { name: "Usuń", exact: true }).click();
+
+      const confirm = confirmFor(page, armed.title);
+      const cancel = confirm.getByRole("button", { name: "Anuluj" });
+      const destroy = confirm.getByRole("button", { name: "Tak, usuń trwale" });
+      await expect(cancel).toBeFocused();
+
+      // Tab z „Anuluj" (ostatni element pytania) wraca na poczatek pytania,
+      // zamiast wyjsc na „Edytuj" nastepnego wiersza.
+      await page.keyboard.press("Tab");
+      await expect(destroy).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(cancel).toBeFocused();
+      // I w druga strone.
+      await page.keyboard.press("Shift+Tab");
+      await expect(destroy).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(cancel).toBeFocused();
+
+      // Escape dalej zamyka — fokus nigdy nie wyszedl z pytania.
+      await page.keyboard.press("Escape");
+      await expect(confirm).toHaveCount(0);
+      await expect(
+        row.getByRole("button", { name: "Usuń", exact: true }),
+      ).toBeFocused();
+
+      // Przeniesienie fokusu POZA pytanie wycofuje je, wiec dwa wiersze nie
+      // beda uzbrojone naraz (`showModal()` tego nie dopuszczal).
+      // Fokus przestawiamy programowo, a nie klikajac: wycofanie pytania
+      // zmienia wysokosc wiersza, wiec klikniecie myszka mierzyloby stabilnosc
+      // layoutu, a nie zamkniecie fokusu.
+      await row.getByRole("button", { name: "Usuń", exact: true }).click();
+      await expect(confirmFor(page, armed.title)).toBeVisible();
+
+      const otherRow = page.getByRole("row", {
+        name: new RegExp(neighbour.slug),
+      });
+      await otherRow.getByRole("button", { name: "Usuń", exact: true }).focus();
+      await expect(confirmFor(page, armed.title)).toHaveCount(0);
+      await page.keyboard.press("Enter");
+      await expect(confirmFor(page, neighbour.title)).toBeVisible();
+      await expect(confirmFor(page, armed.title)).toHaveCount(0);
+
+      // Escape na uzbrojonym sasiedzie — i nadal nic nie usuniete.
+      await page.keyboard.press("Escape");
+      await expect(confirmFor(page, neighbour.title)).toHaveCount(0);
+      const survived = await serviceClient()
+        .from("trainings")
+        .select("id")
+        .in("id", [armed.id, neighbour.id]);
+      expect(survived.data ?? []).toHaveLength(2);
+    } finally {
+      await deleteTraining(armed.id);
+      await deleteTraining(neighbour.id);
+    }
+  });
+
   test("dopiero potwierdzenie usuwa — i tylko wskazana pozycje", async ({
     page,
   }) => {

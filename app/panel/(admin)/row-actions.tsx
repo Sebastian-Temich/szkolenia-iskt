@@ -1,10 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Icon } from "@/components/ui";
 import { CONFIRM_DELETE_FIELD } from "@/lib/panel/confirm-delete";
+
+/**
+ * Tab i Shift+Tab kraza wewnatrz pytania — pulapka fokusu, ktora dawal
+ * `<dialog open>` z `showModal()`. Elementy czytamy z DOM w momencie
+ * nacisniecia, zeby lista nie rozjechala sie z faktyczna trescia grupy.
+ */
+function trapTab(event: ReactKeyboardEvent<HTMLDivElement>) {
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]):not([type="hidden"])',
+    ),
+  );
+  if (focusable.length === 0) return;
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
+  const active = document.activeElement;
+  if (event.shiftKey ? active === first : active === last) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  }
+}
 
 type Props = {
   /** Adres edytora pozycji. */
@@ -45,6 +72,27 @@ type Props = {
  * po otwarciu fokus idzie na „Anuluj" (nie na przycisk niszczacy), po
  * wycofaniu wraca na „Usun". Bez tego Escape nie mialby gdzie trafic —
  * przycisk, ktory wywolal pytanie, znika z drzewa.
+ *
+ * ZAMKNIECIE FOKUSU — ODTWORZONE W ISK-414
+ * Pierwsza wersja obslugiwala Escape na samej GRUPIE, a „Anuluj" byl w niej
+ * ostatnim elementem fokusowalnym. Tab z „Anuluj" wychodzil wiec na „Edytuj"
+ * nastepnego wiersza i zostawial wiersz A uzbrojony oraz nieodwolywalny
+ * Escapem; dwa wiersze mogly byc uzbrojone naraz, czego `showModal()`
+ * nie dopuszczal. Dokladamy trzy rzeczy, ktore `<dialog>` dawal gratis:
+ *
+ *  1. Tab i Shift+Tab KRAZA wewnatrz pytania (`trapTab`), wiec klawiatura
+ *     nie wychodzi z uzbrojonego wiersza bez decyzji;
+ *  2. Escape wisi na `document`, nie na grupie — dziala takze wtedy, gdy
+ *     fokus zdazyl wyjsc (mysz, `focus()` z zewnatrz);
+ *  3. przeniesienie fokusu POZA grupe wycofuje pytanie, wiec uzbrojony moze
+ *     byc najwyzej jeden wiersz.
+ *
+ * Punkt 3 reaguje tylko na fokus, ktory ma konkretny nowy cel
+ * (`relatedTarget`). Celowo NIE wycofujemy pytania, gdy fokus po prostu
+ * przepada (`relatedTarget === null`): tak wyglada m.in. klikniecie przycisku
+ * w przegladarce, ktora nie nadaje mu fokusu (Safari na macOS), a wycofanie
+ * pytania na `mousedown` zabraloby wlasny przycisk „Tak, usun trwale" przed
+ * dojsciem `click` — potwierdzone usuniecie przestaloby dzialac.
  */
 export function RowActions({
   editHref,
@@ -59,6 +107,22 @@ export function RowActions({
   const cancelRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstRender = useRef(true);
+  /**
+   * Czy po zamknieciu pytania oddac fokus przyciskowi „Usun".
+   *
+   * Tak JEST przy jawnej rezygnacji (Escape, „Anuluj") — przycisk, ktory
+   * otworzyl pytanie, znika z drzewa, wiec klawiatura musi dostac z powrotem
+   * swoje miejsce w tabeli. Tak NIE JEST, gdy pytanie wycofuje sie samo, bo
+   * fokus wyszedl poza nie: wtedy oddanie fokusu ODEBRALOBY go elementowi,
+   * na ktory uzytkownik wlasnie przeszedl (zmierzone: fokus wracal na „Usun"
+   * wiersza A, a Enter na uzbrojonym wierszu B nie mial gdzie trafic).
+   */
+  const returnFocus = useRef(false);
+
+  const cancel = () => {
+    returnFocus.current = true;
+    setConfirming(false);
+  };
 
   useEffect(() => {
     // Pierwsze przejscie to zwykly montaz wiersza — nie kradniemy fokusu.
@@ -66,8 +130,23 @@ export function RowActions({
       firstRender.current = false;
       return;
     }
-    if (confirming) cancelRef.current?.focus();
-    else triggerRef.current?.focus();
+    if (confirming) {
+      cancelRef.current?.focus();
+    } else if (returnFocus.current) {
+      returnFocus.current = false;
+      triggerRef.current?.focus();
+    }
+  }, [confirming]);
+
+  // Escape na `document`, nie na grupie: pytanie ma byc odwolywalne takze
+  // wtedy, gdy fokus jest poza nim (patrz nota „ZAMKNIECIE FOKUSU" wyzej).
+  useEffect(() => {
+    if (!confirming) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancel();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [confirming]);
 
   if (confirming) {
@@ -76,8 +155,11 @@ export function RowActions({
         className="panel-confirm-inline"
         role="group"
         aria-label={`Potwierdzenie usunięcia: ${itemName}`}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setConfirming(false);
+        onKeyDown={trapTab}
+        onBlur={(event) => {
+          const next = event.relatedTarget as Node | null;
+          // Bez `returnFocus`: fokus zostaje tam, gdzie uzytkownik przeszedl.
+          if (next && !event.currentTarget.contains(next)) setConfirming(false);
         }}
       >
         <p className="panel-confirm-text">
@@ -95,11 +177,7 @@ export function RowActions({
             Tak, usuń trwale
           </button>
         </form>
-        <button
-          ref={cancelRef}
-          type="button"
-          onClick={() => setConfirming(false)}
-        >
+        <button ref={cancelRef} type="button" onClick={cancel}>
           Anuluj
         </button>
       </div>
