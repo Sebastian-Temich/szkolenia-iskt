@@ -134,12 +134,19 @@ const panelViews: Array<[name: string, path: string, dowod: string]> = [
   ["panel — szkolenia", "/panel/szkolenia", "tbody tr"],
   ["panel — trenerzy", "/panel/trenerzy", "tbody tr"],
   ["panel — zgloszenia", "/panel/zgloszenia", "tbody tr"],
-  ["panel — formularz szkolenia", "/panel/szkolenia/nowe", "form input"],
-  ["panel — formularz trenera", "/panel/trenerzy/nowe", "form input"],
+  // UWAGA NA SEGMENT "nowy" — kazdy formularz ma INNA forme gramatyczna
+  // (`id === "nowe"` / `"nowy"` / `"nowa"`), bo tak brzmi rzeczownik, ktory
+  // opisuje. Pomylka nie daje bledu: `isNew` wychodzi `false`, strona szuka
+  // rekordu o id "nowe" i oddaje 404 — czyli bramka skanowalaby ekran 404
+  // zamiast formularza. Zmierzone w CI (ISK-411), stad selektory `dowod`
+  // wskazuja KONKRETNE pole danego edytora, a nie ogolne `form input`: to
+  // dowodzi, ze wyrenderowal sie wlasciwy widok, a nie jakikolwiek input.
+  ["panel — formularz szkolenia", "/panel/szkolenia/nowe", "#training-title"],
+  ["panel — formularz trenera", "/panel/trenerzy/nowy", "#trainer-full-name"],
   [
     "panel — formularz kategorii",
-    "/panel/szkolenia/kategorie/nowe",
-    "form input",
+    "/panel/szkolenia/kategorie/nowa",
+    "#category-name",
   ],
   [
     "panel — brak uprawnien",
@@ -443,13 +450,21 @@ test.describe("semantyka tresci", () => {
   }
 
   // CR-I7: panel nie mial tej bramki ani na jednej trasie.
+  //
+  // `dowod` jest tu z tego samego powodu co w petli axe, i nie jest ozdoba:
+  // przy pierwszym przebiegu w CI trzy trasy formularzy mialy zly segment
+  // ("nowe" zamiast "nowy"/"nowa") i oddawaly 404. Ekran 404 ma DOKLADNIE
+  // JEDEN `h1`, wiec te trzy testy naglowkow przeszly — mierzac 404, nie
+  // formularz. Bez dowodu wlasciwego widoku bramka naglowkow jest wakatowa
+  // dla kazdej trasy, ktora da sie pomylic.
   test.describe("panel administratora", () => {
-    for (const [name, path] of panelViews) {
+    for (const [name, path, dowod] of panelViews) {
       test(`${name}: dokladnie jeden h1 i brak przeskokow w hierarchii naglowkow`, async ({
         page,
       }) => {
         await loginAsAdmin(page);
         await page.goto(path);
+        await expect(page.locator(dowod).first()).toBeVisible();
         await sprawdzNaglowki(page, path);
       });
     }

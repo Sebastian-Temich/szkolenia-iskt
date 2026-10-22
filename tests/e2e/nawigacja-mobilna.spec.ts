@@ -146,7 +146,28 @@ test.describe("CR-B2 — nawigacja mobilna przy 360 px", () => {
         .display,
       nav: getComputedStyle(document.querySelector(".site-nav")!).display,
     }));
-    expect(waski.toggle).toBe("inline-flex");
+    /*
+     * NIE asertujemy tu `inline-flex`, choc arkusz tak deklaruje.
+     * `getComputedStyle().display` oddaje wartosc UZYTA, a nie zadeklarowana:
+     * przelacznik jest dzieckiem `.site-header-actions { display: flex }`,
+     * wiec jako element flex podlega blockifikacji i zadeklarowane
+     * `inline-flex` czyta sie jako `flex` (zmierzone w CI, ISK-411). Asercja
+     * na odmiane flexa pilnowalaby wiec szczegolu implementacji arkusza,
+     * ktory nie ma zadnego znaczenia dla dostepnosci.
+     *
+     * Wymaganiem jest to, ze przelacznik JEST w ukladzie i w drzewie
+     * dostepnosci — i to mierzymy. Geometrie 44x44 px sprawdza osobny test
+     * nizej, a obecnosc w drzewie dostepnosci skan axe. To tez wzorzec juz
+     * przyjety w tym repozytorium: bramka CTA mierzy `display !== "none"`
+     * (komentarz przy `.site-header-cta` w `app/globals.css` mowi to wprost).
+     *
+     * Kontrola przy 1280 px zostaje DOKLADNA (`toBe("none")`): blockifikacja
+     * nie dotyczy `display: none`, wiec tam nie ma czego rozmywac.
+     */
+    expect(
+      waski.toggle,
+      "Przy 360 px przelacznik musi byc w ukladzie — inaczej nie ma nawigacji",
+    ).not.toBe("none");
     expect(
       waski.nav,
       "Nawigacja desktopowa musi zniknac, inaczej landmark nawigacji jest zdublowany",
