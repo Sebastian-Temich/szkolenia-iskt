@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { TrainingCard } from "@/components/training-card";
 import {
-  Badge,
   ButtonLink,
   Card,
   CardLink,
@@ -252,7 +251,7 @@ export function HomeSections({ categories, featured }: Props) {
           />
 
           {featured.length > 0 ? (
-            <div className="home-featured-grid">
+            <div className={featuredGridClassName(featured.length)}>
               {featured.map((training) => (
                 <TrainingCard
                   headingLevel="h3"
@@ -447,10 +446,6 @@ export function HomeSections({ categories, featured }: Props) {
               Przejdź do formularza
               <Icon name="arrow-right" size={18} />
             </ButtonLink>
-
-            <Badge tone="outline">
-              {AUDIENCE_FORM_LABELS[audience]} — wybrany rodzaj
-            </Badge>
           </Card>
         </div>
       </section>
@@ -487,4 +482,21 @@ export function areaGridClassName(count: number): string {
   const remainder = count % 3;
   if (remainder === 0) return "home-area-grid";
   return `home-area-grid home-area-grid-orphans-${remainder}`;
+}
+
+/**
+ * Siatka wyroznionych szkolen — liczba kolumn idzie za liczba kart.
+ *
+ * Wzorzec ma `repeat(4, 1fr)` i cztery pozycje wpisane na sztywno, wiec nigdy
+ * nie widzi niepelnego rzedu. W produkcie liczba wyroznionych jest decyzja
+ * administratora: przy jednej pozycji (stan zasiewu) siatka czterokolumnowa
+ * zostawia karte szerokosci 1/4 przy lewej krawedzi i trzy puste tory —
+ * wyglada to na blad wczytywania, a nie na uklad.
+ *
+ * Defekt byl widoczny dopiero na zrzucie; zadna bramka go nie lapie, bo
+ * przepelnienia nie ma, kontrast sie zgadza i wszystkie linki dzialaja.
+ */
+export function featuredGridClassName(count: number): string {
+  if (count >= 4) return "home-featured-grid";
+  return `home-featured-grid home-featured-grid-${count}`;
 }

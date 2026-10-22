@@ -3530,3 +3530,38 @@
   height: 64px;
   font-size: 22px;
 }
+
+/* ============================================================================
+   ISK-401 — siatka wyroznionych przy niepelnym rzedzie.
+
+   DEFEKT ZNALEZIONY NA ZRZUCIE, NIE W KODZIE
+   `repeat(4, 1fr)` z jedna wyrozniona pozycja (stan zasiewu) zostawia karte
+   szerokosci 1/4 kontenera przyklejona do lewej i trzy puste tory po prawej —
+   czyta sie to jak blad wczytywania, a nie jak uklad. Wzorzec tego nie widzi,
+   bo ma w danych cztery pozycje na sztywno; w produkcie liczba wyroznionych
+   jest decyzja administratora i moze byc dowolna od 0 do 4.
+
+   Reguly sa zamkniete w `@media (min-width: 64rem)` SWIADOMIE: modyfikator ma
+   te sama wage co `.home-featured-grid`, a stoi w pliku pozniej, wiec bez tego
+   ograniczenia wygralby z zapytaniami medialnymi powyzej i zablokowalby siatke
+   na ukladzie desktopowym przy 360 px.
+
+   Poza warstwa `@layer components` — tak samo jak reguly awatara wyzej —
+   zeby mialy pierwszenstwo nad warstwa, w ktorej siedzi wariant bazowy.
+   ========================================================================== */
+@media (min-width: 64rem) {
+  .home-featured-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* Dwie karty: pelna szerokosc podzielona na pol bylaby nieczytelnie szeroka,
+     wiec rzad jest zwezony i wysrodkowany — ten sam zabieg co w siatce
+     obszarow, gdzie ostatni rzad centrujemy zamiast zostawiac dziure. */
+  .home-featured-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 320px));
+    justify-content: center;
+  }
+  .home-featured-grid-1 {
+    grid-template-columns: minmax(0, 380px);
+    justify-content: center;
+  }
+}
