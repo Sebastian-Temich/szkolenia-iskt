@@ -27,7 +27,25 @@ env:
   # Wszystkie 13 obrazow jest opublikowanych jako `ghcr.io/supabase/<nazwa>` (zmierzone
   # po manifestach; Docker Hub nie hostuje 5 z nich, dlatego logowanie do Docker Huba
   # nie rozwiazuje tego problemu).
+  #
+  # ISK-420: 2026-10-22 ok. 20:10 UTC limit zaczal zglaszac SAM ghcr.io
+  # (`toomanyrequests: allowed: 44000/minute`) i `database` oraz `e2e` padaly w kroku
+  # startu, zanim uruchomil sie jakikolwiek test. Pomiar z tego dnia: ghcr.io odrzucalo
+  # ~20-40% pojedynczych, szeregowych zapytan o manifest (takze anonimowo, z innego IP
+  # niz runnery) i uwierzytelnienie tego nie zmienialo, a public.ecr.aws odpowiadal 200
+  # na wszystkie obrazy. Zaden z rejestrow nie jest wiec sam w sobie bezpieczny: obrazy
+  # pobiera krok "Pre-pull Supabase images serially", ktory przechodzi przez liste zrodel.
+  #
+  # Dwa zrodla tez nie wystarczyly (przebieg 39852110159): ghcr.io odrzucal pull, a
+  # public.ecr.aws zglosil wyczerpanie limitu DANYCH (`Data limit exceeded`), wiec 5
+  # obrazow nie zmiescilo sie w budzecie prob. Stad trzecie, niezalezne zrodlo —
+  # Docker Hub — uzywane dla 10 z 14 obrazow, ktore Supabase tam wydaje pod `supabase/`.
+  # Pozostale 4 (`kong`, `mailpit`, `vector`, `imgproxy`) oraz `postgrest` maja na
+  # Docker Hubie innego wlasciciela i NIE sa podstawiane: nie da sie dowiesc, ze to
+  # bajt w bajt to samo, a cicha podmiana obrazu w bramce jakosci jest gorsza od
+  # czerwonej bramki.
   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+  SUPABASE_IMAGE_SOURCE_REGISTRIES: ghcr.io public.ecr.aws docker.io
   # Wartosci wylacznie dla CI — NIE sa sekretami ISKT (token/sol generowane lokalnie, ADR-0004).
   # Bez prefiksu NEXT_PUBLIC_, nie trafiaja do klienta. Adresat to adres testowy (transport log).
   FORM_TOKEN_SECRET: ci-only-form-token-secret-0123456789-abcdef
@@ -81,6 +99,11 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+      # ISK-420: obrazy ciagniemy SAMI, szeregowo, z ponowieniem i rejestrem zapasowym.
+      # `supabase start` robilby to w 13 rownoleglych pullach z jednym ponowieniem i
+      # padal, gdy rejestr odmowil (tak 2026-10-22 ghcr.io zatrzymalo cala dostawe).
+      - name: Pre-pull Supabase images serially
+        run: ./scripts/ci-prepull-supabase-images.sh
       - name: Start local Supabase
         run: ./scripts/ci-start-supabase.sh
       - name: Export local-only Supabase variables
@@ -93,6 +116,8 @@ jobs:
           mkdir -p test-results/supabase
           supabase status > test-results/supabase/status.log 2>&1 || true
           docker ps -a > test-results/supabase/containers.log 2>&1 || true
+          cp supabase-prepull.log test-results/supabase/ 2>/dev/null || true
+          cp supabase-start.log test-results/supabase/ 2>/dev/null || true
       - name: Upload Supabase diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -129,6 +154,11 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+      # ISK-420: obrazy ciagniemy SAMI, szeregowo, z ponowieniem i rejestrem zapasowym.
+      # `supabase start` robilby to w 13 rownoleglych pullach z jednym ponowieniem i
+      # padal, gdy rejestr odmowil (tak 2026-10-22 ghcr.io zatrzymalo cala dostawe).
+      - name: Pre-pull Supabase images serially
+        run: ./scripts/ci-prepull-supabase-images.sh
       - name: Start local Supabase
         run: ./scripts/ci-start-supabase.sh
       - name: Export local-only Supabase variables
@@ -167,6 +197,8 @@ jobs:
           mkdir -p test-results/supabase
           supabase status > test-results/supabase/status.log 2>&1 || true
           docker ps -a > test-results/supabase/containers.log 2>&1 || true
+          cp supabase-prepull.log test-results/supabase/ 2>/dev/null || true
+          cp supabase-start.log test-results/supabase/ 2>/dev/null || true
       - name: Upload Playwright and Supabase failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
