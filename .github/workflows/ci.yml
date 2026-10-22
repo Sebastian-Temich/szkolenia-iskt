@@ -33,10 +33,19 @@ env:
   # startu, zanim uruchomil sie jakikolwiek test. Pomiar z tego dnia: ghcr.io odrzucalo
   # ~20-40% pojedynczych, szeregowych zapytan o manifest (takze anonimowo, z innego IP
   # niz runnery) i uwierzytelnienie tego nie zmienialo, a public.ecr.aws odpowiadal 200
-  # na wszystkie 13 obrazow. Zaden z rejestrow nie jest wiec sam w sobie bezpieczny:
-  # obrazy pobiera teraz krok "Pre-pull Supabase images serially", ktory probuje oba.
+  # na wszystkie obrazy. Zaden z rejestrow nie jest wiec sam w sobie bezpieczny: obrazy
+  # pobiera krok "Pre-pull Supabase images serially", ktory przechodzi przez liste zrodel.
+  #
+  # Dwa zrodla tez nie wystarczyly (przebieg 39852110159): ghcr.io odrzucal pull, a
+  # public.ecr.aws zglosil wyczerpanie limitu DANYCH (`Data limit exceeded`), wiec 5
+  # obrazow nie zmiescilo sie w budzecie prob. Stad trzecie, niezalezne zrodlo —
+  # Docker Hub — uzywane dla 10 z 14 obrazow, ktore Supabase tam wydaje pod `supabase/`.
+  # Pozostale 4 (`kong`, `mailpit`, `vector`, `imgproxy`) oraz `postgrest` maja na
+  # Docker Hubie innego wlasciciela i NIE sa podstawiane: nie da sie dowiesc, ze to
+  # bajt w bajt to samo, a cicha podmiana obrazu w bramce jakosci jest gorsza od
+  # czerwonej bramki.
   SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
-  SUPABASE_FALLBACK_IMAGE_REGISTRY: public.ecr.aws
+  SUPABASE_IMAGE_SOURCE_REGISTRIES: ghcr.io public.ecr.aws docker.io
   # Wartosci wylacznie dla CI — NIE sa sekretami ISKT (token/sol generowane lokalnie, ADR-0004).
   # Bez prefiksu NEXT_PUBLIC_, nie trafiaja do klienta. Adresat to adres testowy (transport log).
   FORM_TOKEN_SECRET: ci-only-form-token-secret-0123456789-abcdef
