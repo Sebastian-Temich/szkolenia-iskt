@@ -2041,10 +2041,13 @@
   }
   /* Na ciemnym tle (panel `--gradient-brand`, karty `--ink-900`). Krawedz
      zostaje przezroczysta, zeby wysokosc i padding zgadzaly sie z primary. */
+  /* Waga 600, jak kazdy inny wariant przycisku (ISK-412). Samotne `700` bylo
+     literowka, nie decyzja: ten sam przycisk na jasnym tle wazy 600, wiec na
+     ciemnym robil sie o stopien grubszy bez powodu. */
   .ui-button-light {
     background: var(--color-neutral-0);
     color: var(--color-green-800);
-    font-weight: 700;
+    font-weight: 600;
     box-shadow: var(--shadow-md);
   }
   .ui-button-light:hover:not(:disabled) {
@@ -3995,8 +3998,21 @@
   /* RESPONSYWNOSC                                                            */
   /* ======================================================================== */
 
-  /* --- 64rem (1024 px): siatki wielokolumnowe schodza do dwoch kolumn ----- */
-  @media (max-width: 64rem) {
+  /* --- 63.9375rem (1023 px): siatki wielokolumnowe schodza do dwoch kolumn -
+     GRANICA JEST WSPOLNA Z NAWIGACJA (ISK-412 / UX-K1), NIE PRZYPADKOWA.
+     Korpus schodzil wczesniej do dwoch kolumn przy `max-width: 64rem`, czyli
+     JUZ przy 1024 px, a nawigacja chowala sie dopiero przy `max-width: 60rem`,
+     czyli przy 960 px. W pasmie 961–1024 px pelny pasek stal wiec nad korpusem
+     dwukolumnowym, a dokladnie przy 1024 px zatwierdzona tabela punktow
+     zalamania obiecuje TRZY kolumny — a byly dwie.
+
+     `63.9375rem` to 1023 px, wiec 1024 px nie wpada do zadnej z tych dwoch
+     regul: przy 1024 px naglowek i korpus sa JEDNOCZESNIE w trybie
+     desktopowym, a ponizej (<= 1023 px) oba przelaczaja sie RAZEM.
+     Dopelnieniem jest `@media (min-width: 64rem)` na dole pliku — miedzy
+     63.9375rem i 64rem nie ma luki, bo piksel 1023 nalezy do pierwszej
+     reguly, a 1024 do drugiej. */
+  @media (max-width: 63.9375rem) {
     .home-area-grid,
     .home-featured-grid,
     .home-steps,
@@ -4024,12 +4040,16 @@
     }
   }
 
-  /* --- 60rem (960 px): nawigacja chowa sie za przyciskiem ----------------- */
+  /* --- 63.9375rem (1023 px): nawigacja chowa sie za przyciskiem ----------
+     TA SAMA GRANICA, CO SIATKI TRESCI WYZEJ (ISK-412 / UX-K1). Pasek i korpus
+     musza przelaczac sie w tym samym punkcie — rozjazd 960/1024 px dawal
+     pasmo 961–1024 px, w ktorym pelna nawigacja stala nad ukladem juz
+     zwinietym do dwoch kolumn. */
   .site-nav-toggle,
   .site-nav-panel {
     display: none;
   }
-  @media (max-width: 60rem) {
+  @media (max-width: 63.9375rem) {
     .site-nav {
       display: none;
     }
