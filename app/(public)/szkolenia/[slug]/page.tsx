@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import {
   formatDurationHours,
+  formatLevel,
   formatPriceNet,
   formatProgramIndex,
 } from "@/lib/format";
@@ -52,6 +53,8 @@ export default async function TrainingPage({
   const jsonLd = buildTrainingJsonLd(training);
   const duration = formatDurationHours(training.duration_hours);
   const price = formatPriceNet(training.price_net_pln);
+  // Slownik `level` jest ASCII w bazie (check + enum), etykieta ma diakrytyki.
+  const level = formatLevel(training.level);
   const contactHref = `/kontakt?szkolenie=${encodeURIComponent(training.slug)}`;
 
   return (
@@ -115,13 +118,13 @@ export default async function TrainingPage({
                 <dd className="detail-fact-value">{duration}</dd>
               </div>
             ) : null}
-            {training.level ? (
+            {level ? (
               <div className="detail-fact">
                 <dt className="detail-fact-label">
                   <Icon name="gauge" size={15} />
                   Poziom
                 </dt>
-                <dd className="detail-fact-value">{training.level}</dd>
+                <dd className="detail-fact-value">{level}</dd>
               </div>
             ) : null}
             {price ? (

@@ -26,9 +26,27 @@ import { getCategories } from "@/lib/public-catalog";
  * Bez konfiguracji Supabase (`next build` w bramce `quality` leci bez sekretow)
  * `getCategories()` zwraca pusta liste — kolumna obszarow znika zamiast
  * rozsypac stopke.
+ *
+ * ISK-412 / UX-Z1 — BLAD ZAPYTANIA NIE MOZE PRZEWROCIC STOPKI
+ * `getCategories()` zwraca pusta liste tylko wtedy, gdy klienta NIE DA SIE
+ * zbudowac (brak konfiguracji). Gdy klient istnieje, a zapytanie zwroci blad,
+ * funkcja RZUCA — i do ISK-412 ten wyjatek propagowal sie z renderu stopki.
+ * Odkad stopka stoi takze na globalnym ekranie 404, taki wyjatek zamienialby
+ * odpowiedz 404 w 500, czyli najprostszy przypadek psulby sie razem
+ * z najtrudniejszym. To byl jedyny merytoryczny argument za 404 bez powloki;
+ * lapiemy go wiec u zrodla. Kolumna obszarow znika, reszta stopki (linki
+ * serwisu, kontakt, dolny pasek) zostaje — nawigacja nie zalezy od bazy.
  */
+async function footerCategories() {
+  try {
+    return await getCategories();
+  } catch {
+    return [];
+  }
+}
+
 export async function SiteFooter() {
-  const categories = await getCategories();
+  const categories = await footerCategories();
   const year = 2026;
 
   return (

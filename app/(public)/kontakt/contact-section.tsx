@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Card, Eyebrow, IconChip } from "@/components/ui";
+import { Card, IconChip, PageHeader } from "@/components/ui";
 import { AUDIENCE_DEFAULT, type Audience } from "@/lib/audience";
 
 import { InquiryForm, type SelectedTraining } from "./inquiry-form";
@@ -51,22 +51,31 @@ export function ContactSection({
       className="home-contact ui-container"
     >
       <div className="home-contact-text">
-        <Eyebrow>Zgłoszenie</Eyebrow>
         {/* Tytul jest sprawdzany co do znaku w `ux-powazne.spec.ts` (P13)
             i `public-pages.spec.ts`, w obu stanach. Do ISK-401 nosil klase
             `text-primary`, ktora NIE jest kolorem tekstu — `--color-primary`
             to zielen marki (green-700), wiec naglowek strony kontaktu byl
-            zielony, bez zadnej decyzji projektowej za tym. */}
-        <h1 className="ui-section-title" id="kontakt-title">
-          {sent ? "Zgłoszenie przyjęte" : "Zapytaj o szkolenie"}
-        </h1>
-        <p className="ui-section-lead">
-          {sent
-            ? "Nic więcej nie musisz robić."
-            : audience === "firma"
-              ? "Wypełnij formularz jako firma — podaj nazwę i opisz potrzeby zespołu. Odpowiemy na podany adres e-mail."
-              : "Wypełnij formularz jako osoba indywidualna. Odpowiemy na podany adres e-mail."}
-        </p>
+            zielony, bez zadnej decyzji projektowej za tym.
+
+            ISK-412 / UX-Z2: uklada go teraz `PageHeader`, a nie wlasny zestaw
+            `Eyebrow` + `h1.ui-section-title`. Poprzednio H1 tej strony mial
+            41,6 px, czyli skale naglowka SEKCJI, gdy katalog i trenerzy mieli
+            48 px — trzecia skala H1 w produkcie bez decyzji za tym.
+            `ui-page-header-flush` zdejmuje `margin-bottom`, bo odstep daje tu
+            `gap` kolumny `.home-contact-text`. */}
+        <PageHeader
+          className="ui-page-header-flush"
+          eyebrow="Zgłoszenie"
+          lead={
+            sent
+              ? "Nic więcej nie musisz robić."
+              : audience === "firma"
+                ? "Wypełnij formularz jako firma — podaj nazwę i opisz potrzeby zespołu. Odpowiemy na podany adres e-mail."
+                : "Wypełnij formularz jako osoba indywidualna. Odpowiemy na podany adres e-mail."
+          }
+          title={sent ? "Zgłoszenie przyjęte" : "Zapytaj o szkolenie"}
+          titleId="kontakt-title"
+        />
 
         {/* Dane kontaktowe obok formularza — wzorzec stawia je w tym samym pasmie,
             a osoba, ktora nie chce wypelniac formularza, dostaje drugie wyjscie.

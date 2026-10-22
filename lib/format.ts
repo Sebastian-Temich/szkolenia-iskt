@@ -52,3 +52,32 @@ export function formatDurationHours(hours: number | null): string | null {
 export function formatProgramIndex(index: number): string {
   return String(index + 1).padStart(2, "0");
 }
+
+/**
+ * Poziom szkolenia do widoku.
+ *
+ * ISK-412 — DLACZEGO TO JEST MAPA, A NIE POPRAWKA W DANYCH
+ * `trainings.level` to SLOWNIK KONTROLOWANY, nie tresc: wartosci pilnuje
+ * `check (level in ('podstawowy','sredniozaawansowany','zaawansowany'))`
+ * w migracji i `z.enum([...])` w `lib/panel/schemas.ts`. Dopisanie polskich
+ * znakow do samych wartosci wymagaloby migracji, a ISK-412 ma zakaz migracji.
+ *
+ * Bramka UX slusznie zglosila jednak, ze widok pokazywal „sredniozaawansowany”
+ * bez diakrytykow — bo renderowal wartosc slownika BEZPOSREDNIO. Panel mial
+ * etykiety z polskimi znakami juz wczesniej (`<option>` w edytorze szkolenia),
+ * czyli produkt nazywal te sama rzecz dwoma napisami. Ta mapa jest jednym
+ * zrodlem etykiety.
+ *
+ * Wartosc nieznana (slownik rozszerzony w bazie bez zmiany w kodzie) wraca
+ * bez zmian — lepiej pokazac surowy poziom niz go ukryc.
+ */
+const LEVEL_LABELS: Record<string, string> = {
+  podstawowy: "podstawowy",
+  sredniozaawansowany: "średniozaawansowany",
+  zaawansowany: "zaawansowany",
+};
+
+export function formatLevel(level: string | null): string | null {
+  if (!level) return null;
+  return LEVEL_LABELS[level] ?? level;
+}

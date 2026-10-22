@@ -2214,6 +2214,44 @@
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
+
+  /* ------------------------------------------------------- tytul karty -- */
+  /* ISK-412 / UX-Z2 — JEDNA SKALA DLA KAZDEGO NAGLOWKA WEWNATRZ KARTY.
+     Bramka UX zmierzyla cztery rozne rozmiary H2 (18,4 / 19,2 / 25,6 / 41,6 px)
+     i slusznie nazwala to brakiem skali. Zrodlem rozjazdu byly tytuly KART:
+     ta sama rola wizualna miala 1.05rem (karta z pasmem), 1.15rem (karta
+     katalogu i krok procesu), 1.2rem (karta trenera) i 1.35rem (karta sciezki
+     oraz stan pusty) — piec wartosci bez ani jednej decyzji za nimi.
+
+     SKALA MA CZTERY ROLE I KAZDA MA DOKLADNIE JEDNA WARTOSC:
+       `.ui-page-title`       — 48 px   — jeden na strone (h1)
+       `.ui-section-title`    — 41,6 px — naglowek pasma sekcji
+       `.ui-subsection-title` — 25,6 px — naglowek w kolumnie tresci sekcji
+       `.ui-card-title`       — 19,2 px — naglowek wewnatrz karty
+
+     ROZMIAR IDZIE ZA ROLA, NIE ZA POZIOMEM NAGLOWKA. Karta katalogu musi byc
+     `h2` (nad siatka nie ma naglowka), a ta sama karta na stronie glownej jest
+     `h3` — i w obu miejscach ma wygladac identycznie, bo jest tym samym
+     elementem. Dlatego skala siedzi w klasie roli, a nie w selektorze `h2`.
+
+     Selektory kontekstowe (`.training-card .training-card-title`,
+     `.trainer-card .trainer-name`) sa tu KONIECZNE: stare reguly zestawu
+     (`.training-card h2`, `.trainer-card h2`) maja specyficznosc (0,1,1)
+     i bez nich wygraly z sama klasa. */
+  .ui-card-title,
+  .training-card .training-card-title,
+  .trainer-card .trainer-name,
+  .home-path-title,
+  .home-step-title,
+  .home-funding-title,
+  .home-scope-title,
+  .empty-state-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
   .ui-section-lead {
     margin: 0;
     color: var(--color-text-secondary);
@@ -2237,6 +2275,11 @@
     gap: 0.875rem;
     max-width: 720px;
     margin-bottom: 2.5rem;
+  }
+  /* Naglowek w kolumnie, ktora sama ma `gap` (`/kontakt`) — wlasny
+     `margin-bottom` dodawalby sie do niego i rozrywal rytm. */
+  .ui-page-header-flush {
+    margin-bottom: 0;
   }
   .ui-page-title {
     margin: 0;
@@ -2889,12 +2932,7 @@
   .home-path {
     gap: 14px;
   }
-  .home-path-title {
-    margin: 0;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-path-text {
     margin: 0;
     color: var(--color-text-secondary);
@@ -3028,17 +3066,12 @@
   }
   /* (0,2,0) — stara regula `.training-card h2` (0,1,1) ma wyzsza specyficznosc
      niz sama klasa tytulu. */
+  /* Skala i waga przychodza z `.ui-card-title` (sekcja "tytul karty" wyzej) —
+     tutaj zostaje wylacznie kolor. Wariant `plain` NIE ma juz wlasnego
+     rozmiaru: ta sama karta w katalogu i na stronie glownej jest tym samym
+     elementem, wiec nie moze miec dwoch skal (ISK-412 / UX-Z2). */
   .training-card .training-card-title {
-    margin: 0;
     color: var(--color-ink-900);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-  }
-  .training-card-plain .training-card-title {
-    font-size: 1.15rem;
-    letter-spacing: -0.015em;
   }
   .training-card-summary {
     color: var(--color-text-secondary);
@@ -3122,12 +3155,7 @@
     font-size: 22px;
     font-weight: 600;
   }
-  .home-step-title {
-    margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-step-text {
     margin: 0;
     color: var(--color-text-secondary);
@@ -3160,11 +3188,7 @@
     color: var(--color-text-on-brand);
     backdrop-filter: blur(4px);
   }
-  .home-funding-title {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-funding-text {
     margin: 0;
     color: rgb(255 255 255 / 85%);
@@ -3203,11 +3227,7 @@
     background: rgb(255 255 255 / 6%);
     color: var(--color-text-on-brand);
   }
-  .home-scope-title {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-scope-text {
     margin: 0;
     color: rgb(255 255 255 / 85%);
@@ -3350,12 +3370,7 @@
     align-items: flex-start;
     gap: 12px;
   }
-  .empty-state-title {
-    margin: 0;
-    font-size: 1.35rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
+  /* `.empty-state-title` ma skale `.ui-card-title` — stan pusty jest karta. */
 
   /* ------------------------------------------------------ szczegol: hero -- */
   .detail-hero {
@@ -3689,13 +3704,10 @@
   .trainer-identity-text {
     min-width: 0;
   }
-  /* (0,2,0) — stare `.trainer-card h2` i `.trainer-card p` (0,1,1). */
+  /* (0,2,0) — stare `.trainer-card h2` i `.trainer-card p` (0,1,1).
+     Skala przychodzi z `.ui-card-title`; tutaj zostaje kolor. */
   .trainer-card .trainer-name {
-    margin: 0;
     color: var(--color-ink-900);
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: -0.015em;
   }
   .trainer-card .trainer-role {
     margin: 0;
