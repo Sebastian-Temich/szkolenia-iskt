@@ -184,12 +184,55 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
 
     // Pola filtra musza byc osiagalne z klawiatury, w kolejnosci dokumentu.
     const q = order.findIndex((o) => o === "input:q");
-    const category = order.findIndex((o) => o === "select:category");
     expect(
       q,
       `Nie dotarlem Tabem do pola szukania. Kolejnosc: ${order.join(" > ")}`,
     ).toBeGreaterThanOrEqual(0);
-    expect(category).toBeGreaterThan(q);
+
+    // Druga polowa tej asercji szukala `select:category` i wymagala, zeby stal
+    // PO polu frazy. Listy rozwijanej nie ma: obszar wybiera sie rzedem linkow
+    // (`FilterPillLink`), ktory w dokumencie stoi PRZED formularzem szukania.
+    // Zamiana nie jest zluzowaniem — link musi spelnic to, czego `<select>`
+    // nie musial:
+    //  1. byc w naturalnej kolejnosci Tab (zaden nie moze miec `tabindex=-1`),
+    //  2. nosic `aria-current="page"` na pozycji biezacej, bo stan wybranego
+    //     obszaru niesie inaczej wylacznie kolor tla (WCAG 1.4.1), a czytnik
+    //     ekranu czytalby wszystkie pigulki identycznie,
+    //  3. dac sie uruchomic z klawiatury (Enter), czyli zmienic filtr bez myszy.
+    const pierwszaPigulka = order.findIndex((o) => o === "a:Wszystkie");
+    expect(
+      pierwszaPigulka,
+      `Nie dotarlem Tabem do filtra obszarow. Kolejnosc: ${order.join(" > ")}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(pierwszaPigulka).toBeLessThan(q);
+
+    const filtry = page.getByRole("navigation", { name: "Filtr obszarów" });
+    const pigulki = filtry.getByRole("link");
+    // Filtr z jedna pozycja nie jest filtrem — pomiar musi miec na czym stac.
+    expect(await pigulki.count()).toBeGreaterThan(1);
+    expect(
+      await pigulki.evaluateAll(
+        (nodes) =>
+          nodes.filter((node) => node.getAttribute("tabindex") === "-1").length,
+      ),
+    ).toBe(0);
+
+    // Bez filtra biezaca pozycja to "Wszystkie" — dokladnie jedna.
+    const biezaca = filtry.locator('[aria-current="page"]');
+    await expect(biezaca).toHaveCount(1);
+    await expect(biezaca).toHaveText("Wszystkie");
+
+    // Zmiana obszaru wylacznie klawiatura: Enter na pigulce przestawia filtr
+    // i przenosi `aria-current` na nowa pozycje.
+    const obszar = filtry.locator('a[href*="category="]').first();
+    await obszar.focus();
+    await expect(obszar).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/category=/);
+    await expect(filtry.locator('a[aria-current="page"]')).toHaveAttribute(
+      "href",
+      /category=/,
+    );
   });
 
   test(

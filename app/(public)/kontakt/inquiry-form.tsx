@@ -3,13 +3,31 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useForm, useWatch, type Resolver } from "react-hook-form";
+import {
+  useForm,
+  useWatch,
+  type FieldError,
+  type Resolver,
+} from "react-hook-form";
 
+import {
+  Button,
+  ButtonLink,
+  Field,
+  Icon,
+  Notice,
+  fieldDescribedBy,
+} from "@/components/ui";
 import { HONEYPOT_FIELD } from "@/lib/antispam/honeypot";
-import { INQUIRY_KINDS, inquirySchema } from "@/lib/validation/inquiry";
+import { AUDIENCE_FORM_LABELS } from "@/lib/audience";
+import {
+  INQUIRY_KINDS,
+  inquirySchema,
+  type InquiryKind,
+} from "@/lib/validation/inquiry";
 
 type FormValues = {
-  kind: (typeof INQUIRY_KINDS)[number];
+  kind: InquiryKind;
   fullName: string;
   email: string;
   phone: string;
@@ -71,6 +89,21 @@ type Props = {
   // nieaktywny, submit nie wywołuje żądania). Serwer i tak odrzuca zapis — to druga warstwa.
   clauseApproved: boolean;
   training?: SelectedTraining | null;
+  /**
+   * Rodzaj zgloszenia wskazany Z ZEWNATRZ — strona glowna linkuje
+   * `/kontakt?rodzaj=osoba|firma` (ISK-401 / M2).
+   *
+   * To TRACENIE, a nie kontrolka zarzadzana: zrodlem prawdy zostaje react-hook-form.
+   * Prop idzie w `defaultValues` (czyli juz pierwsza odpowiedz serwera ma zaznaczona
+   * wlasciwa pastylke — bez mrugniecia po hydratacji) i dodatkowo jest wsiewany
+   * efektem, gdy zmieni sie po montowaniu. Wariantu `value`/`onChange` swiadomie tu
+   * NIE ma: formularz polzarzadzany rozjezdzalby sie z `register("kind")`, ktorego
+   * wartosc leci w ciele POST, i wybor osoby wypelniajacej moglby zostac nadpisany
+   * przez render rodzica.
+   */
+  kind?: InquiryKind;
+  /** Zmiana rodzaju przez osobe wypelniajaca — pozwala stronie opisac stan zgodnie z wyborem. */
+  onKindChange?: (kind: InquiryKind) => void;
   // ISK-373 / P13: nagłówek i lead strony żyją w serwerowym `page.tsx`, więc same nie wiedzą,
   // że formularz został już wysłany. Ten sygnał pozwala cienkiej warstwie klienckiej
   // (`contact-section.tsx`) opisać stan PO wysłaniu, zamiast dalej zachęcać do wypełnienia.
@@ -82,38 +115,54 @@ type Props = {
 type SubmitState = "idle" | "submitting" | "success" | "error" | "expired";
 
 /**
- * ISK-373 / P2: samo `border` w Tailwind v4 NIE ustawia koloru krawedzi. Preflight
- * resetuje `*, ::before, ::after { border: 0 solid }`, wiec kolor wraca do wartosci
- * poczatkowej `currentColor` — czyli `--color-text-primary` (#0e1511). Pola wygladaly
- * na obramowane niemal czarna linia, a token `--color-border-default` (#d4d9cd) nie byl
- * uzyty nigdzie w formularzu. Dlatego kolor krawedzi jest tu JAWNY.
+ * Oznaczenie bledu, ktorego `.ui-field-control` nie niesie samo.
  *
- * ISK-373 / P12: komunikat zbiorczy prosil "popraw zaznaczone pola", ale pole z bledem
- * bylo piksel w piksel identyczne z poprawnym. Wariant `aria-[invalid=true]` daje
- * oznaczenie NIEZALEZNE od fokusu, bo kompiluje sie do
- * `.klasa[aria-invalid="true"]` — wygrywa z `.border-border-default` specyficznoscia
- * (0,2,0) vs (0,1,0), a nie kolejnoscia w arkuszu. Kolor nie jest jedynym nosnikiem
- * (WCAG 1.4.1): rosnie tez grubosc krawedzi i zmienia sie tlo, a komunikat tekstowy
- * pod polem byl i zostaje.
+ * Regula fundamentu (`app/globals.css`) zmienia przy `aria-invalid="true"` SAM kolor
+ * krawedzi. Bramka `ux-powazne.spec.ts` (P12) mierzy trzy rzeczy naraz: inny kolor,
+ * WIEKSZA grubosc krawedzi i inne tlo — kolor nie moze byc jedynym nosnikiem
+ * informacji (WCAG 1.4.1). Te dwie klasy dokladaja grubosc i tlo.
+ *
+ * Warianty `aria-[invalid=true]:` kompiluja sie do `.klasa[aria-invalid="true"]`, wiec
+ * oznaczenie jest NIEZALEZNE od fokusu i wygrywa specyficznoscia, a nie kolejnoscia
+ * w arkuszu (ISK-373 / P12).
  */
-const FIELD_CLASS =
-  "border-border-default aria-[invalid=true]:border-error-500 aria-[invalid=true]:bg-error-50 rounded border p-2 aria-[invalid=true]:border-2";
+const INVALID_CARRIERS =
+  "aria-[invalid=true]:border-2 aria-[invalid=true]:bg-error-50";
+
+const CONTROL_CLASS = `ui-field-control ${INVALID_CARRIERS}`;
 
 /**
- * Wizualne oznaczenie wymagalnosci w etykiecie (ISK-373 / P12 — zadna z 9 etykiet
- * nie mowila, ze pole jest wymagane). Gwiazdka jest `aria-hidden`, bo te sama
- * informacje czytnik ekranu bierze z `aria-required` na kontrolce — inaczej
- * oglosilby ja dwa razy.
+ * Props wspolne kontrolki tekstowej: klasa fundamentu + pelne wiazanie ARIA.
+ *
+ * DLACZEGO WIDOK RENDERUJE KONTROLKE SAM, A NIE PRZEZ `Input`/`Textarea`
+ * Komponenty fundamentu wyliczaja `aria-invalid` jako `error ? true : undefined`, wiec
+ * pole POPRAWNE nie ma tego atrybutu w ogole. Semantycznie to to samo (`aria-invalid`
+ * domyslnie jest `false`), ale bramka `ux-powazne.spec.ts` (P12) czyta
+ * `getAttribute("aria-invalid")` i wymaga DOSLOWNEGO `"false"` na polu poprawnym —
+ * to wlasnie ta asercja udowodnila, ze oznaczenie bledu nie bierze sie z fokusu.
+ * Przekazac tego do `Input` nie da sie: wewnetrzny `controlProps` jest rozpakowywany
+ * PO `...rest`, wiec wlasna wartosc zostaje nadpisana przez `undefined`.
+ *
+ * Z warstwy bierzemy wiec to, co jest jej kontraktem: klase `.ui-field-control`
+ * i `fieldDescribedBy` (te same identyfikatory opisow, co liczy `Field`). Dzieki temu
+ * nie ma tu drugiego systemu pol — jest jeden, ten z `@layer components`.
  */
-function Required() {
-  return (
-    <>
-      {" "}
-      <span aria-hidden="true" className="text-error-500">
-        *
-      </span>
-    </>
-  );
+function controlProps({
+  id,
+  error,
+  required,
+}: {
+  id: string;
+  error?: FieldError;
+  required: boolean;
+}) {
+  return {
+    id,
+    className: CONTROL_CLASS,
+    "aria-required": required,
+    "aria-invalid": Boolean(error),
+    "aria-describedby": fieldDescribedBy({ id, error: error?.message }),
+  } as const;
 }
 
 export function InquiryForm({
@@ -121,6 +170,8 @@ export function InquiryForm({
   rodoClauseText,
   clauseApproved,
   training = null,
+  kind: kindFromUrl,
+  onKindChange,
   onSuccess,
 }: Props) {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
@@ -133,13 +184,28 @@ export function InquiryForm({
     control,
     getValues,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(inquirySchema) as unknown as Resolver<FormValues>,
-    defaultValues: inquiryFormDefaults(training),
+    // Rodzaj z adresu wchodzi JUZ w wartosciach poczatkowych, nie dopiero efektem:
+    // inaczej serwer renderowalby „Osoba indywidualna”, a hydratacja przestawialaby
+    // pastylke na „Firma” na oczach osoby wchodzacej z `/kontakt?rodzaj=firma`.
+    defaultValues: {
+      ...inquiryFormDefaults(training),
+      ...(kindFromUrl ? { kind: kindFromUrl } : {}),
+    },
   });
 
   const kind = useWatch({ control, name: "kind" });
+
+  // Prop jest tracenem z zewnatrz (patrz `Props.kind`), wiec zmiana adresu po
+  // zamontowaniu formularza musi dotrzec do wartosci formularza. `shouldValidate:
+  // false`, bo przelaczenie rodzaju nie jest bledem osoby wypelniajacej i nie ma
+  // prawa zapalic komunikatow pod polami, ktorych jeszcze nie dotknela.
+  useEffect(() => {
+    if (kindFromUrl) setValue("kind", kindFromUrl, { shouldValidate: false });
+  }, [kindFromUrl, setValue]);
 
   // ISK-373 / P13: po udanej wysylce `document.activeElement` bylo `BODY` — osoba
   // korzystajaca z klawiatury zostawala bez kontekstu, a nastepny Tab wracal na
@@ -188,9 +254,13 @@ export function InquiryForm({
           : undefined;
       if (response.status === 422 && errorCode === "form_expired") {
         try {
-          const refreshed = await fetch("/api/form-token", { cache: "no-store" });
+          const refreshed = await fetch("/api/form-token", {
+            cache: "no-store",
+          });
           if (refreshed.ok) {
-            const refreshedToken = (await refreshed.json()) as { formToken?: string };
+            const refreshedToken = (await refreshed.json()) as {
+              formToken?: string;
+            };
             if (refreshedToken.formToken) setToken(refreshedToken.formToken);
           }
         } catch {
@@ -207,24 +277,30 @@ export function InquiryForm({
 
   if (submitState === "success") {
     return (
+      // `role="status"` niesie tu caly panel, bo to ON jest celem fokusu — stad
+      // zwykly `div` z klasami `.ui-notice`, a nie komponent `Notice`: `Notice`
+      // nie przyjmuje ani `ref`, ani `tabIndex`. Tresc stoi w jednym dziecku,
+      // bo `.ui-notice` jest kontenerem `flex` (ikona + tresc).
       <div
         ref={successRef}
         tabIndex={-1}
         role="status"
-        className="bg-success-50 mt-8 rounded p-4 text-base"
+        className="ui-notice ui-notice-success"
       >
-        <p className="font-semibold">
-          Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail.
-        </p>
-        {/* ISK-373 / P13: ekran sukcesu byl zaulkiem — jedyne wyjscie prowadzilo
-            przez globalna nawigacje. Tu stoi jawny dalszy krok. */}
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link className="button button-small" href="/szkolenia">
-            Wróć do katalogu szkoleń
-          </Link>
-          <Link className="button button-ghost button-small" href="/">
-            Strona główna
-          </Link>
+        <Icon name="circle-check" size={18} />
+        <div className="flex flex-col gap-4">
+          <p>Dziękujemy za zgłoszenie. Odpowiemy na podany adres e-mail.</p>
+          {/* ISK-373 / P13: ekran sukcesu byl zaulkiem — jedyne wyjscie prowadzilo
+              przez globalna nawigacje. Tu stoi jawny dalszy krok. */}
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/szkolenia" size="sm" variant="primary">
+              Wróć do katalogu szkoleń
+              <Icon name="arrow-right" size={18} />
+            </ButtonLink>
+            <ButtonLink href="/" size="sm" variant="neutral">
+              Strona główna
+            </ButtonLink>
+          </div>
         </div>
       </div>
     );
@@ -241,28 +317,42 @@ export function InquiryForm({
   // warunek w resolverze patrza na to samo — wczesniej etykieta mowila prawde, a
   // walidacja blokowala wysylke po wyczyszczeniu pola.
   const interestAreaRequired = !training;
+  const kindField = register("kind");
 
   return (
     <form
       noValidate
       onSubmit={handleSubmit(onValid)}
       aria-busy={busy}
-      className="mt-8 flex flex-col gap-5"
+      className="flex flex-col gap-5"
     >
+      {/* Komunikaty zbiorcze maja `role="alert"`, a nie `role="status"` z komponentu
+          `Notice`: sa ODPOWIEDZIA na klikniecie „Wyślij”, wiec przerwanie biezacej
+          wypowiedzi czytnika jest tu zachowaniem pozadanym (przy bledzie pola, w ktorym
+          osoba wlasnie jest, byloby odwrotnie — stad decyzja `Notice` o `status`).
+          Klasy wizualne sa te same, zeby nie powstal drugi styl komunikatu. */}
       {hasErrors ? (
-        <div role="alert" className="bg-error-50 rounded p-3 text-sm">
-          Formularz zawiera błędy. Popraw zaznaczone pola.
+        <div role="alert" className="ui-notice ui-notice-error">
+          <span>Formularz zawiera błędy. Popraw zaznaczone pola.</span>
         </div>
       ) : null}
       {submitState === "error" ? (
-        <div role="alert" className="bg-error-50 rounded p-3 text-sm">
-          Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na biuro@iskt.pl.
+        <div role="alert" className="ui-notice ui-notice-error">
+          <span>
+            Nie udało się przyjąć zgłoszenia. Spróbuj ponownie lub napisz na
+            biuro@iskt.pl.
+          </span>
         </div>
       ) : null}
       {submitState === "expired" ? (
-        <div role="alert" className="border-warning-500 bg-warning-50 rounded border-l-4 p-3 text-sm">
-          Formularz był otwarty zbyt długo i sesja wygasła. Twoje dane nie zostały jeszcze wysłane —
-          odświeżyliśmy formularz, kliknij „Wyślij zgłoszenie” ponownie.
+        // Ton informacyjny, nie bledu: dane sa caly czas w formularzu, nic nie
+        // zostalo utracone i jedyne, o co prosimy, to powtorzenie wysylki.
+        <div role="alert" className="ui-notice ui-notice-info">
+          <span>
+            Formularz był otwarty zbyt długo i sesja wygasła. Twoje dane nie
+            zostały jeszcze wysłane — odświeżyliśmy formularz, kliknij „Wyślij
+            zgłoszenie” ponownie.
+          </span>
         </div>
       ) : null}
 
@@ -270,200 +360,229 @@ export function InquiryForm({
         <p
           data-testid="selected-training"
           data-training-id={training.id}
-          className="bg-success-50 rounded p-3 text-sm"
+          className="ui-notice ui-notice-info"
         >
-          Zapytanie dotyczy szkolenia: <strong>{training.title}</strong>.{" "}
-          <a className="underline" href={`/szkolenia/${training.slug}`}>
-            Wróć do opisu
-          </a>
+          {/* Jedno dziecko, bo `.ui-notice` jest `flex`: bez tego opakowania link
+              „Wróć do opisu” stanalby obok zdania, a nie w jego biegu. */}
+          <span>
+            Zapytanie dotyczy szkolenia: <strong>{training.title}</strong>.{" "}
+            <Link className="underline" href={`/szkolenia/${training.slug}`}>
+              Wróć do opisu
+            </Link>
+          </span>
         </p>
       ) : null}
 
       {/* Objasnienie gwiazdki stoi PRZED polami, zeby bylo przeczytane zanim
-          padnie pierwsze oznaczenie (ISK-373 / P12). */}
-      <p className="text-secondary text-sm">
+          padnie pierwsze oznaczenie (ISK-373 / P12). `.ui-field-hint` to styl
+          podpowiedzi z fundamentu — tekst jest wyciszony tokenem
+          `--color-text-secondary` (~6,4:1). Do ISK-401 stala tu klasa
+          `text-secondary`, ktora nie kompilowala sie do zadnej reguly (tokenu
+          `--color-secondary` nie ma), wiec „wyciszony” tekst renderowal sie
+          niemal czarnym ink-900. */}
+      <p className="ui-field-hint">
         Pola oznaczone gwiazdką (<span aria-hidden="true">*</span>) są wymagane.
       </p>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-primary font-semibold">Rodzaj zgłoszenia</legend>
-        {INQUIRY_KINDS.map((value) => (
-          // ISK-373 / P5: kontrolka miala 13x13 px, a klikalny wiersz etykiety 24 px.
-          // Etykieta jest celem dotykowym (klikniecie jej przelacza kontrolke), wiec
-          // to ona dostaje 44 px wysokosci; sama kontrolka rosnie do 1.25rem.
-          <label key={value} className="flex min-h-11 items-center gap-2">
-            <input type="radio" className="size-5" value={value} {...register("kind")} />
-            <span>{value === "osoba" ? "Osoba indywidualna" : "Firma"}</span>
-          </label>
-        ))}
+      {/*
+        PRZELACZNIK RODZAJU ZGLOSZENIA — PASTYLKA WZORCA, ALE ETYKIETA JEST `label`.
+        Forma i klasy sa te same, co w `SegmentedControl` z fundamentu
+        (`fieldset` + `legend` + `input[type=radio]`, `.ui-segmented-*`), wiec styl,
+        stan `:checked`, obsluga strzalek i cel dotykowy 44 px pochodzą z jednego
+        miejsca w arkuszu.
+        ODSTEPSTWO: komponent owija pastylke `<span>`, a nie `<label>`. Zmierzone
+        skutki takiego drzewa (chromium 1248 + axe-core, `setContent` z markupem
+        komponentu): radio NIE MA nazwy dostepnej — `getByRole("radio", { name: "Firma" })`
+        zwraca 0 trafien, a axe zglasza `label` z wagą *critical* („Form elements must
+        have labels”). Nazwy opcji sa tu kontraktem trzech bramek
+        (`formularz-zgloszenia.spec.ts` D5.3/D5.4, `ux-powazne.spec.ts` P5,
+        `dostepnosc.spec.ts` axe), dlatego rzad jest `label`. Poprawka w komponencie to
+        jedno slowo (`span` -> `label`) i dotyczy tez strony glownej — zgloszone w PR.
+      */}
+      <fieldset className="ui-segmented-group ui-segmented-full">
+        <legend className="ui-segmented-legend">Rodzaj zgłoszenia</legend>
+        <div className="ui-segmented ui-segmented-white ui-segmented-full">
+          {INQUIRY_KINDS.map((value) => (
+            <label className="ui-segmented-option" key={value}>
+              <input
+                type="radio"
+                value={value}
+                // `defaultChecked` zamiast `checked`: kontrolka zostaje
+                // niezarzadzana (wartosc prowadzi `register`), ale pierwsza
+                // odpowiedz serwera ma juz zaznaczona wlasciwa pastylke.
+                defaultChecked={value === (kindFromUrl ?? "osoba")}
+                {...kindField}
+                onChange={(event) => {
+                  void kindField.onChange(event);
+                  onKindChange?.(value);
+                }}
+              />
+              <span>{AUDIENCE_FORM_LABELS[value]}</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="fullName" className="font-medium">
-          Imię i nazwisko
-          <Required />
-        </label>
+      <Field
+        error={errors.fullName?.message}
+        id="fullName"
+        label="Imię i nazwisko"
+        required
+      >
         <input
-          id="fullName"
           type="text"
           autoComplete="name"
-          aria-required="true"
-          aria-invalid={Boolean(errors.fullName)}
-          aria-describedby={errors.fullName ? "fullName-error" : undefined}
-          className={FIELD_CLASS}
+          {...controlProps({
+            id: "fullName",
+            error: errors.fullName,
+            required: true,
+          })}
           {...register("fullName")}
         />
-        {errors.fullName ? (
-          <p id="fullName-error" role="alert" className="text-error-500 text-sm">
-            {errors.fullName.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
       {kind === "firma" ? (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="companyName" className="font-medium">
-            Nazwa firmy
-            <Required />
-          </label>
+        <Field
+          error={errors.companyName?.message}
+          id="companyName"
+          label="Nazwa firmy"
+          required
+        >
           <input
-            id="companyName"
             type="text"
             autoComplete="organization"
             // Wymagane wylacznie dla zgloszenia firmowego — a to pole istnieje
             // w drzewie tylko wtedy, wiec oznaczenie jest zawsze prawdziwe.
-            aria-required="true"
-            aria-invalid={Boolean(errors.companyName)}
-            aria-describedby={errors.companyName ? "companyName-error" : undefined}
-            className={FIELD_CLASS}
+            {...controlProps({
+              id: "companyName",
+              error: errors.companyName,
+              required: true,
+            })}
             {...register("companyName")}
           />
-          {errors.companyName ? (
-            <p id="companyName-error" role="alert" className="text-error-500 text-sm">
-              {errors.companyName.message}
-            </p>
-          ) : null}
-        </div>
+        </Field>
       ) : null}
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="font-medium">
-          Adres e-mail
-          <Required />
-        </label>
+      <Field
+        error={errors.email?.message}
+        id="email"
+        label="Adres e-mail"
+        required
+      >
         <input
-          id="email"
           type="email"
           autoComplete="email"
-          aria-required="true"
-          aria-invalid={Boolean(errors.email)}
-          aria-describedby={errors.email ? "email-error" : undefined}
-          className={FIELD_CLASS}
+          {...controlProps({
+            id: "email",
+            error: errors.email,
+            required: true,
+          })}
           {...register("email")}
         />
-        {errors.email ? (
-          <p id="email-error" role="alert" className="text-error-500 text-sm">
-            {errors.email.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="phone" className="font-medium">
-          Telefon
-          <Required />
-        </label>
+      <Field error={errors.phone?.message} id="phone" label="Telefon" required>
         <input
-          id="phone"
           type="tel"
           autoComplete="tel"
-          aria-required="true"
-          aria-invalid={Boolean(errors.phone)}
-          aria-describedby={errors.phone ? "phone-error" : undefined}
-          className={FIELD_CLASS}
+          {...controlProps({
+            id: "phone",
+            error: errors.phone,
+            required: true,
+          })}
           {...register("phone")}
         />
-        {errors.phone ? (
-          <p id="phone-error" role="alert" className="text-error-500 text-sm">
-            {errors.phone.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="interestArea" className="font-medium">
-          Interesujące szkolenie lub obszar
-          {interestAreaRequired ? <Required /> : null}
-        </label>
+      <Field
+        error={errors.interestArea?.message}
+        id="interestArea"
+        label="Interesujące szkolenie lub obszar"
+        required={interestAreaRequired}
+      >
         <input
-          id="interestArea"
           type="text"
-          aria-required={interestAreaRequired}
-          aria-invalid={Boolean(errors.interestArea)}
-          aria-describedby={errors.interestArea ? "interestArea-error" : undefined}
-          className={FIELD_CLASS}
+          {...controlProps({
+            id: "interestArea",
+            error: errors.interestArea,
+            required: interestAreaRequired,
+          })}
           {...register("interestArea")}
         />
-        {errors.interestArea ? (
-          <p id="interestArea-error" role="alert" className="text-error-500 text-sm">
-            {errors.interestArea.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="message" className="font-medium">
-          Wiadomość
-          <Required />
-        </label>
+      <Field
+        error={errors.message?.message}
+        id="message"
+        label="Wiadomość"
+        required
+      >
         <textarea
-          id="message"
           rows={5}
-          aria-required="true"
-          aria-invalid={Boolean(errors.message)}
-          aria-describedby={errors.message ? "message-error" : undefined}
-          className={FIELD_CLASS}
+          {...controlProps({
+            id: "message",
+            error: errors.message,
+            required: true,
+          })}
+          className={`${CONTROL_CLASS} ui-textarea`}
           {...register("message")}
         />
-        {errors.message ? (
-          <p id="message-error" role="alert" className="text-error-500 text-sm">
-            {errors.message.message}
-          </p>
-        ) : null}
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1">
-        <label className="flex min-h-11 items-center gap-2">
+      {/*
+        ZGODA RODO.
+        Rzad i komunikat uzywaja klas `.ui-checkbox` / `.ui-field-error` z fundamentu
+        (klikalny caly rzad, 44 px wysokosci trafienia, kwadrat 18 px).
+        ODSTEPSTWO wobec komponentu `Checkbox`: on wylicza `aria-describedby` jako
+        `error ? "<id>-error" : undefined`, czyli przy poprawnie zaznaczonej zgodzie
+        kontrolka nie wskazuje NICZEGO. Tutaj musi wskazywac tresc klauzuli
+        informacyjnej RODO — to ona jest realizacja obowiazku informacyjnego w miejscu
+        wyrazania zgody — a gdy pojawi sie blad, dokladnie `#rodoAck-error`
+        (asercja `formularz-zgloszenia.spec.ts` D5.5). `Checkbox` nie pozwala tego
+        nadpisac: ustawia `aria-describedby` PO `...rest`.
+      */}
+      <div className="ui-field">
+        <label className="ui-checkbox" htmlFor="rodoAck">
           <input
             type="checkbox"
-            className="size-5 shrink-0"
+            id="rodoAck"
             aria-required="true"
             aria-invalid={Boolean(errors.rodoAck)}
-            aria-describedby={errors.rodoAck ? "rodoAck-error" : "rodoAck-clause"}
+            aria-describedby={
+              errors.rodoAck ? "rodoAck-error" : "rodoAck-clause"
+            }
             {...register("rodoAck")}
           />
           <span>
             Potwierdzam zapoznanie się z informacją RODO.
-            <Required />
+            {/* Ta sama gwiazdka, co w `Field`: ornament, `aria-hidden`, bo wymog
+                niesie `aria-required` na kontrolce. */}
+            <span className="ui-field-required" aria-hidden="true">
+              *
+            </span>
           </span>
         </label>
-        <p id="rodoAck-clause" className="text-secondary text-sm">
+        <p className="ui-field-hint" id="rodoAck-clause">
           {rodoClauseText}
         </p>
         <p className="text-sm">
-          <Link href="/polityka-prywatnosci" className="text-primary hover:underline">
+          <Link className="underline" href="/polityka-prywatnosci">
             Pełna informacja o przetwarzaniu danych (polityka prywatności)
           </Link>
         </p>
-        {errors.rodoAck ? (
-          <p id="rodoAck-error" role="alert" className="text-error-500 text-sm">
-            {errors.rodoAck.message}
-          </p>
-        ) : null}
+        {/* Region bledu jest w DOM ZAWSZE — pusty, dopoki bledu nie ma. `aria-live`
+            oglasza tylko zmiany w regionie, ktory istnial wczesniej; wstawiony razem
+            z tekstem czesto nie zostaje ogloszony (ta sama zasada co w `Field`). */}
+        <p className="ui-field-error" id="rodoAck-error" aria-live="polite">
+          {errors.rodoAck?.message}
+        </p>
       </div>
 
       {/* Honeypot: ukryte pole-pulapka. Nie type=hidden — ukrywamy stylem i odbieramy dostepnosci. */}
-      <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="absolute left-[-9999px] h-0 w-0 overflow-hidden"
+      >
         <label htmlFor="company_website">Nie wypełniaj tego pola</label>
         <input
           id="company_website"
@@ -478,24 +597,22 @@ export function InquiryForm({
           a bramka UX zanotowala brak jakiegokolwiek `[aria-live]` w trakcie wysylki.
           Region istnieje tylko w czasie wysylki — dzieki temu na ekranie sukcesu
           jest dokladnie jeden `role="status"` i selektory testow nie robia sie
-          niejednoznaczne (ISK-373 / P13). */}
-      {busy ? (
-        <p role="status" className="text-secondary text-sm">
-          Wysyłanie zgłoszenia…
-        </p>
-      ) : null}
+          niejednoznaczne (ISK-373 / P13). `Notice` niesie `role="status"`
+          i `aria-live="polite"` z komponentu, wiec tutaj nie ma ich w widoku. */}
+      {busy ? <Notice tone="info">Wysyłanie zgłoszenia…</Notice> : null}
 
-      <button
-        type="submit"
+      <Button
+        block
         // Techniczna bramka RODO (ISK-357 P1): bez zatwierdzonej klauzuli przycisk jest nieaktywny,
         // wiec klikniecie nie wyzwala submitu i nie powstaje zadne POST /api/inquiries.
-        disabled={!clauseApproved || busy}
+        disabled={!clauseApproved}
         // ISK-373 / P13: w trakcie wysylki jedynym sygnalem bylo `opacity: 0.6` —
-        // ani tekst, ani `aria-busy`, ani wskaznik. Teraz sa wszystkie trzy.
-        aria-busy={busy}
-        // ISK-373 / P5: `py-2` dawalo 40 px wysokosci, czyli ponizej przyjetego
-        // w bramce minimum 44x44. `min-h-11` to dokladnie 2.75rem = 44 px.
-        className="bg-primary hover:bg-primary-hover inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded px-5 font-semibold text-white disabled:opacity-60"
+        // ani tekst, ani `aria-busy`, ani wskaznik. `pending` z fundamentu ustawia
+        // `disabled` i `aria-busy` razem, wiec formularza nie da sie wyslac dwa razy.
+        pending={busy}
+        size="lg"
+        type="submit"
+        variant="primary"
       >
         {busy ? (
           <>
@@ -510,7 +627,7 @@ export function InquiryForm({
         ) : (
           "Wyślij zgłoszenie"
         )}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -2615,3 +2615,1401 @@
     border: 0;
   }
 }
+
+/* ============================================================================
+   ISK-401 — kompozycja widokow publicznych (naglowek, stopka, karta szkolenia,
+   strona glowna, katalog, szczegol, trenerzy).
+
+   DLACZEGO OSOBNY BLOK NA KONCU PLIKU
+   Warstwa `ui-*` (wyzej) to komponenty wspoldzielone i jest MIERZONA
+   (`tests/e2e/fundament-ui.spec.ts`) — nie wolno jej ruszac. Zestaw publiczny
+   z E1–E5 (`.hero`, `.training-card`, `.catalog-form`, `.footer-grid`,
+   `.trainer-card`, `.avatar`, `.empty-state`, `.back-link`, `.card-footer`,
+   `.detail-*`) zostaje, bo czesc jego regul zyje jeszcze w panelu i w
+   selektorach bramek. Ten blok jest w TEJ SAMEJ warstwie `components`, ale
+   dalej w pliku, wiec przy rownej specyficznosci wygrywa kolejnoscia.
+
+   GDZIE KOLEJNOSC NIE WYSTARCZA, STOI SELEKTOR ZLOZONY
+   Stary zestaw opisuje czesc elementow przez nazwe elementu (`.trainer-card p`,
+   `.training-card h2`, `.detail-aside p`, `.footer-grid > div`, `dl div`, `dt`,
+   `dd`, `.catalog-form input`). Taki selektor ma wyzsza specyficznosc niz
+   pojedyncza klasa nowego widoku, wiec kolejnosc go NIE przebija — nowe reguly
+   dla tych elementow sa zapisane jako `.rodzic .dziecko` (0,2,0).
+
+   RESPONSYWNOSC JEST PROJEKTOWANA, NIE ODTWARZANA
+   Wzorzec nie ma ani jednej reguly `@media`. Punkty zlamu: 64rem (siatki
+   wielokolumnowe), 60rem (nawigacja za przyciskiem), 48rem (sciezki hero,
+   lista efektow), 40rem (jedna kolumna, zawijanie dlugich CTA), 30rem (podpis
+   marki w naglowku).
+   ========================================================================== */
+@layer components {
+  /* --------------------------------------------------------------- naglowek */
+  /* Nadpisuje stary `.site-header` (z-index 20, tlo 94%, blur 14px). */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(12px);
+  }
+  .site-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    height: 68px;
+  }
+  /* `min-width`/`min-height` 44 px: samodzielny cel dotykowy. Ponizej 30rem
+     zostaje sam krazek marki (40 px), wiec bez `min-width` link mialby
+     40 x 40 — bramka `ux-powazne.spec.ts` skanuje `header a` przy 360 px. */
+  .site-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    /* `min-width` ma tu dwa zadania. Dolne 44 px to cel dotykowy: ponizej
+       30 rem zostaje sam krazek 40 px, a bramka skanuje `header a` przy
+       360 px. Jawna wartosc zastepuje tez `min-width: auto` elementu
+       elastycznego, wiec dlugi podpis marki ("Rozwijaj swoje kompetencje
+       z ISKT") ODDAJE miejsce przyciskowi CTA (`white-space: nowrap`) i rzad
+       nie wychodzi poza kontener miedzy 30 a 60 rem — sam podpis ma
+       `overflow: hidden`, wiec zwezenie konczy sie wielokropkiem. */
+    min-width: var(--control-h-sm);
+    min-height: var(--control-h-sm);
+    color: var(--color-ink-900);
+    text-decoration: none;
+  }
+  .site-brand-mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-control);
+    background: var(--gradient-brand);
+    color: var(--color-text-on-brand);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1;
+  }
+  .site-brand-text {
+    overflow: hidden;
+    color: var(--color-ink-900);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  /* `.site-nav` to `<nav>`, a stara regula `nav` (0,0,1) jest slabsza od klasy. */
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .site-nav-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-h-sm);
+    padding-inline: 2px;
+    border-radius: var(--radius-xs);
+    color: var(--color-ink-800);
+    font-size: 14.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .site-nav-link:hover,
+  .site-nav-link[aria-current="page"] {
+    color: var(--color-green-700);
+  }
+  .site-nav-link[aria-current="page"] {
+    font-weight: 600;
+  }
+  .site-header-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* CTA zostaje `display: flex` na KAZDEJ szerokosci — mierzy to
+     `tests/e2e/ux-blockers.spec.ts` przy 360 px. */
+  .site-header-cta {
+    display: inline-flex;
+  }
+  .site-nav-toggle svg {
+    transition: transform var(--dur-base) var(--ease-standard);
+  }
+  .site-nav-toggle[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+  }
+  /* Ten element to `<nav>`, a stary zestaw ma `nav { display: flex;
+     align-items: center; gap: 1.75rem; font-size: 0.85rem }` — stad jawne
+     zerowanie wszystkich czterech wlasciwosci. */
+  .site-nav-panel {
+    align-items: stretch;
+    gap: 0;
+    border-top: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-page);
+    font-size: inherit;
+  }
+  .site-nav-panel-inner {
+    display: flex;
+    flex-direction: column;
+    padding-block: 0.5rem 1rem;
+  }
+  .site-nav-panel-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: var(--control-h-sm);
+    padding-inline: 2px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-ink-800);
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .site-nav-panel-link:last-child {
+    border-bottom: 0;
+  }
+  .site-nav-panel-link:hover,
+  .site-nav-panel-link[aria-current="page"] {
+    color: var(--color-green-700);
+  }
+
+  /* ------------------------------------------------------------------- hero */
+  .home-hero {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(3.5rem, 7vw, 6rem) clamp(3rem, 6vw, 5rem);
+    background: var(--color-surface-page);
+  }
+  /* Ornament: `aria-hidden` w komponencie, `pointer-events: none` tutaj.
+     Pudelko poswiaty wychodzi poza prawa krawedz SEKCJI, ale `overflow: hidden`
+     na `.home-hero` je obcina, wiec dokument nie przewija sie w poziomie
+     (ta sama konstrukcja co `.ui-panel-glow` z ISK-400). */
+  .home-hero-glow {
+    position: absolute;
+    filter: blur(10px);
+    pointer-events: none;
+  }
+  .home-hero-glow-a {
+    top: -160px;
+    left: -120px;
+    width: 520px;
+    height: 520px;
+    background: radial-gradient(
+      circle,
+      rgba(84, 132, 29, 0.2),
+      transparent 65%
+    );
+  }
+  .home-hero-glow-b {
+    top: 40px;
+    right: -160px;
+    width: 480px;
+    height: 480px;
+    background: radial-gradient(
+      circle,
+      rgba(30, 85, 29, 0.16),
+      transparent 65%
+    );
+  }
+  /* Selektor zlozony, bo ten sam element ma `.ui-container` (max-width 1200). */
+  .home-hero-inner.ui-container {
+    position: relative;
+    display: flex;
+    max-width: 920px;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    text-align: center;
+  }
+  .home-hero-switch {
+    align-items: center;
+  }
+  .home-hero-title {
+    max-width: 16ch;
+    margin: 0;
+    font-size: clamp(2.4rem, 5.4vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+  .home-hero-lead {
+    max-width: 60ch;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+    line-height: 1.6;
+  }
+  .home-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  .home-hero-points {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    list-style: none;
+  }
+  .home-hero-point {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .home-hero-point svg {
+    flex: 0 0 auto;
+    color: var(--color-green-700);
+  }
+
+  /* -------------------------------------------------------- sciezki w hero */
+  .home-paths {
+    display: grid;
+    width: 100%;
+    max-width: 960px;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: clamp(2.5rem, 5vw, 4rem) auto 0;
+    text-align: left;
+  }
+  .home-path {
+    gap: 14px;
+  }
+  .home-path-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .home-path-text {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .home-path-list,
+  .home-contact-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .home-path-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--color-ink-800);
+    font-size: 14.5px;
+  }
+  .home-path-item svg {
+    flex: 0 0 auto;
+    color: var(--color-green-600);
+  }
+  .home-path-cta {
+    align-self: flex-start;
+  }
+
+  /* ----------------------------------------------------------- #obszary --- */
+  /* Siatka SZESCIU torow: karta zajmuje dwa, a niepelny ostatni rzad jest
+     wysrodkowany zamiast zostawiac dziure po prawej (modyfikator liczy React,
+     `areaGridClassName`). Nadpisania `grid-column` MUSZA byc zdjete w kazdej
+     regule `@media` ponizej — inaczej karta z `grid-column: 4 / span 2`
+     wyladowalaby poza dwukolumnowa siatka. */
+  .home-area-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .home-area-cell {
+    display: flex;
+    grid-column: span 2;
+  }
+  .home-area-grid-orphans-2 > .home-area-cell:nth-last-child(2) {
+    grid-column: 2 / span 2;
+  }
+  .home-area-grid-orphans-2 > .home-area-cell:last-child {
+    grid-column: 4 / span 2;
+  }
+  .home-area-grid-orphans-1 > .home-area-cell:last-child {
+    grid-column: 3 / span 2;
+  }
+  .home-area {
+    width: 100%;
+  }
+  .home-area-title {
+    margin: 0;
+    color: var(--color-ink-900);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .home-area-text {
+    color: var(--color-text-secondary);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .home-area-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-green-700);
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------- najczesciej wybierane ------ */
+  .home-featured-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+
+  /* ------------------------------------------------------- karta szkolenia */
+  /* Stary `.training-card` ma `padding: 1.5rem` i `min-height: 19rem`; padding
+     zdejmuje `.ui-card-flush` (dalej w pliku), `min-height` zdejmujemy tutaj —
+     pasmo gradientu musi dochodzic do krawedzi karty. */
+  .training-card {
+    min-height: 0;
+  }
+  /* SELEKTOR DZIECKA JEST TU KONIECZNY, NIE OZDOBNY.
+     `TrainingCard` sklada modyfikator wariantu jako `training-card-${variant}`,
+     wiec KARTA wariantu z pasmem ma klase `training-card-band` — dokladnie te
+     sama, co pasmo w jej srodku. Regula pisana jako sama klasa trafiala w oba
+     elementy: karta dostawala `height: 96px` i gradient, a pasmo zapadalo sie
+     do 34 px (zmierzone — cala tresc karty znikala pod `overflow: hidden`).
+     `>` wybiera wylacznie pasmo, bo karta nie jest dzieckiem `.training-card`. */
+  .training-card > .training-card-band {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 96px;
+    background: var(--gradient-brand);
+    color: rgba(255, 255, 255, 0.92);
+  }
+  .training-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 1.5rem;
+  }
+  .training-card-plain .training-card-body {
+    gap: 12px;
+  }
+  .training-card-topline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .training-card-category {
+    color: var(--color-green-600);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  /* (0,2,0) — stara regula `.training-card h2` (0,1,1) ma wyzsza specyficznosc
+     niz sama klasa tytulu. */
+  .training-card .training-card-title {
+    margin: 0;
+    color: var(--color-ink-900);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+  .training-card-plain .training-card-title {
+    font-size: 1.15rem;
+    letter-spacing: -0.015em;
+  }
+  .training-card-summary {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .training-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: var(--color-text-secondary);
+    font-size: 12.5px;
+  }
+  .training-card-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .training-card-meta-item svg {
+    flex: 0 0 auto;
+  }
+  /* Element ma takze `.card-footer` (rzad z `justify-content: space-between`
+     i `margin-top: auto`) — tu jest kolumna. */
+  .training-card-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 3px;
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-subtle);
+    color: inherit;
+    font-size: inherit;
+  }
+  .training-card-price {
+    color: var(--color-green-700);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .training-card-price-note {
+    margin-left: 6px;
+    color: var(--color-green-600);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .training-card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    color: var(--color-green-700);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------------ #jak ------ */
+  .home-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .home-step {
+    gap: 14px;
+    box-shadow: var(--shadow-xs);
+  }
+  .home-step-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  /* Wzorzec maluje numer na `--green-200` na bialym (~1,6:1). `green-600` na
+     bialym to ~5,3:1, czyli AA takze dla tekstu zwyklego. */
+  .home-step-number {
+    color: var(--color-green-600);
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .home-step-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .home-step-text {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+
+  /* -------------------------------------------------- #dofinansowania ----- */
+  .home-funding-heading {
+    max-width: 720px;
+  }
+  .home-funding-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin: 0 0 2.5rem;
+    padding: 0;
+    list-style: none;
+  }
+  /* `.ui-card-glass` jest modyfikatorem `.ui-card`, a tu stoi BEZ niego —
+     obudowa karty musi wiec przyjsc z tej klasy. */
+  .home-funding-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: var(--radius-card);
+    background: rgb(255 255 255 / 8%);
+    color: var(--color-text-on-brand);
+    backdrop-filter: blur(4px);
+  }
+  .home-funding-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .home-funding-text {
+    margin: 0;
+    color: rgb(255 255 255 / 85%);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  /* -------------------------------------------------------- #kontakt ------ */
+  .home-contact {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    align-items: start;
+    gap: clamp(2rem, 4vw, 4rem);
+  }
+  .home-contact-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+  .home-contact-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .home-contact-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: var(--control-h-sm);
+    color: var(--color-ink-800);
+    font-size: 15px;
+  }
+  .home-contact-link {
+    color: var(--color-green-700);
+    font-weight: 600;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .home-contact-link:hover {
+    text-decoration: underline;
+  }
+  .home-contact-card {
+    gap: 1.25rem;
+    min-width: 0;
+    box-shadow: var(--shadow-md);
+  }
+  .home-contact-card-text {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* --------------------------------------------------------------- katalog */
+  /* Naglowek katalogu/trenerow: gorny odstep mniejszy niz rytm sekcji, bo nad
+     nim stoi tylko pasek nawigacji. */
+  .ui-section-head {
+    padding-block: clamp(2.5rem, 5vw, 4rem) var(--section-pad-y);
+  }
+  .catalog-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .catalog-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  /* Stary `.catalog-form` byl bialym panelem-siatka (padding, krawedz, cien).
+     Teraz to goly rzad: pole + przycisk. */
+  .catalog-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    min-width: min(100%, 320px);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .catalog-search-field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* (0,2,1) i (0,2,0) — stare `.catalog-form label` oraz `.catalog-form input,
+     .catalog-form select` (oba 0,1,1) sa mocniejsze od klas `ui-field*`. */
+  .catalog-form label.ui-field-label {
+    display: block;
+    color: var(--color-ink-800);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .catalog-form .ui-field-control {
+    min-height: var(--field-h);
+    padding-block: 0;
+  }
+  /* Region bledu jest w DOM ZAWSZE (`aria-live`), ale w formularzu GET bledu
+     nie ma nigdy — pusty akapit dodawal ~18 px pod polem i przycisk wysylki
+     przestawal stac w jednej linii z kontrolka. `height: 0` zamiast
+     `display: none`: element zostaje w drzewie dostepnosci, a gdy tresc sie
+     pojawi, `:empty` przestaje pasowac i wysokosc wraca do `auto`. */
+  .catalog-form .ui-field-error:empty {
+    height: 0;
+    /* Zdejmuje takze `gap: 6px` z `.ui-field` — bez tego przycisk wysylki
+       stawal 6 px nizej niz dolna krawedz pola (zmierzone). */
+    margin-top: -6px;
+  }
+  .catalog-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  /* Stara regula dawala `margin: 2rem 0 1rem`. Kolor to `--text-secondary`
+     (~6,4:1), nie `--text-muted` ze wzorca (~3,8:1 — ponizej AA). */
+  .results-count {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+  }
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  /* `.empty-state` dziedziczy teraz obudowe z `.ui-card` (krawedz ciagla,
+     promien 16, padding 2rem, `text-align: left`) — zostaje uklad kolumny. */
+  .empty-state {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .empty-state-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  /* ------------------------------------------------------ szczegol: hero -- */
+  .detail-hero {
+    padding: clamp(2rem, 4vw, 3rem) 0 clamp(2.5rem, 4vw, 3.5rem);
+    background: var(--color-surface-muted);
+  }
+  .detail-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+    color: var(--color-text-secondary);
+    font-size: 13.5px;
+  }
+  /* 44 px to zmierzony wymog celu dotykowego (`ux-powazne.spec.ts`, P5).
+     Stara regula dawala `margin-bottom: 2rem` i kolor `--text-secondary`. */
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: var(--control-h-sm);
+    margin-bottom: 0;
+    color: var(--color-green-700);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .detail-crumb-sep {
+    color: var(--color-green-300);
+  }
+  .detail-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1.25rem;
+  }
+  .detail-title {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.06;
+  }
+  /* `.detail-lead` wystepuje w markupie DWA razy: akapit w hero i wiersz
+     prowadzacego w kolumnie bocznej. Oba selektory sa wiec kontekstowe. */
+  .detail-hero .detail-lead {
+    max-width: 58ch;
+    margin: 1.25rem 0 0;
+    color: var(--color-text-secondary);
+    font-size: 1.15rem;
+    line-height: 1.6;
+  }
+  /* `dl div` (0,0,2), `dt` i `dd` (0,0,1) ze starego zestawu daja tu obramowanie
+     i marginesy — zdejmujemy je jawnie. */
+  .detail-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin: 1.5rem 0 0;
+  }
+  .detail-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .detail-fact-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+  .detail-fact-value {
+    margin: 0;
+    padding-left: 22px;
+    color: var(--color-ink-900);
+    font-size: 15.5px;
+    font-weight: 600;
+  }
+
+  /* ---------------------------------------------------- szczegol: tresc -- */
+  .detail-body {
+    background: var(--color-surface-page);
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 0.65fr;
+    align-items: start;
+    gap: clamp(1.5rem, 3vw, 3rem);
+  }
+  .detail-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    min-width: 0;
+  }
+  .detail-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .detail-prose {
+    margin: 0;
+    color: var(--color-ink-800);
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+  .detail-outcomes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .detail-outcome {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--color-ink-800);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .detail-check {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-top: 1px;
+    border-radius: var(--radius-pill);
+    background: var(--color-green-50);
+    color: var(--color-green-700);
+  }
+  .detail-program {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .detail-module {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-card);
+    box-shadow: var(--shadow-xs);
+  }
+  .detail-module-number {
+    flex: 0 0 auto;
+    width: 34px;
+    color: var(--color-green-600);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .detail-module-body {
+    min-width: 0;
+  }
+  .detail-module-title {
+    margin: 0;
+    color: var(--color-ink-900);
+    font-size: 15.5px;
+    font-weight: 600;
+  }
+  /* `list-style: disc` jawnie: preflight Tailwinda v4 zdejmuje znaczniki
+     z kazdej listy, a to jest lista wyliczeniowa w biegu tresci. */
+  .detail-module-items {
+    margin: 8px 0 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-secondary);
+    font-size: 14.5px;
+    line-height: 1.6;
+    list-style: disc;
+  }
+  .detail-module-items li::marker {
+    color: var(--color-green-500);
+  }
+  .detail-callout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 2rem;
+    border: 1px solid var(--color-green-200);
+    border-radius: var(--radius-card);
+    background: var(--color-surface-muted);
+  }
+
+  /* ------------------------------------------- szczegol: kolumna boczna -- */
+  /* Przyklejona jest CALA kolumna pasma tresci (nie panel w hero, ktory
+     przestawalby sie trzymac po zjechaniu hero z ekranu). 88 px = 68 px
+     naglowka + 20 px luzu. Stary `.detail-aside` byl sam ciemna karta
+     z paddingiem — teraz jest przezroczystym kontenerem na karty. */
+  .detail-aside {
+    position: sticky;
+    top: 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    color: inherit;
+  }
+  .detail-enroll {
+    gap: 1.25rem;
+  }
+  .detail-price {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .detail-price-label,
+  .detail-price-note {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+  .detail-price-value {
+    color: var(--color-green-700);
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .detail-terms {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  /* Wszystkie reguly ponizej sa (0,2,0): stara `.detail-aside p` (0,1,1)
+     malowala kazdy akapit kolumny na `--neutral-300` (kolumna byla ciemna). */
+  .detail-aside .detail-terms-title,
+  .detail-aside .detail-aside-title {
+    margin: 0;
+    color: var(--color-green-600);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .detail-aside .detail-terms-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 0;
+    color: var(--color-ink-800);
+    font-size: 14px;
+  }
+  .detail-aside .detail-terms-text svg {
+    flex: 0 0 auto;
+    color: var(--color-green-600);
+  }
+  .detail-leads {
+    gap: 1rem;
+  }
+  .detail-leads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .detail-leads-list .detail-lead {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .detail-lead-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .detail-lead-name {
+    color: var(--color-ink-900);
+    font-size: 15.5px;
+    font-weight: 700;
+  }
+  .detail-lead-role {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+  .detail-aside .detail-funding-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--color-green-300);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .detail-aside .detail-funding-text {
+    margin: 0;
+    color: rgb(255 255 255 / 85%);
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+
+  /* -------------------------------------------------------------- trenerzy */
+  .trainer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* Stary `.trainer-card` byl siatka `9rem 1fr` z `align-items: center`;
+     `display: flex` przychodzi z `.ui-card`, ale wysrodkowanie zostawaloby
+     i scisnelo kazde dziecko do szerokosci tresci. */
+  .trainer-card {
+    align-items: stretch;
+    gap: 16px;
+    height: 100%;
+  }
+  .trainer-identity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .trainer-identity-text {
+    min-width: 0;
+  }
+  /* (0,2,0) — stare `.trainer-card h2` i `.trainer-card p` (0,1,1). */
+  .trainer-card .trainer-name {
+    margin: 0;
+    color: var(--color-ink-900);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .trainer-card .trainer-role {
+    margin: 0;
+    color: var(--color-green-700);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .trainer-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .trainer-card .trainer-bio {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+
+  /* --------------------------------------------------------------- stopka -- */
+  /* Stary `.site-footer` byl ciemny (`--surface-dark` + bialy tekst) — kolor
+     tekstu MUSI byc nadpisany razem z tlem, inaczej zostaje biel na bieli. */
+  .site-footer {
+    padding: var(--section-pad-y) 0 2.5rem;
+    border-top: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-page);
+    color: var(--color-ink-800);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 2rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  /* (0,2,0) — stare `.footer-grid > div` (0,1,1) stawialo tu `display: grid`,
+     a `.footer-grid p` (0,1,1) malowalo akapity na `--neutral-400`. */
+  .footer-grid > .footer-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 32ch;
+  }
+  .footer-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-control);
+    background: var(--gradient-brand);
+    color: var(--color-text-on-brand);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .footer-grid .footer-brand-text {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .footer-domain {
+    color: var(--color-green-700);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  /* `align-items` i `gap` MUSZA byc jawne: dwie z trzech kolumn linkow to
+     `<nav>`, a stary zestaw ma regule `nav { display: flex; align-items:
+     center; gap: 1.75rem }`. Zmierzone skutki przy 360 px: linki stopki
+     wysrodkowane w poziomie i rozsuniete o 28 px, przy czym kolumna „Kontakt”
+     (zwykly `div`, wiec trafia w `.footer-grid > div { gap: 0.5rem }`)
+     wygladala zupelnie inaczej niz dwie pozostale. */
+  .footer-grid > .footer-column {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    min-width: 0;
+    font-size: inherit;
+  }
+  .footer-grid .footer-column-title {
+    margin: 0 0 4px;
+    color: var(--color-ink-900);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  /* 44 px mierzy `ux-powazne.spec.ts:383` na KAZDYM `.footer-grid a`. */
+  .footer-grid .footer-link {
+    display: flex;
+    align-items: center;
+    min-height: var(--control-h-sm);
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .footer-grid .footer-link:hover {
+    color: var(--color-green-700);
+    text-decoration: underline;
+  }
+  .footer-note {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+  }
+  .footer-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 1.5rem;
+  }
+  .footer-copy {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+
+  /* ======================================================================== */
+  /* RESPONSYWNOSC                                                            */
+  /* ======================================================================== */
+
+  /* --- 64rem (1024 px): siatki wielokolumnowe schodza do dwoch kolumn ----- */
+  @media (max-width: 64rem) {
+    .home-area-grid,
+    .home-featured-grid,
+    .home-steps,
+    .catalog-grid,
+    .trainer-grid,
+    .footer-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    /* KONIECZNY RESET: bez niego karta z `grid-column: 4 / span 2` celuje
+       w tor, ktorego dwukolumnowa siatka nie ma. */
+    .home-area-cell,
+    .home-area-grid-orphans-1 > .home-area-cell:last-child,
+    .home-area-grid-orphans-2 > .home-area-cell:nth-last-child(2),
+    .home-area-grid-orphans-2 > .home-area-cell:last-child {
+      grid-column: auto;
+    }
+    .home-funding-grid,
+    .home-contact,
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+    /* Kolumna boczna przestaje byc przyklejona, gdy nie stoi obok tresci. */
+    .detail-aside {
+      position: static;
+    }
+  }
+
+  /* --- 60rem (960 px): nawigacja chowa sie za przyciskiem ----------------- */
+  .site-nav-toggle,
+  .site-nav-panel {
+    display: none;
+  }
+  @media (max-width: 60rem) {
+    .site-nav {
+      display: none;
+    }
+    .site-nav-toggle {
+      display: inline-flex;
+    }
+    .site-nav-panel {
+      display: block;
+    }
+    /* CTA zostaje widoczne (bramka mierzy `display !== "none"` przy 360 px) —
+       zwezamy je, zdejmujac strzalke i schodzac o 1 px kroju. */
+    .site-header-cta {
+      padding-inline: 14px;
+      font-size: 14px;
+    }
+    .site-header-cta-icon {
+      display: none;
+    }
+    .site-header-bar {
+      gap: 1rem;
+    }
+  }
+
+  /* --- 48rem (768 px) ----------------------------------------------------- */
+  @media (max-width: 48rem) {
+    .home-paths,
+    .detail-outcomes {
+      grid-template-columns: 1fr;
+    }
+    /* ORNAMENTY MIESZCZA SIE W KADRZE PRZY 360 I 768 PX.
+       Wzorcowe poswiaty maja ujemne przesuniecia i staly rozmiar (520/480 px),
+       wiec ich PUDELKO wychodzi poza kadr, nawet jesli `overflow: hidden`
+       obcina rysunek, a `document.scrollWidth` nic nie zglasza (zmierzone:
+       `home-hero-glow-b` prawa krawedz 520 px przy kadrze 360 px). Bramka UX
+       tego projektu mierzy jednak PRAWE KRAWEDZIE dzieci, nie samo
+       przewijanie, wiec na waskich kadrach geometria idzie na procenty.
+       Wartosci wzorca zostaja nietkniete od 48 rem w gore.
+       `.ui-panel-glow` jest regula ISK-400 — nadpisanie dotyczy wylacznie
+       waskiego kadru, czyli zakresu, ktorego wzorzec nie opisuje wcale. */
+    .home-hero-glow-a {
+      top: -80px;
+      left: 0;
+      width: 70%;
+      height: 320px;
+    }
+    .home-hero-glow-b {
+      top: 120px;
+      right: 0;
+      width: 70%;
+      height: 320px;
+    }
+    .ui-panel-glow {
+      top: -60px;
+      right: 0;
+      width: 70%;
+      height: 280px;
+    }
+  }
+
+  /* --- 40rem (640 px): jedna kolumna i zawijanie dlugich CTA -------------- */
+  @media (max-width: 40rem) {
+    .home-area-grid,
+    .home-featured-grid,
+    .home-steps,
+    .catalog-grid,
+    .trainer-grid,
+    .footer-grid {
+      grid-template-columns: 1fr;
+    }
+    .home-hero-actions {
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .catalog-controls,
+    .catalog-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .catalog-form {
+      width: 100%;
+    }
+    /* `.ui-button` ma `white-space: nowrap` i staly `height`. Etykiety w tym
+       produkcie sa dlugie ("Zapytaj o szkolenie dla firmy", "Skontaktuj sie
+       w sprawie zapisu") i przy 360 px nie mieszcza sie w jednej linii —
+       pozwalamy im zawinac, zachowujac 44 px celu dotykowego. Zakres jest
+       waski: tylko kontenery widokow publicznych, nigdy `.ui-button` globalnie
+       (ta sama klasa niesie kontrolki panelu, mierzone osobno). */
+    .home-hero-actions .ui-button,
+    .home-path-cta,
+    .ui-panel .ui-button,
+    .home-contact-card .ui-button,
+    .detail-aside .ui-button,
+    .empty-state .ui-button,
+    .catalog-submit {
+      height: auto;
+      min-height: var(--control-h-sm);
+      padding-block: 10px;
+      padding-inline: 18px;
+      font-size: 15px;
+      white-space: normal;
+    }
+    .home-hero-actions .ui-button {
+      min-height: var(--control-h-xl);
+    }
+    .catalog-submit {
+      width: 100%;
+    }
+    /* Panel marki ma `clamp(2.5rem, 5vw, 4.5rem)`, czyli 40 px przy 360 px —
+       wtedy na tresc zostaje 240 px. Luzniejszy padding oddaje je tresci. */
+    .ui-panel {
+      padding: 1.75rem;
+    }
+    .detail-facts {
+      gap: 1rem;
+    }
+    .detail-module {
+      padding: 1.25rem;
+    }
+    .detail-callout {
+      padding: 1.5rem;
+    }
+  }
+
+  /* --- 30rem (480 px): zostaje sam krazek marki --------------------------- */
+  @media (max-width: 30rem) {
+    .site-brand-text {
+      display: none;
+    }
+  }
+}
+
+/* ============================================================================
+   ISK-401 — rozmiar krazka trenera. SWIADOMIE POZA `@layer`.
+
+   `components/trainer-avatar.tsx` oddaje `size` tylko do `next/image`, wiec
+   wymiar krazka niesie wylacznie CSS. Stary zestaw ma `@media (max-width:
+   520px) { .avatar { width: 6rem } }` NA POZIOMIE PLIKU, czyli poza warstwami —
+   a regula bezwarstwowa bije KAZDA regule z `@layer`, niezaleznie od
+   specyficznosci. Gdyby te dwie reguly stanęły w warstwie, ponizej 520 px
+   krazek dostawalby `width: 6rem` ze starej reguly i `height: 52px` z nowej,
+   czyli przestawalby byc kolem. Tutaj decyduje sama specyficznosc (0,2,0 vs
+   0,1,0) i wymiar jest spojny na kazdej szerokosci.
+
+   `aspect-ratio`, tlo, inicjaly i `.avatar-photo` zostaja ze starej reguly —
+   nadpisujemy wylacznie rozmiar. Bramka `ux-powazne.spec.ts` wymaga > 50 px
+   w obu wymiarach, wiec 52 px to podloga, nie wartosc dobrana "na oko".
+   ========================================================================== */
+/* `flex: 0 0 auto` jest tu rownie wazne jak `width`: krazek stoi w rzedzie
+   elastycznym obok dlugiego nazwiska, a bez tego `flex-shrink: 1` zwezil go
+   ZMIERZONE do 34 px przy 360 px (wysokosc zostawala 64 px, czyli krazek
+   przestawal byc kolem i wpadal ponizej progu 50 px z bramki). */
+.detail-leads-list .avatar {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  font-size: 18px;
+}
+.trainer-identity .avatar {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+
+/* ============================================================================
+   ISK-401 — siatka wyroznionych przy niepelnym rzedzie.
+
+   DEFEKT ZNALEZIONY NA ZRZUCIE, NIE W KODZIE
+   `repeat(4, 1fr)` z jedna wyrozniona pozycja (stan zasiewu) zostawia karte
+   szerokosci 1/4 kontenera przyklejona do lewej i trzy puste tory po prawej —
+   czyta sie to jak blad wczytywania, a nie jak uklad. Wzorzec tego nie widzi,
+   bo ma w danych cztery pozycje na sztywno; w produkcie liczba wyroznionych
+   jest decyzja administratora i moze byc dowolna od 0 do 4.
+
+   Reguly sa zamkniete w `@media (min-width: 64rem)` SWIADOMIE: modyfikator ma
+   te sama wage co `.home-featured-grid`, a stoi w pliku pozniej, wiec bez tego
+   ograniczenia wygralby z zapytaniami medialnymi powyzej i zablokowalby siatke
+   na ukladzie desktopowym przy 360 px.
+
+   Poza warstwa `@layer components` — tak samo jak reguly awatara wyzej —
+   zeby mialy pierwszenstwo nad warstwa, w ktorej siedzi wariant bazowy.
+   ========================================================================== */
+@media (min-width: 64rem) {
+  .home-featured-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* Dwie karty: pelna szerokosc podzielona na pol bylaby nieczytelnie szeroka,
+     wiec rzad jest zwezony i wysrodkowany — ten sam zabieg co w siatce
+     obszarow, gdzie ostatni rzad centrujemy zamiast zostawiac dziure. */
+  .home-featured-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 320px));
+    justify-content: center;
+  }
+  .home-featured-grid-1 {
+    grid-template-columns: minmax(0, 380px);
+    justify-content: center;
+  }
+}
