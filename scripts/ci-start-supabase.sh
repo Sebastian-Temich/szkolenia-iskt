@@ -14,10 +14,24 @@
 # obrazow po starcie. Celowo NIE przerywa przebiegu z powodu samego limitu — bramka
 # ma padac od testow, nie od chwilowego throttlingu rejestru (to byloby dokladnie to
 # ryzyko dostawy, ktore ta karta usuwa). Sygnal idzie przez `::warning::` i podsumowanie.
+#
+# ISK-420: samo przeniesienie rejestru nie wystarczylo — 2026-10-22 ok. 20:10 UTC to
+# ghcr.io zaczelo odrzucac pull (`toomanyrequests: allowed: 44000/minute`) i `supabase
+# start` padal z kodem 1, bo 8 z 13 obrazow nie zostalo pobranych. Obrazy pobiera teraz
+# `scripts/ci-prepull-supabase-images.sh` — szeregowo, z ponowieniem i rejestrem
+# zapasowym — a `supabase start` powinien zastac je w cache. Dlatego ten skrypt mierzy
+# RUCH DO REJESTRU W TRAKCIE STARTU: przy cieplym cache oczekiwana wartosc to zero.
 set -uo pipefail
 
 LOG="${SUPABASE_START_LOG:-supabase-start.log}"
 EXPECTED_REGISTRY="ghcr.io"
+EXPECTED_IMAGE_COUNT=13
+
+docker_supabase_images() {
+  docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | sort -u || true
+}
+
+cached_before=$(docker_supabase_images | grep -c '^ghcr\.io/supabase/' || true)
 
 summary() {
   if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
@@ -30,25 +44,31 @@ if [[ "${SUPABASE_INTERNAL_IMAGE_REGISTRY:-}" != "$EXPECTED_REGISTRY" ]]; then
   echo "::warning title=Rejestr obrazow Supabase::SUPABASE_INTERNAL_IMAGE_REGISTRY=\"${SUPABASE_INTERNAL_IMAGE_REGISTRY:-<brak>}\", oczekiwano \"${EXPECTED_REGISTRY}\" — pull pojdzie anonimowo do ECR Public (ISK-398)."
 fi
 
+# Pre-pull jest krokiem poprzedzajacym w `ci.yml`. Jesli ktos go usunie, start znowu
+# bedzie ciagnal 13 obrazow rownolegle — wtedy od razu widac, skad awaria (ISK-420).
+if [[ "$cached_before" -lt "$EXPECTED_IMAGE_COUNT" ]]; then
+  echo "::warning title=Zimny cache obrazow::Przed startem w cache jest ${cached_before} z ${EXPECTED_IMAGE_COUNT} obrazow \`ghcr.io/supabase/*\` — start pobierze brakujace rownolegle i moze dostac odmowe z limitu. Sprawdz krok pre-pullu (ISK-420)."
+fi
+
 supabase start 2>&1 | tee "$LOG"
 status=${PIPESTATUS[0]}
 
 throttled=$(grep -ciE 'toomanyrequests|rate exceeded' "$LOG" || true)
 ecr_in_log=$(grep -c 'public\.ecr\.aws' "$LOG" || true)
-images=$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | sort -u || true)
-from_ghcr=$(printf '%s\n' "$images" | grep -c '^ghcr\.io/supabase/' || true)
+from_ghcr=$(docker_supabase_images | grep -c '^ghcr\.io/supabase/' || true)
 
 # Raport celowo NIE zawiera doslownych ciagow `toomanyrequests`, `rate exceeded`
 # ani adresu ECR Public: kryterium odbioru tej karty brzmi „zero wystapien w logu
 # przebiegu", wiec wlasny raport nie moze zasmiecac tego grepa swoimi trafieniami.
-summary "### Pull obrazow Supabase (ISK-398)"
+summary "### Pull obrazow Supabase (ISK-398, ISK-420)"
 summary "- rejestr: \`${SUPABASE_INTERNAL_IMAGE_REGISTRY:-ECR Public (domyslny)}\`"
-summary "- obrazy obecne jako \`ghcr.io/supabase/*\`: ${from_ghcr} (oczekiwane: 13)"
+summary "- obrazy w cache przed startem: ${cached_before} (oczekiwane: ${EXPECTED_IMAGE_COUNT})"
+summary "- obrazy obecne jako \`ghcr.io/supabase/*\`: ${from_ghcr} (oczekiwane: ${EXPECTED_IMAGE_COUNT})"
 summary "- odwolania do ECR Public w logu startu: ${ecr_in_log}"
-summary "- trafienia limitu czestosci rejestru: ${throttled}"
+summary "- trafienia limitu czestosci rejestru w trakcie startu: ${throttled} (oczekiwane: 0)"
 
 if [[ "$throttled" -gt 0 ]]; then
-  echo "::warning title=Limit czestosci pullow::${throttled} odpowiedzi z limitem przy pobieraniu obrazow Supabase. Uwierzytelniony pull z ghcr.io mial to wyeliminowac — sprawdz krok logowania do rejestru (ISK-398)."
+  echo "::warning title=Limit czestosci pullow::${throttled} odpowiedzi z limitem przy pobieraniu obrazow Supabase w trakcie startu. Przy cieplym cache start nie powinien niczego ciagnac — sprawdz krok pre-pullu (ISK-420)."
 fi
 
 # Liczymy odwolania w logu TEGO startu, nie wszystkie obrazy maszyny: na stacji

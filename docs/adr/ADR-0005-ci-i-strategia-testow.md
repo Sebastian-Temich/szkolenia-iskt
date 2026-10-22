@@ -115,6 +115,27 @@ Ustalenie bramki E7 (N1): warto dodać `npm audit --omit=dev` jako krok CI, żeb
 
 **Źródło obrazów lokalnego stacku w CI (ISK-398, 2026-10-21).** Supabase CLI 2.109.1 pobiera 13 obrazów równolegle, domyślnie z `public.ecr.aws`. Anonimowy pull z ECR Public ma limit **1 pull/s na adres IP**, a runnery GitHuba dzielą adresy — na merge commicie `b9b0e8a` dało to **43 odpowiedzi `toomanyrequests: Rate exceeded`** (4 w `database`, 39 w `e2e`). Bramka była zielona wyłącznie dzięki ponowieniom CLI, więc od włączenia branch protection to było ciche ryzyko zablokowania dostawy bez związku ze zmianą w kodzie. Decyzja: `ci.yml` ustawia `SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io` i loguje się do `ghcr.io` wbudowanym `GITHUB_TOKEN` (`packages: read`), czyli pull jest uwierzytelniony i **nie wymaga żadnego nowego sekretu repozytorium**. Zmierzone przed wdrożeniem: wszystkie 13 obrazów jest opublikowanych jako `ghcr.io/supabase/<nazwa>`, natomiast Docker Hub nie hostuje 5 z nich pod `supabase/` (`imgproxy`, `kong`, `mailpit`, `vector`, `postgrest`) — dlatego pierwotna propozycja „zaloguj się do Docker Huba” nie rozwiązywała tego problemu. Start stacku idzie przez `scripts/ci-start-supabase.sh`, który raportuje liczbę trafień limitu i faktyczny rejestr w podsumowaniu zadania; skrypt **nie maskuje** błędu `supabase start` (propaguje kod wyjścia) i celowo nie czerwieni bramki od samego throttlingu rejestru.
 
+**Pobieranie obrazów odebrane CLI (ISK-420, 2026-10-22).** Przeniesienie rejestru okazało się niewystarczające: ok. 20:10 UTC limit zaczął zgłaszać **sam `ghcr.io`** (`toomanyrequests: allowed: 44000/minute`) i `database` oraz `e2e` padały w kroku `Start local Supabase`, zanim uruchomił się jakikolwiek test — 8 z 13 obrazów nie zostało pobranych, a `supabase start` kończył się kodem 1. Ponowne uruchomienie **niezmienionego, wcześniej zielonego** przebiegu `39759359872` dało odwrotny wynik, co wyklucza wpływ czyjegokolwiek diffu.
+
+Pomiary z 2026-10-22, które wyznaczyły kierunek naprawy:
+
+| sonda                                                        | wynik                          |
+| ------------------------------------------------------------ | ------------------------------ |
+| `ghcr.io`, 5 szeregowych zapytań o manifest, anonimowo       | 3 OK / 2× HTTP 429             |
+| `ghcr.io`, 5 szeregowych zapytań o manifest, uwierzytelnione | 4 OK / 1× HTTP 429             |
+| `ghcr.io`, 13 obrazów × 3 próby                              | 2 OK / 7 FAIL                  |
+| `public.ecr.aws`, 13 obrazów, 1 zapytanie/s                  | **13/13 → HTTP 200, zero 429** |
+
+Wnioski: (a) to **nie jest** wyłącznie kształt bursta — odrzucane są też pojedyncze, szeregowe zapytania, i to z adresu IP niemającego nic wspólnego z runnerami; (b) **uwierzytelnienie nie pomaga**, więc dokładanie sekretów czy kolejnych loginów jest bezcelowe; (c) `retry-after` jest rzędu mikrosekund, czyli **ponowienie działa od razu**; (d) żaden z dwóch rejestrów nie jest sam w sobie bezpieczny, bo w ISK-398 padał ECR Public, a tutaj ghcr.io.
+
+Decyzja: obrazy pobiera `scripts/ci-prepull-supabase-images.sh` **przed** `supabase start` — szeregowo (jeden `docker pull` naraz zamiast 13 równolegle), z ponowieniem i narastającym odstępem, oraz z **rejestrem zapasowym** (`SUPABASE_FALLBACK_IMAGE_REGISTRY=public.ecr.aws`); obraz wzięty z zapasowego jest przypinany przez `docker tag` pod nazwą z `ghcr.io`, bo właśnie tej nazwy CLI szuka w lokalnym cache. Po pierwszym udanym pobraniu z rejestru zapasowego skrypt zaczyna od niego, żeby nie płacić nieudaną próbą za każdy kolejny obraz. `supabase start` zastaje pełny cache i nie pobiera niczego.
+
+Rozkład odpowiedzialności bramek jest celowy: **twarda** jest kompletność cache'u (brak choćby jednego obrazu kończy krok kodem 1 z wypisaną listą braków — bez obrazu start i tak nie wystartuje), natomiast samo trafienie limitu, które ponowienie nadrobiło, zostaje **ostrzeżeniem**. Odwrotne ustawienie zamieniłoby drgnięcie rejestru w czerwoną bramkę, czyli dokładnie to ryzyko dostawy, które ISK-398 i ISK-420 usuwają. Mierzalne kryterium odbioru jest widoczne w podsumowaniu zadania: `obrazy obecne jako ghcr.io/supabase/*: 13` oraz `trafienia limitu czestosci rejestru w trakcie startu: 0 (oczekiwane: 0)`.
+
+Nie serializowano zadań `database` i `e2e` (rozważane jako punkt 3 zgłoszenia): przy szeregowym pre-pullu dwa równoległe zadania generują **najwyżej 2** jednoczesne pobrania zamiast ~26, a wymuszenie kolejności podwoiłoby czas trwania bramki.
+
+Zestaw obrazów jest wyliczany z `supabase services` (10 pozycji, bez ręcznej edycji przy podbiciu CLI); 3 obrazy pomocnicze (`mailpit`, `vector`, `imgproxy`) nie są raportowane przez to polecenie i są przypięte w skrypcie — rozjazd liczby obrazów względem 13 daje ostrzeżenie.
+
 ### D3 — bramka merge: wymaga czynności ISKT
 
 Checki `quality`, `database` i `e2e` istnieją i przechodzą. **Branch protection na `main` nie jest włączone** — wymaga uprawnień właściciela repozytorium. Konsekwencja na dziś: nic nie wymusza przejścia CI ani review przed scaleniem do `main`.
