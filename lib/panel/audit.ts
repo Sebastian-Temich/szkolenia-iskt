@@ -15,9 +15,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AuditEntity = "training" | "trainer" | "category" | "inquiry";
 
+/**
+ * `inquiry.note_update` doszlo w ISK-402 razem z UI notatki wewnetrznej.
+ * Zadnej migracji to nie wymagalo: `admin_audit_log.action` jest kolumna
+ * `text` BEZ ograniczenia, a `log_admin_action()` sprawdza tylko, czy wartosc
+ * nie jest pusta. Notatka jest operacja administracyjna na zgloszeniu, wiec
+ * ADR-0003 kaze ja zapisac — ale `details` NIE moze nosic jej tresci (notatka
+ * opisuje osobe, ktora zlozyla zgloszenie), stad wylacznie informacja o tym,
+ * czy pole zostalo wyczyszczone.
+ */
 export type AuditAction =
   | `${Exclude<AuditEntity, "inquiry">}.${"create" | "update" | "delete" | "publish" | "unpublish"}`
-  | "inquiry.status_change";
+  | "inquiry.status_change"
+  | "inquiry.note_update";
 
 /** Wartosci proste — `details` opisuje operacje, nie tresc rekordu. */
 export type AuditDetails = Record<string, string | number | boolean | null>;

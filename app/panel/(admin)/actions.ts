@@ -7,6 +7,7 @@ import { publishAuditAction, recordAdminAction } from "@/lib/panel/audit";
 import { requireAdmin } from "@/lib/panel/auth";
 import { invalidatePublicCatalog } from "@/lib/panel/catalog-cache";
 import { isDeleteConfirmed } from "@/lib/panel/confirm-delete";
+import { withFlash } from "@/lib/panel/flash";
 import {
   inquiryStatusSchema,
   isAllowedInquiryTransition,
@@ -14,6 +15,7 @@ import {
 import {
   categorySchema,
   idSchema,
+  inquiryNoteSchema,
   trainerSchema,
   trainingSchema,
 } from "@/lib/panel/schemas";
@@ -63,7 +65,7 @@ export async function saveCategory(formData: FormData) {
     entity: "category",
     entityId: savedId,
   });
-  redirect("/panel/szkolenia");
+  redirect(withFlash("/panel/szkolenia", "kategoria-zapisana"));
 }
 
 export async function saveTrainer(formData: FormData) {
@@ -95,7 +97,7 @@ export async function saveTrainer(formData: FormData) {
     entity: "trainer",
     entityId: savedId,
   });
-  redirect("/panel/trenerzy");
+  redirect(withFlash("/panel/trenerzy", "trener-zapisany"));
 }
 
 export async function saveTraining(formData: FormData) {
@@ -133,7 +135,7 @@ export async function saveTraining(formData: FormData) {
     );
 
   refreshCatalog();
-  redirect("/panel/szkolenia");
+  redirect(withFlash("/panel/szkolenia", "szkolenie-zapisane"));
 }
 
 /**
@@ -239,4 +241,52 @@ export async function changeInquiryStatus(id: string, nextStatus: string) {
     entityId: validId.data,
     details: { to: validStatus.data },
   });
+}
+
+/**
+ * Notatka wewnetrzna zgloszenia (ISK-402).
+ *
+ * UWAGA PRZY ODBIORZE: ta akcja i jej pole w UI sa DODANE w M3, a nie
+ * przestylizowane. Karta ISK-402 i `specyfikacja-wizualna` §6 zakladaly, ze
+ * „produkt ma" notatke i trzeba ja tylko ubrac w forme wzorca. Zmierzony stan
+ * na `origin/main` byl inny: kolumna `admin_note` istniala w bazie razem
+ * z kolumnowym grantem `update (status, admin_note) to authenticated`
+ * (migracja `20261012120000`), jawnym dopuszczeniem w triggerze
+ * `enforce_inquiry_admin_update()` i testem integracyjnym — ale w `app/`
+ * i `lib/` nie bylo ani jednego wystapienia `admin_note`. Backend traktowal
+ * notatke jak funkcje produktu, warstwa widoku nigdy jej nie dostala.
+ *
+ * Zadnej migracji to nie wymaga: korzystamy z istniejacej kolumny, istniejacego
+ * grantu i istniejacego triggera. Jedyne, czego nie bylo, to 40 linii UI.
+ *
+ * Granica uprawnien: `update` idzie WYLACZNIE po `admin_note`. Grant kolumnowy
+ * dopuszcza tylko `(status, admin_note)`, wiec probka z szersza lista kolumn
+ * skonczylaby sie `permission denied for table inquiries` — i tak ma byc.
+ */
+export async function saveInquiryNote(id: string, formData: FormData) {
+  const validId = idSchema.safeParse(id);
+  if (!validId.success) fail("Niepoprawny identyfikator.");
+  const parsed = inquiryNoteSchema.safeParse(formData.get("admin_note") ?? "");
+  if (!parsed.success)
+    fail(parsed.error.issues[0]?.message ?? "Niepoprawna notatka.");
+
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ admin_note: parsed.data })
+    .eq("id", validId.data);
+  if (error) fail("Nie udało się zapisać notatki.");
+
+  revalidatePath(`/panel/zgloszenia/${validId.data}`);
+  // `details` NIE nosi tresci notatki: notatka opisuje osobe, ktora zlozyla
+  // zgloszenie, a `admin_audit_log_details_no_pii` i ADR-0003 zabraniaja danych
+  // osobowych w dzienniku. Zapisujemy sam fakt operacji i to, czy pole zostalo
+  // wyczyszczone — tyle wystarczy, zeby odtworzyc historie zmian.
+  await recordAdminAction(supabase, {
+    action: "inquiry.note_update",
+    entity: "inquiry",
+    entityId: validId.data,
+    details: { cleared: parsed.data === null },
+  });
+  redirect(withFlash(`/panel/zgloszenia/${validId.data}`, "notatka-zapisana"));
 }

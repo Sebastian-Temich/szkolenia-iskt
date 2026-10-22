@@ -83,7 +83,13 @@ test("brak sesji przekierowuje na logowanie", async ({ page }) => {
   await page.goto("/panel");
   // Pierwsze wejście kompiluje proxy i trasę logowania — stąd dłuższy limit.
   await page.waitForURL(/\/panel\/logowanie/, { timeout: actionTimeout });
-  await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible({
+  // ISK-402: H1 ekranu logowania to „Panel administratora" (wzorzec i karta).
+  // Wczesniej bylo tu „Zaloguj sie" z nadrzednym nadpisem „Panel
+  // administratora" — czyli dokladnie odwrotnie. „Zaloguj sie" zostaje nazwa
+  // PRZYCISKU wysylajacego formularz i tego pilnuje `panel-dostep.spec.ts`.
+  await expect(
+    page.getByRole("heading", { name: "Panel administratora" }),
+  ).toBeVisible({
     timeout: actionTimeout,
   });
   await page.screenshot({
@@ -106,8 +112,11 @@ test("administrator zarządza katalogiem i widzi zgłoszenia", async ({
   page,
 }) => {
   await login(page, adminEmail);
+  // ISK-402: H1 startu panelu to „Zarzadzanie oferta" (wzorzec i karta).
+  // „Panel administratora" przeniosl sie na ekran logowania i jest tu
+  // nadpisem (`panel-eyebrow`), a nie naglowkiem.
   await expect(
-    page.getByRole("heading", { name: "Panel administratora" }),
+    page.getByRole("heading", { name: "Zarządzanie ofertą" }),
   ).toBeVisible({ timeout: actionTimeout });
 
   await page.goto("/panel/szkolenia");

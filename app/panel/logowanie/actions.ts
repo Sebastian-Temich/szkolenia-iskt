@@ -5,11 +5,21 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type LoginState = { message: string };
+/**
+ * `fieldErrors` dotyczy WYLACZNIE formatu pol (puste, niepoprawny adres).
+ * Odmowa uwierzytelnienia zostaje komunikatem na poziomie formularza i NIE
+ * mowi, ktore pole bylo zle — inaczej formularz stalby sie wyliczaczem
+ * istniejacych kont. To rozroznienie jest celowe: „walidacja per-pole"
+ * z karty ISK-402 dotyczy formatu, nie wyniku uwierzytelnienia.
+ */
+export type LoginState = {
+  message: string;
+  fieldErrors?: { email?: string; password?: string };
+};
 
 const loginSchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
+  email: z.email("Podaj adres e-mail w formacie nazwa@domena."),
+  password: z.string().min(1, "Podaj hasło."),
 });
 
 export async function login(
@@ -17,7 +27,16 @@ export async function login(
   formData: FormData,
 ): Promise<LoginState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { message: "Podaj poprawny e-mail i hasło." };
+  if (!parsed.success) {
+    const fieldErrors = z.flattenError(parsed.error).fieldErrors;
+    return {
+      message: "",
+      fieldErrors: {
+        email: fieldErrors.email?.[0],
+        password: fieldErrors.password?.[0],
+      },
+    };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);

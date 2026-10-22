@@ -1,13 +1,20 @@
 import Link from "next/link";
 
+import { Icon, Notice } from "@/components/ui";
 import { requireAdmin } from "@/lib/panel/auth";
+import { FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
 import { toOne } from "@/lib/supabase/embed";
 
 import { deleteCatalogItem, setPublished } from "../actions";
-import { ConfirmDeleteButton } from "../confirm-delete-button";
+import { RowActions } from "../row-actions";
 
-export default async function TrainingsPage() {
+export default async function TrainingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { supabase } = await requireAdmin();
+  const flash = flashMessage((await searchParams)[FLASH_PARAM]);
   const [{ data: trainings }, { data: categories }] = await Promise.all([
     supabase
       .from("trainings")
@@ -26,11 +33,24 @@ export default async function TrainingsPage() {
           <h1>Szkolenia</h1>
         </div>
         <Link className="panel-button" href="/panel/szkolenia/nowe">
+          <Icon name="plus" size={18} />
           Dodaj szkolenie
         </Link>
       </div>
+
+      {/* Pasek potwierdzenia operacji. `Notice` ma `role="status"` —
+          wzorzec renderuje w tym miejscu zwykly `div`, wiec po zapisie
+          czytnik ekranu nie oglasza nic. */}
+      {flash ? (
+        <Notice tone="success" className="panel-flash">
+          {flash}
+        </Notice>
+      ) : null}
+
       {!trainings?.length ? (
-        <p className="panel-empty">Brak szkoleń. Dodaj pierwszą pozycję.</p>
+        <p className="panel-empty">
+          Brak szkoleń. Dodaj pierwsze szkolenie przyciskiem powyżej.
+        </p>
       ) : (
         <>
           {/* ISK-364 / P8: na waskim ekranie kolumna „Akcje" wychodzi poza
@@ -47,23 +67,35 @@ export default async function TrainingsPage() {
             aria-label="Lista szkoleń — tabela przewijana w poziomie"
             tabIndex={0}
           >
-            <table>
+            {/* Wzorzec buduje te liste z `div`-ow w siatce CSS. Odtwarzamy jego
+                FORME (naglowek na `--neutral-50`, 12 px/700 wersalikami, rytm
+                16/24 px, kolumna akcji po prawej), ale na prawdziwej `table`
+                z `th scope`: siatka z `div`-ow nie daje czytnikowi ekranu ani
+                naglowkow kolumn, ani nawigacji po komorkach, a w tym wierszu
+                stoja operacje nieodwracalne. */}
+            <table className="panel-table">
               <thead>
                 <tr>
-                  <th>Nazwa</th>
-                  <th>Kategoria</th>
-                  <th>Status</th>
-                  <th>Akcje</th>
+                  <th scope="col">Szkolenie</th>
+                  <th scope="col">Obszar</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" className="panel-table-col-actions">
+                    Akcje
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {trainings.map((item) => (
                   <tr key={item.id}>
+                    <th scope="row">
+                      <span className="panel-table-title">{item.title}</span>
+                      <span className="panel-table-meta">/{item.slug}</span>
+                    </th>
                     <td>
-                      <strong>{item.title}</strong>
-                      <small>/{item.slug}</small>
+                      <span className="panel-table-tag">
+                        {toOne(item.categories)?.name ?? "—"}
+                      </span>
                     </td>
-                    <td>{toOne(item.categories)?.name ?? "—"}</td>
                     <td>
                       <span
                         className={
@@ -75,32 +107,25 @@ export default async function TrainingsPage() {
                         {item.is_published ? "Opublikowane" : "Szkic"}
                       </span>
                     </td>
-                    <td>
-                      <div className="panel-actions">
-                        <Link href={`/panel/szkolenia/${item.id}`}>Edytuj</Link>
-                        <form
-                          action={setPublished.bind(
-                            null,
-                            "training",
-                            item.id,
-                            !item.is_published,
-                          )}
-                        >
-                          <button>
-                            {item.is_published ? "Wycofaj" : "Publikuj"}
-                          </button>
-                        </form>
-                        <ConfirmDeleteButton
-                          action={deleteCatalogItem.bind(
-                            null,
-                            "training",
-                            item.id,
-                          )}
-                          itemId={item.id}
-                          itemName={item.title}
-                          itemKindLabel="szkolenie"
-                        />
-                      </div>
+                    <td className="panel-table-col-actions">
+                      <RowActions
+                        editHref={`/panel/szkolenia/${item.id}`}
+                        publishAction={setPublished.bind(
+                          null,
+                          "training",
+                          item.id,
+                          !item.is_published,
+                        )}
+                        published={Boolean(item.is_published)}
+                        deleteAction={deleteCatalogItem.bind(
+                          null,
+                          "training",
+                          item.id,
+                        )}
+                        itemId={item.id}
+                        itemName={item.title}
+                        itemKindLabel="szkolenie"
+                      />
                     </td>
                   </tr>
                 ))}
@@ -109,20 +134,34 @@ export default async function TrainingsPage() {
           </div>
         </>
       )}
+
       <section className="panel-section">
         <div className="panel-title-row">
           <div>
             <p className="panel-eyebrow">Słownik</p>
             <h2>Kategorie</h2>
           </div>
-          <Link href="/panel/szkolenia/kategorie/nowa">Dodaj kategorię</Link>
+          <Link
+            className="panel-button panel-button-quiet"
+            href="/panel/szkolenia/kategorie/nowa"
+          >
+            <Icon name="plus" size={18} />
+            Dodaj kategorię
+          </Link>
         </div>
         <div className="panel-chip-list">
           {categories?.map((category) => (
             <span className="panel-chip" key={category.id}>
               {category.name}
-              <Link href={`/panel/szkolenia/kategorie/${category.id}`}>
-                Edytuj
+              {/* Nazwa dostepna niesie TAKZE nazwe kategorii: w rzedzie
+                  kilkunastu chipow samo „Edytuj" nie mowi czytnikowi ekranu,
+                  ktora pozycje otworzy. */}
+              <Link
+                className="panel-icon-action"
+                href={`/panel/szkolenia/kategorie/${category.id}`}
+                aria-label={`Edytuj kategorię: ${category.name}`}
+              >
+                <Icon name="pencil" size={16} />
               </Link>
               <form
                 action={setPublished.bind(
@@ -132,7 +171,7 @@ export default async function TrainingsPage() {
                   !category.is_published,
                 )}
               >
-                <button>
+                <button type="submit">
                   {category.is_published ? "Wycofaj" : "Publikuj"}
                 </button>
               </form>
