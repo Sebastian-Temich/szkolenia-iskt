@@ -85,3 +85,14 @@ export function trainerInitials(fullName: string): string {
       .join("") || "?"
   );
 }
+
+const LEVEL_LABELS: Record<string, string> = {
+  podstawowy: "podstawowy",
+  sredniozaawansowany: "średniozaawansowany",
+  zaawansowany: "zaawansowany",
+};
+
+export function formatLevel(level: string | null): string | null {
+  if (!level) return null;
+  return LEVEL_LABELS[level] ?? level;
+}

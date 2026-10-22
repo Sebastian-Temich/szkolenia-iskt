@@ -1,9 +1,14 @@
-import { ButtonLink, Card, Eyebrow, Icon } from "@/components/ui";
+import { NotFoundScreen } from "@/components/not-found-screen";
+import { ButtonLink, Icon } from "@/components/ui";
 
 /**
- * 404 szczegolu szkolenia. Trasa nalezy do grupy `(public)`, wiec ten widok
- * dostaje naglowek i stopke z `app/(public)/layout.tsx` — nawigacja jest tu
- * pelna i wystarcza; zostaje wiec jedno jawne wyjscie do katalogu.
+ * 404 szczegolu szkolenia. Trasa nalezy do grupy `(public)`, wiec naglowek
+ * i stopke daje `app/(public)/layout.tsx` — nawigacja jest tu pelna
+ * i wystarcza, zostaje wiec jedno jawne wyjscie do katalogu.
+ *
+ * ISK-412 / UX-Z1: uklad przeniesiony do `NotFoundScreen`, wspolnego
+ * z globalnym `app/not-found.tsx`. Oba ekrany mialy wczesniej `h1` o rozmiarze
+ * 21,6 px zamiast 48 px i rozna powloke; teraz roznia sie WYLACZNIE trescia.
  *
  * H1 MUSI zawierac „Nie znaleźliśmy”: `public-pages.spec.ts` sprawdza ten tekst
  * razem ze statusem 404, czyli dowodzi, ze nieopublikowane szkolenie nie tylko
@@ -11,18 +16,16 @@ import { ButtonLink, Card, Eyebrow, Icon } from "@/components/ui";
  */
 export default function NotFound() {
   return (
-    <main className="ui-section">
-      <div className="ui-container">
-        <Card className="empty-state" padding="roomy">
-          <Eyebrow dash={false}>404</Eyebrow>
-          <h1 className="empty-state-title">Nie znaleźliśmy tego szkolenia</h1>
-          <p>Szkolenie nie istnieje albo nie zostało opublikowane.</p>
-          <ButtonLink href="/szkolenia" size="sm" variant="primary">
-            Wróć do katalogu
-            <Icon name="arrow-right" size={18} />
-          </ButtonLink>
-        </Card>
-      </div>
-    </main>
+    <NotFoundScreen
+      actions={
+        <ButtonLink href="/szkolenia" size="sm" variant="primary">
+          Wróć do katalogu
+          <Icon name="arrow-right" size={18} />
+        </ButtonLink>
+      }
+      title="Nie znaleźliśmy tego szkolenia"
+    >
+      Szkolenie nie istnieje albo nie zostało opublikowane.
+    </NotFoundScreen>
   );
 }

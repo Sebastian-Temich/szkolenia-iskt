@@ -23,16 +23,16 @@
 
 -- Kategorie (lista startowa wg model-danych.md sekcja 3.2) --------------------
 insert into public.categories (slug, name, description, icon, sort_order, is_published, published_at) values
-  ('ai',                     'Sztuczna inteligencja', 'Przykladowy opis kategorii AI.',        'cpu',       10, true, now()),
-  ('esg',                    'ESG',                   'Przykladowy opis kategorii ESG.',       'leaf',      20, true, now()),
-  ('jezyk-angielski',        'Jezyk angielski',       'Przykladowy opis kategorii jezykowej.', 'languages', 30, true, now()),
-  ('rozwoj-oprogramowania',  'Rozwoj oprogramowania', 'Przykladowy opis kategorii IT.',        'code',      40, true, now()),
+  ('ai',                     'Sztuczna inteligencja', 'Przykładowy opis kategorii AI.',        'cpu',       10, true, now()),
+  ('esg',                    'ESG',                   'Przykładowy opis kategorii ESG.',       'leaf',      20, true, now()),
+  ('jezyk-angielski',        'Język angielski',       'Przykładowy opis kategorii językowej.', 'languages', 30, true, now()),
+  ('rozwoj-oprogramowania',  'Rozwój oprogramowania', 'Przykładowy opis kategorii IT.',        'code',      40, true, now()),
   ('projekty-br',            'Projekty B+R',          'Przykladowy opis kategorii B+R.',       'flask',     50, true, now());
 
 -- Trenerzy (fikcyjni) --------------------------------------------------------
 insert into public.trainers (slug, full_name, headline, bio, competences, photo_url, is_published, published_at, sort_order) values
-  ('jan-przykladowy',  'Jan Przykladowy',  'Praktyk (dane demonstracyjne)',   'Fikcyjny biogram trenera na potrzeby srodowiska lokalnego.',   array['AI','MLOps'],         null, true, now(), 10),
-  ('anna-testowa',     'Anna Testowa',     'Ekspertka (dane demonstracyjne)', 'Fikcyjny biogram trenerki na potrzeby srodowiska lokalnego.', array['ESG','Raportowanie'], null, true, now(), 20);
+  ('jan-przykladowy',  'Jan Przykładowy',  'Praktyk (dane demonstracyjne)',   'Fikcyjny biogram trenera na potrzeby środowiska lokalnego.',   array['AI','MLOps'],         null, true, now(), 10),
+  ('anna-testowa',     'Anna Testowa',     'Ekspertka (dane demonstracyjne)', 'Fikcyjny biogram trenerki na potrzeby środowiska lokalnego.', array['ESG','Raportowanie'], null, true, now(), 20);
 
 -- Szkolenia (fikcyjne). Jedno z "zrownowazony" do testu wyszukiwania bez polskich znakow.
 --
@@ -54,39 +54,39 @@ insert into public.trainings
 values
   ('wprowadzenie-do-ai',
    'Wprowadzenie do AI',
-   'Przykladowe szkolenie wprowadzajace do sztucznej inteligencji.',
-   'Fikcyjny opis szczegolowy szkolenia demonstracyjnego o AI.',
+   'Przykładowe szkolenie wprowadzające do sztucznej inteligencji.',
+   'Fikcyjny opis szczegółowy szkolenia demonstracyjnego o AI.',
    (select id from public.categories where slug = 'ai'),
    'podstawowy', 16.0, 1990.00, true,
-   '[DEMO] Przykladowa informacja o dofinansowaniu dla szkolenia z AI — tresc do uzupelnienia przez ISKT.',
-   '[{"title":"Modul 1","items":["Podstawy","Zastosowania"]}]'::jsonb,
+   '[DEMO] Przykładowa informacja o dofinansowaniu dla szkolenia z AI — treść do uzupełnienia przez ISKT.',
+   '[{"title":"Moduł 1","items":["Podstawy","Zastosowania"]}]'::jsonb,
    array['Rozumie podstawy AI','Zna typowe zastosowania'],
-   'Osoby poczatkujace', 'Najblizsze terminy: dane demonstracyjne.',
-   true, true, now(), 10, 'Wprowadzenie do AI', 'Przykladowy opis SEO szkolenia o AI.'),
+   'Osoby początkujące', 'Najbliższe terminy: dane demonstracyjne.',
+   true, true, now(), 10, 'Wprowadzenie do AI', 'Przykładowy opis SEO szkolenia o AI.'),
 
   ('zrownowazony-rozwoj-esg',
-   'Zrownowazony rozwoj i ESG w praktyce',
-   'Przykladowe szkolenie o zrownowazonym rozwoju i raportowaniu ESG.',
-   'Fikcyjny opis szczegolowy szkolenia demonstracyjnego o ESG i zrownowazonym rozwoju.',
+   'Zrównoważony rozwój i ESG w praktyce',
+   'Przykładowe szkolenie o zrównoważonym rozwoju i raportowaniu ESG.',
+   'Fikcyjny opis szczegółowy szkolenia demonstracyjnego o ESG i zrównoważonym rozwoju.',
    (select id from public.categories where slug = 'esg'),
    'sredniozaawansowany', 24.0, 2990.00, true,
-   '[DEMO] Przykladowa informacja o dofinansowaniu dla szkolenia ESG — inna tresc niz przy AI, zeby bylo widac, ze pochodzi z kolumny.',
-   '[{"title":"Modul 1","items":["Wprowadzenie do ESG","Raportowanie"]}]'::jsonb,
-   array['Rozumie zasady ESG','Potrafi przygotowac raport'],
-   'Specjalisci ds. zrownowazonego rozwoju', 'Najblizsze terminy: dane demonstracyjne.',
-   false, true, now(), 20, 'ESG w praktyce', 'Przykladowy opis SEO szkolenia o ESG.'),
+   '[DEMO] Przykładowa informacja o dofinansowaniu dla szkolenia ESG — inna treść niż przy AI, żeby było widać, że pochodzi z kolumny.',
+   '[{"title":"Moduł 1","items":["Wprowadzenie do ESG","Raportowanie"]}]'::jsonb,
+   array['Rozumie zasady ESG','Potrafi przygotować raport'],
+   'Specjaliści ds. zrównoważonego rozwoju', 'Najbliższe terminy: dane demonstracyjne.',
+   false, true, now(), 20, 'ESG w praktyce', 'Przykładowy opis SEO szkolenia o ESG.'),
 
   ('angielski-techniczny',
    'Angielski techniczny dla IT',
-   'Przykladowe szkolenie z angielskiego technicznego.',
-   'Fikcyjny opis szczegolowy szkolenia demonstracyjnego z jezyka angielskiego.',
+   'Przykładowe szkolenie z angielskiego technicznego.',
+   'Fikcyjny opis szczegółowy szkolenia demonstracyjnego z języka angielskiego.',
    (select id from public.categories where slug = 'jezyk-angielski'),
    'sredniozaawansowany', 40.0, 3490.00, false,
    null,
-   '[{"title":"Modul 1","items":["Slownictwo IT","Komunikacja"]}]'::jsonb,
-   array['Swobodnie komunikuje sie w IT po angielsku'],
-   'Zespoly IT', 'Najblizsze terminy: dane demonstracyjne.',
-   false, true, now(), 30, 'Angielski techniczny', 'Przykladowy opis SEO szkolenia jezykowego.');
+   '[{"title":"Moduł 1","items":["Słownictwo IT","Komunikacja"]}]'::jsonb,
+   array['Swobodnie komunikuje się w IT po angielsku'],
+   'Zespoły IT', 'Najbliższe terminy: dane demonstracyjne.',
+   false, true, now(), 30, 'Angielski techniczny', 'Przykładowy opis SEO szkolenia językowego.');
 
 -- Powiazania szkolenie <-> trener -------------------------------------------
 insert into public.training_trainers (training_id, trainer_id, sort_order) values
