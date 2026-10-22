@@ -37,6 +37,15 @@ export async function createTraining(opts: {
   published: boolean;
   categoryId?: string;
   titlePrefix?: string;
+  /**
+   * Kolumny dofinansowania (ISK-413 / CR-I4). Mechanizm D1 trzeba zmierzyc
+   * w trzech kombinacjach, a zasiew [DEMO] daje tylko dwie — i w obu
+   * `funding_note` jest NULL, wiec arm pozytywny „pokazuje tresc Z KOLUMNY,
+   * nie tekst zapasowy" nie mialby na czym stanac. `undefined` zostawia
+   * wartosc domyslna z migracji (`false` / NULL).
+   */
+  fundingAvailable?: boolean;
+  fundingNote?: string | null;
 }): Promise<TrainingSeed> {
   const svc = serviceClient();
   const category = opts.categoryId
@@ -54,6 +63,12 @@ export async function createTraining(opts: {
       category_id: category.id,
       is_published: opts.published,
       published_at: opts.published ? new Date().toISOString() : null,
+      ...(opts.fundingAvailable === undefined
+        ? {}
+        : { funding_available: opts.fundingAvailable }),
+      ...(opts.fundingNote === undefined
+        ? {}
+        : { funding_note: opts.fundingNote }),
     })
     .select("id")
     .single();
