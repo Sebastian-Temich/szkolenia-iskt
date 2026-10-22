@@ -15,6 +15,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 import { clearThrottle, createInquiry, sfx } from "./helpers/data";
 import { awaitFormTokenMaturity } from "./helpers/form";
+import { contrastSamples, formatSample } from "./helpers/kontrast";
 import { serviceClient } from "./helpers/stack";
 
 const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -31,6 +32,60 @@ function describe(violations: Awaited<ReturnType<typeof scan>>["violations"]) {
         .map((n) => n.target.join(" "))
         .join(", ")}`,
   );
+}
+
+/**
+ * ISK-410 / CR-B1 — slepa plama nr 2.
+ *
+ * Kazdy skan wyzej patrzyl wylacznie na `results.violations`. Tymczasem axe
+ * NIE zglasza naruszenia kontrastu nad gradientem: nie potrafi wskazac
+ * jednego piksela tla, wiec przenosi wynik do `results.incomplete`
+ * ("needs review"). Dokladnie tam wyladowal CR-B1 — biel 4,47:1 na
+ * `--gradient-brand`. `grep -rn "incomplete" tests/` zwracal zero trafien, to
+ * znaczy, ze caly ten kubelek byl u nas niewidzialny i bramka przepuszczala
+ * naruszenie, ktore axe faktycznie zauwazyl.
+ *
+ * Nie pomijamy go globalnie — zamiast tego sprawdzamy kazdy niepewny wynik
+ * `color-contrast` wlasna arytmetyka (`contrastSamples`, ktory od ISK-410
+ * sklada gradienty) i zadamy, by przechodzil prog AA. Niepewnosc axe zamienia
+ * sie wiec w twardy pomiar, a nie w wyjatek.
+ */
+const INCOMPLETE_DO_SPRAWDZENIA = ["color-contrast"];
+
+async function rozstrzygnijNiepewne(
+  page: Page,
+  results: Awaited<ReturnType<typeof scan>>,
+) {
+  const niepewne = results.incomplete.filter((r) =>
+    INCOMPLETE_DO_SPRAWDZENIA.includes(r.id),
+  );
+
+  const zaNiskie: string[] = [];
+  for (const regula of niepewne) {
+    for (const node of regula.nodes) {
+      // `target` axe to selektor CSS tego wezla — mierzymy dokladnie jego.
+      const selector = node.target.join(" ");
+      const probki = await contrastSamples(page, selector);
+      for (const probka of probki) {
+        if (probka.ratio < probka.required) {
+          zaNiskie.push(`${selector} → ${formatSample(probka)}`);
+        }
+      }
+    }
+  }
+
+  // Kubelki inne niz `color-contrast` wypisujemy, ale nie wywracamy na nich
+  // bramki: `incomplete` bywa tam szumem (np. `aria-*` na tresci z CMS-a).
+  // Jawna lista zamiast globalnego pominiecia — gdy pojawi sie nowa regula,
+  // widac ja w logu i mozna swiadomie zdecydowac.
+  const pozostale = results.incomplete
+    .filter((r) => !INCOMPLETE_DO_SPRAWDZENIA.includes(r.id))
+    .map((r) => `${r.id} x${r.nodes.length}`);
+  if (pozostale.length > 0) {
+    console.log(`axe incomplete (nieoceniane): ${pozostale.join(", ")}`);
+  }
+
+  return zaNiskie;
 }
 
 /**
@@ -75,6 +130,10 @@ for (const [name, path] of views) {
       (v) => v.impact === "critical" || v.impact === "serious",
     );
     expect(describe(critical)).toEqual([]);
+
+    // ISK-410: to, czego axe nie umial rozstrzygnac (gradienty marki),
+    // dowazamy wlasna arytmetyka zamiast milczaco pomijac.
+    expect(await rozstrzygnijNiepewne(page, results)).toEqual([]);
   });
 }
 
@@ -97,6 +156,10 @@ for (const [name, path, status] of widokiBledu) {
       (v) => v.impact === "critical" || v.impact === "serious",
     );
     expect(describe(critical)).toEqual([]);
+
+    // ISK-410: ekrany bledu tez nosza naglowek i stopke z powierzchniami
+    // markowymi, wiec kubelek `incomplete` obowiazuje je tak samo.
+    expect(await rozstrzygnijNiepewne(page, results)).toEqual([]);
   });
 }
 
@@ -227,32 +290,87 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
     await page.goto("/szkolenia");
 
     // Przechodzimy Tabem i zbieramy kolejnosc elementow interaktywnych.
+    //
+    // ISK-410 / CR-I5: wczesniej warunek brzmial "jest outline ALBO jest
+    // jakikolwiek box-shadow" i NIGDY nie porownywal stanu zafokusowanego ze
+    // spoczynkowym. Karty (`.ui-card-interactive`) oraz inne elementy nosza
+    // cien dekoracyjny juz w spoczynku, wiec drugi czlon byl spelniony zanim
+    // focus w ogole dotarl do elementu. Scenariusz, ktory tamta asercja
+    // przepuszczala: ktos dopisuje `outline: none` linkowi karty bez
+    // pierscienia zastepczego — test zielony, uzytkownik klawiatury traci
+    // wskaznik. Teraz mierzymy ROZNICE: styl w spoczynku kontra styl po
+    // zafokusowaniu, i zadamy, by cokolwiek sie realnie zmienilo.
     const order: string[] = [];
     for (let i = 0; i < 25; i++) {
       await page.keyboard.press("Tab");
       const info = await page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
         if (!el || el === document.body) return null;
+
+        /** Cechy, ktorymi CSS moze narysowac wskaznik focusu. */
+        const odczyt = (node: HTMLElement) => {
+          const s = getComputedStyle(node);
+          return {
+            outline: `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`,
+            outlineOffset: s.outlineOffset,
+            boxShadow: s.boxShadow,
+            border: `${s.borderStyle} ${s.borderWidth} ${s.borderColor}`,
+            background: `${s.backgroundColor} ${s.backgroundImage}`,
+            color: s.color,
+            textDecoration: s.textDecorationLine,
+          };
+        };
+
+        const zafokusowany = odczyt(el);
+
+        // Stan spoczynkowy TEGO SAMEGO elementu: zdejmujemy focus, czytamy,
+        // przywracamy. `preventScroll` zeby nie przesuwac widoku w trakcie
+        // przechodzenia Tabem (inaczej kolejne `Tab` moglyby trafic indziej).
+        el.blur();
+        const spoczynkowy = odczyt(el);
+        el.focus({ preventScroll: true });
+
         const style = getComputedStyle(el);
         return {
           tag: el.tagName.toLowerCase(),
           name: el.getAttribute("name"),
           text: (el.textContent ?? "").trim().slice(0, 40),
-          // Focus musi byc widoczny: albo outline, albo wyrazny box-shadow.
           outlineWidth: parseFloat(style.outlineWidth || "0"),
           outlineStyle: style.outlineStyle,
-          boxShadow: style.boxShadow,
+          // Ktore cechy zmienily sie miedzy spoczynkiem a focusem.
+          zmienione: (
+            Object.keys(zafokusowany) as Array<keyof typeof zafokusowany>
+          ).filter((k) => zafokusowany[k] !== spoczynkowy[k]),
+          spoczynkowy,
+          zafokusowany,
         };
       });
       if (!info) continue;
       order.push(`${info.tag}:${info.name ?? info.text}`);
 
-      const focusVisible =
-        (info.outlineStyle !== "none" && info.outlineWidth > 0) ||
-        (info.boxShadow !== "none" && info.boxShadow !== "");
+      // Sam fakt roznicy nie wystarcza — zmiana musi byc WIDOCZNA, czyli
+      // dotyczyc rysowanej cechy. Zmiana samego `outline-offset` przy
+      // `outline-style: none` niczego nie pokazuje, wiec outline liczymy
+      // tylko razem z niezerowa szerokoscia i stylem innym niz `none`.
+      const maOutline =
+        info.zafokusowany.outline !== info.spoczynkowy.outline &&
+        info.outlineStyle !== "none" &&
+        info.outlineWidth > 0;
+      const innaWidocznaZmiana = info.zmienione.some((k) =>
+        [
+          "boxShadow",
+          "border",
+          "background",
+          "color",
+          "textDecoration",
+        ].includes(k),
+      );
+
       expect(
-        focusVisible,
-        `Element ${info.tag} (${info.name ?? info.text}) nie ma widocznego focusu`,
+        maOutline || innaWidocznaZmiana,
+        `Element ${info.tag} (${info.name ?? info.text}) wyglada po zafokusowaniu TAK SAMO jak w spoczynku — ` +
+          `brak wskaznika focusu. Spoczynek: ${JSON.stringify(info.spoczynkowy)}; ` +
+          `focus: ${JSON.stringify(info.zafokusowany)}`,
       ).toBe(true);
     }
 
