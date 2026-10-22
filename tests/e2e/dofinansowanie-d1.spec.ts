@@ -94,10 +94,19 @@ test.describe("D1: karta i badge dofinansowania sa warunkowane kolumna", () => {
    */
   const notatka = `[TEST] Nota dofinansowania ${sfx()} — tresc wprost z kolumny funding_note.`;
 
+  /*
+   * TYTULY NIE MOGA ZAWIERAC SLOWA „dofinansowanie".
+   * Tytul szkolenia renderuje sie w `h1`, czyli wpada w `main`, a arm negatywny
+   * asertuje `not.toMatch(/dofinansowan/i)` na calym `main`. Pierwsza wersja
+   * nazywala te szkolenia „[TEST] Dofinansowanie wylaczone" i test padal na
+   * SWOICH WLASNYCH danych, nie na defekcie produktu (zmierzone w CI,
+   * przebieg 39860729647). Nazwy mowia teraz o fladze, nie o dofinansowaniu.
+   */
+
   test.beforeAll(async () => {
     zDofinansowaniem = await createTraining({
       published: true,
-      titlePrefix: "[TEST] Dofinansowanie wlaczone",
+      titlePrefix: "[TEST] Flaga wlaczona",
       fundingAvailable: true,
       fundingNote: notatka,
     });
@@ -107,7 +116,7 @@ test.describe("D1: karta i badge dofinansowania sa warunkowane kolumna", () => {
     // z NULL-em w notatce nie odroznilby tych dwoch bledow.
     bezDofinansowania = await createTraining({
       published: true,
-      titlePrefix: "[TEST] Dofinansowanie wylaczone",
+      titlePrefix: "[TEST] Flaga wylaczona",
       fundingAvailable: false,
       fundingNote: `${notatka} (ten wariant NIE MA prawa jej pokazac)`,
     });
@@ -116,7 +125,7 @@ test.describe("D1: karta i badge dofinansowania sa warunkowane kolumna", () => {
     // i „nie pokazuj zapasu" dalo by sie spelnic usuwajac go z komponentu.
     bezNotatki = await createTraining({
       published: true,
-      titlePrefix: "[TEST] Dofinansowanie bez notatki",
+      titlePrefix: "[TEST] Flaga wlaczona bez noty",
       fundingAvailable: true,
       fundingNote: null,
     });

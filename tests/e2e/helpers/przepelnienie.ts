@@ -169,6 +169,12 @@ export async function oznaczKonteneryObcinajace(page: Page): Promise<string[]> {
 
     const opisy: string[] = [];
     for (const el of Array.from(document.body.querySelectorAll("*"))) {
+      // TYLKO elementy HTML. `<svg>` ma w wyliczonym stylu `overflow-x: hidden`,
+      // wiec trafial tu jako "kontener przycinajacy" — a wstrzyknietego `<div>`
+      // nie uklada jako pudelka HTML (zerowa geometria), czyli ramie padalo na
+      // wlasnym narzedziu, nie na defekcie produktu. Zmierzone w CI: trzy
+      // czerwone testy z komunikatem „wstrzyknięty w svg NIE zostal zgloszony".
+      if (!(el instanceof HTMLElement)) continue;
       if (!OBCINA.has(getComputedStyle(el).overflowX)) continue;
       const rect = el.getBoundingClientRect();
       // Kontener o zerowej geometrii nie moze niczego pokazac ani ukryc.
@@ -181,14 +187,20 @@ export async function oznaczKonteneryObcinajace(page: Page): Promise<string[]> {
 }
 
 /**
- * Wstrzykuje do wskazanego kontenera element SZERSZY od kadru i oddaje jego
- * `id`. `tresc` daje element zwyczajny (ma byc zlapany), `ornament` — element
- * z `aria-hidden` i `pointer-events: none` (ma byc zwolniony).
+ * Wstrzykuje do wskazanego kontenera element SZERSZY od kadru. `tresc` daje
+ * element zwyczajny (ma byc zlapany), `ornament` — element z `aria-hidden`
+ * i `pointer-events: none` (ma byc zwolniony).
+ *
+ * Oddaje tez ZMIERZONA geometrie wstrzyknietego elementu. Kontener, ktory nie
+ * potrafi ulozyc pudelka HTML (element zastapiony w rodzaju `<img>`), oddaje
+ * zerowa szerokosc — wolajacy ma wtedy ten kontener POMINAC, a nie zglaszac
+ * jako slepote detektora. Bez tego pomiaru narzedzie myli „nie da sie tu nic
+ * pokazac" z „detektor tego nie widzi".
  */
 export async function wstrzyknijZaSzeroki(
   page: Page,
   opts: { indeks: number; rodzaj: "tresc" | "ornament" },
-): Promise<string> {
+): Promise<{ id: string; width: number; height: number }> {
   return page.evaluate(({ indeks, rodzaj }) => {
     const host = document.querySelector(`[data-isk413-obcina="${indeks}"]`);
     if (!host) throw new Error(`brak kontenera o indeksie ${indeks}`);
@@ -198,8 +210,12 @@ export async function wstrzyknijZaSzeroki(
     el.id = id;
     // Kadr + 200 px: z zapasem ponad `limit = kadr + 1`, zeby wynik nie zalezal
     // od zaokraglen subpikselowych.
-    el.style.width = `${document.documentElement.clientWidth + 200}px`;
-    el.style.height = "40px";
+    const szerokosc = document.documentElement.clientWidth + 200;
+    // `flex: 0 0 auto` oraz `min-width` sa KONIECZNE, nie ozdobne: w kontenerze
+    // `display: flex` goly `width` jest tylko baza, ktora `flex-shrink: 1`
+    // sciska do rozmiaru rodzica — probka zmiescilaby sie w kadrze i ramie
+    // zglosiloby slepote detektora tam, gdzie nie ma czego zglaszac.
+    el.style.cssText = `flex:0 0 auto;min-width:${szerokosc}px;width:${szerokosc}px;height:40px;`;
     if (rodzaj === "ornament") {
       el.setAttribute("aria-hidden", "true");
       el.style.pointerEvents = "none";
@@ -208,7 +224,9 @@ export async function wstrzyknijZaSzeroki(
       el.textContent = "ISK-413 element kontrolny szerszy od kadru";
     }
     host.appendChild(el);
-    return id;
+
+    const rect = el.getBoundingClientRect();
+    return { id, width: rect.width, height: rect.height };
   }, opts);
 }
 

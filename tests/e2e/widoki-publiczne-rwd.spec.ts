@@ -189,30 +189,34 @@ test.describe("drugie ramie: detektor widzi tresc wewnatrz poddrzew przycinanych
       ).toEqual([]);
 
       const kontenery = await oznaczKonteneryObcinajace(page);
-      // Gdyby arkusz przestal cokolwiek przycinac, cale to ramie mierzyloby
-      // pusty zbior i przechodzilo bez jednej asercji — to jest ta pulapka,
-      // ktora w tym repozytorium nazwano "zielona bramka, martwa dana".
-      expect(
-        kontenery.length,
-        `${path}: zaden element nie przycina poziomo — ramie nie mialoby czego sprawdzic`,
-      ).toBeGreaterThan(0);
+      // Kontenery, ktore nie potrafia ulozyc pudelka HTML (element zastapiony
+      // w rodzaju `<img>`). Nie da sie w nich NICZEGO pokazac, wiec nie da sie
+      // tez niczego ukryc — pominiecie jest poprawne, ale musi byc WIDOCZNE
+      // w raporcie, zeby „pominelismy wszystko" nie przeszlo za zielone.
+      const pominiete: string[] = [];
+      let sprawdzone = 0;
 
       for (const [indeks, opisKontenera] of kontenery.entries()) {
         // --- ramie negatywne: TRESC musi byc zgloszona ---------------------
-        const idTresci = await wstrzyknijZaSzeroki(page, {
+        const tresc = await wstrzyknijZaSzeroki(page, {
           indeks,
           rodzaj: "tresc",
         });
+        if (tresc.width === 0 || tresc.height === 0) {
+          await usunWstrzyknieta(page, tresc.id);
+          pominiete.push(opisKontenera);
+          continue;
+        }
         const zTrescia = await zmierzPrzepelnienie(page);
         expect(
           zTrescia.winowajcy.join("\n"),
           `${path}: element szerszy od kadru wstrzyknięty w ${opisKontenera} NIE zostal zgloszony — ` +
             `detektor jest slepy na tresc wewnatrz tego poddrzewa`,
-        ).toContain(`#${idTresci}`);
-        await usunWstrzyknieta(page, idTresci);
+        ).toContain(`#${tresc.id}`);
+        await usunWstrzyknieta(page, tresc.id);
 
         // --- wyjatek nadal dziala: ORNAMENT musi byc zwolniony -------------
-        const idOrnamentu = await wstrzyknijZaSzeroki(page, {
+        const ornament = await wstrzyknijZaSzeroki(page, {
           indeks,
           rodzaj: "ornament",
         });
@@ -226,9 +230,23 @@ test.describe("drugie ramie: detektor widzi tresc wewnatrz poddrzew przycinanych
           zOrnamentem.zwolnieni.join("\n"),
           `${path}: ornament w ${opisKontenera} nie trafil na liste zwolnionych — ` +
             `przeszedl inna sciezka, niz zaklada ten test`,
-        ).toContain(`#${idOrnamentu}`);
-        await usunWstrzyknieta(page, idOrnamentu);
+        ).toContain(`#${ornament.id}`);
+        await usunWstrzyknieta(page, ornament.id);
+        sprawdzone += 1;
       }
+
+      // Bramka anty-wakuacyjna. Liczy kontenery FAKTYCZNIE sprawdzone, a nie
+      // znalezione: gdyby arkusz przestal cokolwiek przycinac ALBO gdyby
+      // wszystkie trafienia byly elementami zastapionymi, ramie mierzyloby
+      // pusty zbior i przechodzilo bez ani jednej asercji — to jest ta pulapka,
+      // ktora w tym repozytorium nazwano „zielona bramka, martwa dana".
+      expect(
+        sprawdzone,
+        `${path}: ani jeden kontener przycinajacy nie zostal sprawdzony ` +
+          `(znalezione: ${kontenery.length}, pominiete jako nieukladajace pudelka: ${
+            pominiete.join(", ") || "brak"
+          })`,
+      ).toBeGreaterThan(0);
 
       // Stan koncowy rowny stanowi wejsciowemu — wstrzykniecia nie zostawiaja
       // osadu, ktory podpowiadalby wynik kolejnym asercjom.
@@ -250,7 +268,27 @@ test.describe("drugie ramie: detektor widzi tresc wewnatrz poddrzew przycinanych
     const kontenery = await oznaczKonteneryObcinajace(page);
     expect(kontenery.length).toBeGreaterThan(0);
 
-    const id = await wstrzyknijZaSzeroki(page, { indeks: 0, rodzaj: "tresc" });
+    // Pierwszy kontener, ktory NAPRAWDE uklada pudelko — indeks 0 na sztywno
+    // zalezalby od kolejnosci w drzewie i wywrocilby ten test na elemencie
+    // zastapionym, bez zadnego zwiazku z mierzona wlasnoscia.
+    let tresc: Awaited<ReturnType<typeof wstrzyknijZaSzeroki>> | null = null;
+    for (let indeks = 0; indeks < kontenery.length; indeks += 1) {
+      const proba = await wstrzyknijZaSzeroki(page, {
+        indeks,
+        rodzaj: "tresc",
+      });
+      if (proba.width > 0 && proba.height > 0) {
+        tresc = proba;
+        break;
+      }
+      await usunWstrzyknieta(page, proba.id);
+    }
+    expect(
+      tresc,
+      "zaden kontener przycinajacy nie ulozyl pudelka — nie ma czym zmierzyc slepoty `scrollWidth`",
+    ).not.toBeNull();
+    const id = tresc!.id;
+
     const metryki = await zmierzPrzepelnienie(page);
 
     // Element wystaje 200 px za kadr i detektor dzieci go widzi...
