@@ -1,10 +1,9 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { Icon, IconChip } from "@/components/ui";
 import { trainerInitials } from "@/lib/format";
 import { requireAdmin } from "@/lib/panel/auth";
-import { FLASH_COOKIE, FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
+import { readPanelFlash } from "@/lib/panel/flash-server";
 
 import { deleteCatalogItem, setPublished } from "../actions";
 import { PanelFlash } from "../panel-flash";
@@ -16,10 +15,7 @@ export default async function TrainersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { supabase } = await requireAdmin();
-  const flash = flashMessage(
-    (await searchParams)[FLASH_PARAM],
-    (await cookies()).get(FLASH_COOKIE)?.value,
-  );
+  const flash = await readPanelFlash(await searchParams);
   const { data: trainers } = await supabase
     .from("trainers")
     .select("id,full_name,headline,slug,is_published")

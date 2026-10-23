@@ -1,10 +1,9 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Field, Icon, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/panel/auth";
-import { FLASH_COOKIE, FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
+import { readPanelFlash } from "@/lib/panel/flash-server";
 import {
   getAllowedInquiryTransitions,
   inquiryStatusSchema,
@@ -37,10 +36,7 @@ export default async function InquiryDetails({
 }) {
   const { id } = await params;
   const { supabase } = await requireAdmin();
-  const flash = flashMessage(
-    (await searchParams)[FLASH_PARAM],
-    (await cookies()).get(FLASH_COOKIE)?.value,
-  );
+  const flash = await readPanelFlash(await searchParams);
   const { data: inquiry } = await supabase
     .from("inquiries")
     .select("*,trainings(title)")
