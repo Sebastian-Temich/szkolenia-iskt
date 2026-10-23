@@ -28,7 +28,6 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 import { loginAsAdmin, loginViaUi } from "./helpers/auth";
-import { createInquiry } from "./helpers/data";
 import { ADMIN_EMAIL, serviceClient } from "./helpers/stack";
 
 const outputDirectory = process.env.INSTRUKCJA_DIR;
@@ -74,6 +73,26 @@ const TRAINER = {
   competences: "Zarządzanie projektem, Komunikacja",
 } as const;
 
+/**
+ * Zgloszenie pokazywane na zrzutach 15-18.
+ *
+ * Wlasne dane, a NIE `createInquiry()` z helperow: tamten helper dokleja losowy
+ * sufiks (`[TEST] Zglaszajacy e01b8e48`, `zgloszenie-2273404c@...`), bo sluzy
+ * testom, ktore musza sie nie zderzac. Na zrzucie do instrukcji czyta sie to
+ * jak artefakt testu, a nie jak panel — czyli dokladnie to, przed czym broni
+ * zasada stalego slugu przy TRAINER/TRAINING. Dane sa jawnie fikcyjne
+ * (domena `.invalid` jest zarezerwowana, RFC 2606; ADR-0002 §6).
+ */
+const INQUIRY = {
+  fullName: "Jan Nowak",
+  email: "jan.nowak@example.invalid",
+  phone: "+48 600 000 000",
+  interestArea: "Zarządzanie projektem",
+  message:
+    "Fikcyjna treść zgłoszenia na potrzeby instrukcji administratora. " +
+    "Proszę o kontakt i informację o najbliższym terminie.",
+} as const;
+
 const TRAINING = {
   slug: "zarzadzanie-projektem",
   title: "Zarządzanie projektem",
@@ -98,12 +117,45 @@ async function cleanup(): Promise<void> {
   const svc = serviceClient();
   await svc.from("trainings").delete().eq("slug", TRAINING.slug);
   await svc.from("trainers").delete().eq("slug", TRAINER.slug);
+  await svc.from("inquiries").delete().eq("email", INQUIRY.email);
+}
+
+/** Zakłada zgłoszenie z `INQUIRY` i zwraca jego `id`. */
+async function createInstructionInquiry(): Promise<string> {
+  const { data, error } = await serviceClient()
+    .from("inquiries")
+    .insert({
+      kind: "osoba",
+      full_name: INQUIRY.fullName,
+      email: INQUIRY.email,
+      phone: INQUIRY.phone,
+      // CHECK `inquiries_has_subject`: zgloszenie musi wskazywac albo
+      // konkretne szkolenie (`training_id`), albo obszar zainteresowania.
+      interest_area: INQUIRY.interestArea,
+      message: INQUIRY.message,
+      rodo_ack: true,
+      rodo_clause_version: "draft-2026-10",
+      status: "nowe",
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
 }
 
 async function shoot(page: Page, name: string): Promise<void> {
   // Zrzuty ida do repozytorium, wiec musza byc powtarzalne: bez kursora
   // mrugajacego w polu i bez animacji w polowie przejscia.
   await page.evaluate(() => (document.activeElement as HTMLElement)?.blur?.());
+  // PRZEWIJAMY NA GORE PRZED ZRZUTEM — inaczej `fullPage` sklei bzdure.
+  // Naglowek panelu jest `position: sticky`. Przy `fullPage: true` Playwright
+  // sklada obraz z przewijanej strony, wiec element przyklejony do okna ladowal
+  // w POLOWIE zrzutu, nad karta „Dane kontaktowe", a gora strony zostawala
+  // pusta. Dotyczylo to zrzutow robionych po kliknieciu w przyciski stanu
+  // („Ustaw: W toku", „Ustaw: Zamkniete"), ktore leza nisko na stronie i same
+  // przewijaja widok. Test przechodzil — artefakt widac dopiero okiem
+  // (zmierzone na 17 i 18, ISK-429).
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(150);
   await page.screenshot({
     path: path.join(outputDirectory!, `${name}.png`),
@@ -160,7 +212,14 @@ test.describe("Zrzuty do instrukcji administratora", () => {
 
     // Odmowa uwierzytelnienia — wlasciwe haslo celowo zle.
     await loginViaUi(page, ADMIN_EMAIL, "zle-haslo-na-potrzeby-zrzutu");
-    const alert = page.getByRole("alert");
+    // Celujemy w `.panel-error`, a NIE w `getByRole("alert")` — tak samo jak
+    // `panel-wzorzec.spec.ts`. Uwaga: tamten komentarz przypisuje kolizje
+    // nakladce `next dev`, ale ten przebieg idzie po buildzie produkcyjnym
+    // (`PLAYWRIGHT_USE_BUILD=1`) i kolizja wystepuje TAK SAMO: Next montuje
+    // `<div role="alert" id="__next-route-announcer__">` w kazdym trybie.
+    // `getByRole("alert")` zwraca wiec dwa elementy i pada na strict mode,
+    // a nie na braku komunikatu aplikacji (zmierzone 2026-10-23, ISK-429).
+    const alert = page.locator(".panel-error");
     await expect(alert).toContainText("Nie udało się zalogować");
     await shoot(page, SHOT.loginError);
   });
@@ -286,15 +345,15 @@ test.describe("Zrzuty do instrukcji administratora", () => {
     // Zgloszenie zakladamy przez `serviceClient`, nie przez publiczny formularz:
     // formularz ma honeypot, `MIN_FILL_MS` i wspolny limiter IP, ktore do zrzutu
     // nic nie wnosza, a potrafia przebieg wywrocic.
-    const inquiry = await createInquiry();
+    const inquiryId = await createInstructionInquiry();
 
     await loginAsAdmin(page);
     await page.goto("/panel/zgloszenia");
-    const row = page.getByRole("row").filter({ hasText: inquiry.email });
+    const row = page.getByRole("row").filter({ hasText: INQUIRY.email });
     await expect(row).toBeVisible();
     await shoot(page, SHOT.inquiryList);
 
-    await page.goto(`/panel/zgloszenia/${inquiry.id}`);
+    await page.goto(`/panel/zgloszenia/${inquiryId}`);
     await expect(
       page.getByRole("heading", { name: "Treść zgłoszenia" }),
     ).toBeVisible();
@@ -313,6 +372,6 @@ test.describe("Zrzuty do instrukcji administratora", () => {
     await expect(page.getByText("Zamknięte").first()).toBeVisible();
     await shoot(page, SHOT.inquiryClosed);
 
-    await serviceClient().from("inquiries").delete().eq("id", inquiry.id);
+    await serviceClient().from("inquiries").delete().eq("id", inquiryId);
   });
 });

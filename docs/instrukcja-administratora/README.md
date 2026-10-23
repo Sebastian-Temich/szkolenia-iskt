@@ -4,7 +4,7 @@ Ta instrukcja prowadzi krok po kroku przez czynności dostępne w panelu pod adr
 
 > **Stan dokumentu.** Treść opisuje panel w wersji V1 — stan gałęzi `main` na commicie `9ae7205`. Poprzednia wersja instrukcji powstała przed redesignem V1 (commit `9469014`, 2026-10-09) i opisywała panel, którego już nie ma; ISK-427 doprowadził tekst do stanu faktycznego.
 >
-> **Zrzuty ekranu w katalogu `images/` są nadal te sprzed V1** i pokazują poprzedni wygląd panelu. Rozkład ekranów, nazwy przycisków i kolumn w tekście poniżej są zweryfikowane w kodzie i mają pierwszeństwo przed zrzutami. Odświeżenie zrzutów jest prowadzone osobno — patrz §10.
+> **Zrzuty ekranu odświeżono 2026-10-23** z tego samego stanu kodu, na lokalnym środowisku z danymi demonstracyjnymi. Odtwarza je `tests/e2e/zrzuty-instrukcji.spec.ts` — patrz §10.
 
 Panel ma **własną powłokę**: nie widać w nim publicznego nagłówka ani stopki serwisu. U góry znajdziesz link **ISKT Panel** (wraca na pulpit), nawigację obszarów, adres zalogowanego konta oraz przycisk **Wyloguj**. Nawigacja panelu ma trzy pozycje: **Szkolenia**, **Trenerzy** i **Zgłoszenia**. Pulpit nie jest osobną zakładką — wracasz na niego linkiem **ISKT Panel**.
 
@@ -269,9 +269,9 @@ Co pozostaje do rozważenia:
 
 ## 10. Zrzuty ekranu
 
-Zrzuty w katalogu `images/` pochodzą z 2026-10-09 i pokazują panel **przed** redesignem V1. Opisy czynności w tekście powyżej są zweryfikowane w kodzie na `main` @ `9ae7205` i mają pierwszeństwo przed zrzutami.
+Wszystkie 18 zrzutów w katalogu `images/` pochodzi z 2026-10-23 i pokazuje panel w wersji V1 (`main` @ `9ae7205`). Poprzedni zestaw był z 2026-10-09 — przeżył cały redesign i nikt tego nie zauważył, bo nic nie wiąże obrazków z kodem.
 
-Zestaw odtwarza się jedną komendą — `tests/e2e/zrzuty-instrukcji.spec.ts` przechodzi tę samą ścieżkę co instrukcja i zapisuje wszystkie 18 plików pod ich obecnymi nazwami:
+Dlatego zestaw nie jest już robiony ręcznie. Odtwarza go jedna komenda — `tests/e2e/zrzuty-instrukcji.spec.ts` przechodzi tę samą ścieżkę co instrukcja i zapisuje wszystkie 18 plików pod ich obecnymi nazwami:
 
 ```bash
 INSTRUKCJA_DIR=docs/instrukcja-administratora/images \
@@ -280,4 +280,6 @@ PLAYWRIGHT_USE_BUILD=1 npx playwright test zrzuty-instrukcji --workers=1
 
 Wymaga uruchomionego lokalnego środowiska z danymi `[DEMO]` (patrz `docs/runbook/lokalne-uruchomienie.md`). Bez zmiennej `INSTRUKCJA_DIR` ten plik testowy jest pomijany, więc zwykły przebieg CI nie nadpisuje dokumentacji. `PLAYWRIGHT_USE_BUILD=1` jest istotne: `next dev` dokłada własną nakładkę błędów, która trafiłaby na zrzut.
 
-Wykonanie tego przebiegu wymaga wolnego środowiska lokalnego i jest prowadzone osobno — patrz zadanie potomne ISK-427.
+Przebieg zakłada własne dane demonstracyjne (trenerka „Anna Kowalska”, szkolenie „Zarządzanie projektem”, zgłoszenie od „Jana Nowaka”) i kasuje je po sobie, więc nie zostawia śladu w bazie. Wszystkie dane są fikcyjne, a adresy e-mail w zarezerwowanej domenie `example.invalid`.
+
+**Po każdej zmianie wyglądu panelu uruchom tę komendę ponownie** — inaczej instrukcja znów zacznie pokazywać produkt, którego nie ma.
