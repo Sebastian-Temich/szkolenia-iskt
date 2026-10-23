@@ -17,7 +17,7 @@ Panel ma **własną powłokę**: nie widać w nim publicznego nagłówka ani sto
 
 ![Formularz logowania](images/01-logowanie.png)
 
-Gdy któreś pole jest puste lub ma zły format, komunikat pojawia się **przy tym polu**. Gdy sam adres i hasło nie pasują do konta, nad przyciskiem pojawia się komunikat „Nie udało się zalogować” — czytnik ekranu ogłasza go od razu. Sprawdź wtedy adres i hasło; jeśli pola zostały wyczyszczone, wpisz je ponownie. Nie wysyłaj hasła e-mailem ani komunikatorem. Gdy dostęp nadal nie działa, poproś opiekuna technicznego o sprawdzenie konta administratora.
+Gdy któreś pole jest puste lub ma zły format, komunikat pojawia się **przy tym polu**. Gdy sam adres i hasło nie pasują do konta, nad przyciskiem pojawia się komunikat „Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.” — czytnik ekranu ogłasza go od razu. Sprawdź wtedy adres i hasło; jeśli pola zostały wyczyszczone, wpisz je ponownie. Nie wysyłaj hasła e-mailem ani komunikatorem. Gdy dostęp nadal nie działa, poproś opiekuna technicznego o sprawdzenie konta administratora.
 
 ![Komunikat po nieudanym logowaniu](images/02-logowanie-blad.png)
 
@@ -271,4 +271,13 @@ Co pozostaje do rozważenia:
 
 Zrzuty w katalogu `images/` pochodzą z 2026-10-09 i pokazują panel **przed** redesignem V1. Opisy czynności w tekście powyżej są zweryfikowane w kodzie na `main` @ `9ae7205` i mają pierwszeństwo przed zrzutami.
 
-Odświeżenie zrzutów wymaga uruchomionego lokalnego środowiska z danymi `[DEMO]` (patrz `docs/runbook/lokalne-uruchomienie.md`) i jest prowadzone jako osobny krok ISK-427.
+Zestaw odtwarza się jedną komendą — `tests/e2e/zrzuty-instrukcji.spec.ts` przechodzi tę samą ścieżkę co instrukcja i zapisuje wszystkie 18 plików pod ich obecnymi nazwami:
+
+```bash
+INSTRUKCJA_DIR=docs/instrukcja-administratora/images \
+PLAYWRIGHT_USE_BUILD=1 npx playwright test zrzuty-instrukcji --workers=1
+```
+
+Wymaga uruchomionego lokalnego środowiska z danymi `[DEMO]` (patrz `docs/runbook/lokalne-uruchomienie.md`). Bez zmiennej `INSTRUKCJA_DIR` ten plik testowy jest pomijany, więc zwykły przebieg CI nie nadpisuje dokumentacji. `PLAYWRIGHT_USE_BUILD=1` jest istotne: `next dev` dokłada własną nakładkę błędów, która trafiłaby na zrzut.
+
+Wykonanie tego przebiegu wymaga wolnego środowiska lokalnego i jest prowadzone osobno — patrz zadanie potomne ISK-427.
