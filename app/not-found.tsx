@@ -24,11 +24,15 @@ export const metadata = {
  *     bledzie zapytania — lapie go i renderuje stopke bez kolumny obszarow
  *     (patrz `components/site-footer.tsx`). Przyczyna jest usunieta u zrodla,
  *     a nie obchodzona brakiem stopki.
- *  2. „Ten widok renderuje sie takze dla adresow panelu”. Nadal prawda i jest
- *     to SWIADOMY koszt ujednolicenia: 404 jest odpowiedzia publiczna, a osoba,
- *     ktora trafila na zly adres pod `/panel/...`, czesciej potrzebuje wyjscia
- *     na strone niz powloki panelu. Panel ma wlasna kontrole dostepu i wlasny
- *     ekran `brak-dostepu`, wiec ten plik nie udaje, ze go zastepuje.
+ *  2. „Ten widok renderuje sie takze dla adresow panelu”. ZAWEZONE w ISK-426
+ *     / D-2: trasy szczegolu panelu maja juz wlasna granice
+ *     `app/panel/(admin)/not-found.tsx`, wiec administrator z literowka w ID
+ *     zostaje w powloce panelu i dostaje wyjscia na jego listy. Ten plik
+ *     obsluguje teraz wylacznie adresy NIEDOPASOWANE — w tym `/panel/cokolwiek`
+ *     — i tak ma byc: takie zadanie nie przechodzi przez `requireAdmin()`,
+ *     wiec powloka panelu nie moze sie dla niego wyrenderowac. 404 jest tu
+ *     odpowiedzia publiczna, a osoba z calkiem zlym adresem potrzebuje
+ *     wyjscia na strone, nie nawigacji panelu.
  *
  * Dwa wyjscia zostaja — strona glowna i katalog.
  */

@@ -420,6 +420,28 @@ export function HomeSections({ categories, featured }: Props) {
                 title="Jak pracujemy"
               />
 
+              {/* ISK-426 / I-1 — PODZIAL TYTUL/AKAPIT, NIE REDAKCJA JEDNEGO
+                  NAPISU. Trzecia karta nosila w `<h3>` tytul „Online
+                  i stacjonarnie” — doslownie ten napis, ktorego zakaz jest
+                  uzasadniony wyzej w tym pliku (`:106`: MODEL DANYCH NIE MA
+                  KOLUMNY FORMATU DOSTAWY). Samo dopisanie `[DEMO]` nie bylo
+                  wyjsciem, bo `strona-glowna-tresc.spec.ts` zabrania tego
+                  znacznika w `h1/h2/h3` — naglowek jest jedynym miejscem na
+                  stronie, w ktorym twierdzenia NIE DA SIE oznaczyc.
+                  Stad regula, ktora obie przyjete wczesniej karty sciezek juz
+                  spelniaja („Dla firm i zespolow” + oznaczony akapit):
+                  TYTUL = neutralna etykieta tematu, TWIERDZENIE = oznaczony
+                  akapit. Tytul to teraz „Forma prowadzenia” (nazwa tematu, nie
+                  obietnica), a tryb zajec zjechal do `text` pod `[DEMO]`.
+
+                  PRZEGLAD DWOCH POZOSTALYCH TYTULOW (zlecony razem z I-1):
+                  „Szkolenia otwarte” i „Szkolenia zamkniete” ZOSTAJA. Oba
+                  nazywaja SCIEZKE ZGLOSZENIA, ktora produkt faktycznie ma
+                  i ktora widac w nawigacji: otwarte -> formularz przy
+                  szkoleniu z katalogu, zamkniete -> `/kontakt?rodzaj=firma`.
+                  To nie sa twierdzenia o nieistniejacej kolumnie danych, tylko
+                  etykiety dwoch realnych wejsc — a konkretne ustalenia o nich
+                  i tak siedza w oznaczonych akapitach obok. */}
               <ul className="home-scope-grid">
                 {[
                   {
@@ -431,8 +453,8 @@ export function HomeSections({ categories, featured }: Props) {
                     text: "[DEMO] Program i zakres ustalane z organizacją przed rozpoczęciem.",
                   },
                   {
-                    title: "Online i stacjonarnie",
-                    text: "[DEMO] Forma prowadzenia i terminy ustalane razem z grupą.",
+                    title: "Forma prowadzenia",
+                    text: "[DEMO] Zajęcia online lub stacjonarnie, terminy ustalane razem z grupą.",
                   },
                   {
                     title: "Wsparcie formalne",
@@ -578,9 +600,19 @@ export function areaGridClassName(count: number): string {
  *
  * Defekt byl widoczny dopiero na zrzucie; zadna bramka go nie lapie, bo
  * przepelnienia nie ma, kontrast sie zgadza i wszystkie linki dzialaja.
+ *
+ * ISK-426 / D-5: zakres modyfikatora to 1..3, a nie 0..3. Przy zerze funkcja
+ * oddawala `home-featured-grid-0` — klase, ktora nie ma w arkuszu ANI JEDNEJ
+ * reguly (arkusz definiuje `-1`, `-2`, `-3`), a test jednostkowy ten martwy
+ * kontrakt pinowal. Skutku nie bylo, bo przy zerze renderuje sie karta stanu
+ * pustego, a nie siatka — czyli nazwa klasy nigdy nie trafiala do DOM. Taka
+ * para „martwa klasa + test, ktory ja utrwala” jest jednak gorsza niz brak
+ * obu: nastepna osoba szuka w arkuszu reguly, ktorej nie ma. Bramka
+ * `strona-glowna-siatki.test.ts` sprawdza teraz, ze KAZDY modyfikator, jaki ta
+ * funkcja potrafi wypisac, ma pokrycie w `app/globals.css`.
  */
 export function featuredGridClassName(count: number): string {
-  if (count >= 4) return "home-featured-grid";
+  if (count < 1 || count >= 4) return "home-featured-grid";
   return `home-featured-grid home-featured-grid-${count}`;
 }
 

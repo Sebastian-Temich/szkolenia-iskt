@@ -4092,13 +4092,20 @@
      dwukolumnowym, a dokladnie przy 1024 px zatwierdzona tabela punktow
      zalamania obiecuje TRZY kolumny — a byly dwie.
 
-     `63.9375rem` to 1023 px, wiec 1024 px nie wpada do zadnej z tych dwoch
-     regul: przy 1024 px naglowek i korpus sa JEDNOCZESNIE w trybie
-     desktopowym, a ponizej (<= 1023 px) oba przelaczaja sie RAZEM.
-     Dopelnieniem jest `@media (min-width: 64rem)` na dole pliku — miedzy
-     63.9375rem i 64rem nie ma luki, bo piksel 1023 nalezy do pierwszej
-     reguly, a 1024 do drugiej. */
-  @media (max-width: 63.9375rem) {
+     ISK-426 / D-3: warunek byl wczesniej `max-width: 63.9375rem` (1023 px)
+     i poprzedni komentarz twierdzil, ze „miedzy 63.9375rem i 64rem nie ma
+     luki, bo piksel 1023 nalezy do pierwszej reguly, a 1024 do drugiej”.
+     To prawda tylko dla szerokosci CALKOWITYCH. Kadr ma szerokosc ulamkowa
+     przy zoomie i na ekranach z DPR != 1 (np. 1023,5 px): wtedy
+     `max-width: 63.9375rem` jest FALSZEM i `min-width: 64rem` tez jest
+     falszem, wiec nie stosuje sie zadna z regul i `.home-featured-grid-3`
+     spada na bazowe cztery tory. Luka byla subpikselowa, nie zerowa.
+
+     `not all and (min-width: 64rem)` jest DOKLADNYM dopelnieniem reguly
+     `@media (min-width: 64rem)` na dole pliku — dla kazdej szerokosci,
+     calkowitej i ulamkowej, pasuje rowno jedna z nich. Granica zostaje ta
+     sama (1024 px) i nadal jest wspolna z nawigacja. */
+  @media not all and (min-width: 64rem) {
     .home-area-grid,
     .home-featured-grid,
     .home-steps,
@@ -4127,16 +4134,23 @@
     }
   }
 
-  /* --- 63.9375rem (1023 px): nawigacja chowa sie za przyciskiem ----------
+  /* --- 64rem (1024 px): nawigacja chowa sie za przyciskiem ---------------
      TA SAMA GRANICA, CO SIATKI TRESCI WYZEJ (ISK-412 / UX-K1). Pasek i korpus
      musza przelaczac sie w tym samym punkcie — rozjazd 960/1024 px dawal
      pasmo 961–1024 px, w ktorym pelna nawigacja stala nad ukladem juz
-     zwinietym do dwoch kolumn. */
+     zwinietym do dwoch kolumn.
+
+     ISK-426 / D-3: warunek jest zapisany tak samo jak przy siatkach wyzej
+     (`not all and (min-width: 64rem)`) — WLASNIE DLATEGO, ze „ta sama
+     granica” ma byc prawda takze przy ulamkowej szerokosci kadru. Przy
+     1023,5 px stara para `max-width: 63.9375rem` / `min-width: 64rem` nie
+     lapala sie nigdzie, czyli korpus i nawigacja rozjezdzaly sie dokladnie
+     w tym punkcie, ktory ta regula mial zszyc. */
   .site-nav-toggle,
   .site-nav-panel {
     display: none;
   }
-  @media (max-width: 63.9375rem) {
+  @media not all and (min-width: 64rem) {
     .site-nav {
       display: none;
     }

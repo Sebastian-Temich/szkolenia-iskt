@@ -89,8 +89,23 @@ export const AUDIENCE_COPY: Record<Audience, AudienceCopy> = {
           "[DEMO] Wypełnij formularz — odpowiemy na podany adres e-mail.",
       },
       {
+        /**
+         * ISK-426 / I-1 (druga ofiara tej samej luki). Bylo „Ucz sie
+         * z ekspertem” — rendered jako `<h3 className="home-step-title">`
+         * na `/`. To ta SAMA ocena kompetencji, ktora ISK-409 / CR-I2 usunal
+         * z punktow hero („Prowadzenie przez ekspertów”); przezyla tylko
+         * dlatego, ze tamta asercja byla zawezona do `.home-hero-points`.
+         * Rozszerzenie bramki na kazdy naglowek na `/` zlapalo ja od razu.
+         *
+         * „Prowadzacy” to FAKT O KATALOGU, nie ocena: kolumna
+         * `training_trainers` istnieje, a widok szczegolu renderuje z niej
+         * sekcje „Prowadzący” — dokladnie to samo oparcie, ktore ma przyjety
+         * punkt hero „Prowadzący wskazani przy szkoleniu”. Ocena jakosci
+         * („praktyków”) zostaje w `description`, bo akapit wolno oznaczyc
+         * `[DEMO]`, a naglowka nie.
+         */
         icon: "book-open",
-        title: "Ucz się z ekspertem",
+        title: "Ucz się z prowadzącym",
         description:
           "[DEMO] Zajęcia prowadzone przez praktyków, z materiałami do pracy własnej.",
       },
