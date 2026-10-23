@@ -20,18 +20,56 @@
  *  1. zerowa geometria — element nie jest widoczny, wiec nie ma czego mierzyc;
  *  2. `position: fixed` — element jest wzgledem kadru, nie wzgledem dokumentu,
  *     i nie wnosi przewijania (tak tez liczy to przegladarka);
- *  3. przyciecie przez PRZODKA WEWNATRZ `body` (`overflow-x` inne niz
- *     `visible`) — ornament celowo wypuszczony poza sekcje, ktora go obcina, nie
- *     tworzy przewijania strony. `html` i `body` sa z tej reguly WYLACZONE
- *     swiadomie: przyciecie na korzeniu to dokladnie to alibi, ktorego ta bramka
- *     nie przyjmuje.
+ *  3. ORNAMENT przyciety przez przodka wewnatrz `body` — patrz nizej.
+ *     `html` i `body` sa z reguly przycinania WYLACZONE swiadomie: przyciecie
+ *     na korzeniu to dokladnie to alibi, ktorego ta bramka nie przyjmuje.
+ *
+ * ZAKRES WYJATKU NA PRZYCIECIE — ZAWEZONY (ISK-413 / CR-I3)
+ * Wyjatek numer 3 zwalnial pierwotnie KAZDY element, ktorego dowolny przodek ma
+ * `overflow-x` inne niz `visible`. Zestawione z arkuszem nie byl to waski
+ * wyjatek, a amnestia dla calych poddrzew:
+ *   - `.home-hero { overflow: hidden }` zwalnialo cale hero razem z `h1`,
+ *     leadem i rzedem CTA;
+ *   - `.ui-card-flush { overflow: hidden }` na `.training-card` zwalnialo
+ *     wnetrze KAZDEJ karty szkolenia, z jej tytulem i cena;
+ *   - `overflow-y: auto` wymusza wyliczone `overflow-x: auto`, co po cichu
+ *     zwalnialo dowolne poddrzewo bez ani jednej widocznej zmiany w arkuszu.
+ *
+ * Zwolnienie wymaga teraz DWOCH warunkow naraz:
+ *
+ *  a) element jest ORNAMENTEM — `pointer-events: none` ORAZ lezy w poddrzewie
+ *     `aria-hidden="true"`. Taki element nie istnieje ani dla czytnika ekranu,
+ *     ani dla myszy, ani dla zaznaczenia, wiec przyciecie go nie zabiera
+ *     uzytkownikowi niczego. Naglowek, rzad CTA i tytul karty nie spelniaja
+ *     ZADNEGO z tych warunkow, wiec zaden nie przeslizgnie sie przez ten
+ *     wyjatek nawet w calkowicie przycietej sekcji;
+ *
+ *  b) przycinajacy przodek ma `overflow-x` rowne `hidden` albo `clip`.
+ *     `auto` i `scroll` NIE sa alibi: tworza wlasny kontener przewijania, czyli
+ *     tresc jest osiagalna dopiero po przewinieciu sekcji w poziomie — to
+ *     osobny defekt (tak wlasnie znikala kolumna „Akcje", ISK-364 / P8), a nie
+ *     usprawiedliwienie. Ten warunek zamyka zarazem pulapke `overflow-y: auto`.
+ *
+ * Ornamenty sa dalej realnie zwalniane: `.home-hero-glow-b` ma przy 1440 px
+ * `right: -160px` i prawa krawedz 1600 px przy kadrze 1440 px. Wyjatek zostaje
+ * — ale juz tylko dla tego, co faktycznie jest ozdoba. Lista zwolnionych wraca
+ * w `zwolnieni`, zeby amnestia byla WIDOCZNA w asercji, a nie cicha.
+ *
+ * Drugie ramie tej bramki (`widoki-publiczne-rwd.spec.ts`) wstrzykuje przez
+ * helpery z konca tego pliku element za szeroki w kazde poddrzewo przycinane
+ * przez przodka i wymaga, zeby detektor go ZGLOSIL.
  */
 import type { Page } from "@playwright/test";
 
 export type Przepelnienie = {
+  /** `clientWidth` korzenia — kadr, w ktorym policzono prostokaty. */
   kadr: number;
+  /** Pomiar DODATKOWY, patrz komentarz przy asercji w specu. */
   scrollWidth: number;
+  /** Elementy wychodzace poza kadr, ktorych nic nie usprawiedliwia. */
   winowajcy: string[];
+  /** Ornamenty zwolnione przez zawezony wyjatek — amnestia jawna, nie cicha. */
+  zwolnieni: string[];
 };
 
 export async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
@@ -61,24 +99,45 @@ export async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
       return czesci.join(" > ").slice(0, 220);
     };
 
-    /** Czy jakis przodek WEWNATRZ `body` obcina poziomo (patrz naglowek). */
-    const przycietyPrzezSekcje = (el: Element) => {
+    // Tylko te dwie wartosci obcinaja BEZ dawania przewijania. `auto`/`scroll`
+    // oznaczaja "tresc jest, trzeba przewinac sekcje" — to defekt, nie alibi.
+    const OBCINA = new Set(["hidden", "clip"]);
+
+    /** Najblizszy przodek WEWNATRZ `body`, ktory obcina poziomo (albo `null`). */
+    const przycinajacyPrzodek = (el: Element): Element | null => {
       let node = el.parentElement;
       while (node && node !== document.body) {
-        const overflowX = getComputedStyle(node).overflowX;
-        if (overflowX !== "visible") return true;
+        if (OBCINA.has(getComputedStyle(node).overflowX)) return node;
         node = node.parentElement;
       }
-      return false;
+      return null;
     };
 
+    /**
+     * Ornament: nie ma go w drzewie dostepnosci i nie da sie go wskazac.
+     * `closest` obejmuje tez sam element, wiec `aria-hidden` postawione
+     * bezposrednio na poswiacie liczy sie tak samo jak na jej opakowaniu.
+     */
+    const ornament = (el: Element) =>
+      getComputedStyle(el).pointerEvents === "none" &&
+      el.closest('[aria-hidden="true"]') !== null;
+
     const winowajcy: string[] = [];
+    const zwolnieni: string[] = [];
     for (const el of Array.from(document.querySelectorAll("*"))) {
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) continue;
       if (getComputedStyle(el).position === "fixed") continue;
       if (rect.right <= limit && rect.width <= limit) continue;
-      if (przycietyPrzezSekcje(el)) continue;
+
+      const obcinajacy = przycinajacyPrzodek(el);
+      if (obcinajacy && ornament(el)) {
+        if (zwolnieni.length < 12) {
+          zwolnieni.push(`${opis(el)} — obcinany przez ${opis(obcinajacy)}`);
+        }
+        continue;
+      }
+
       winowajcy.push(
         `${sciezka(el)} — right=${Math.round(rect.right)}, width=${Math.round(
           rect.width,
@@ -92,6 +151,99 @@ export async function zmierzPrzepelnienie(page: Page): Promise<Przepelnienie> {
       kadr,
       scrollWidth: document.documentElement.scrollWidth,
       winowajcy,
+      zwolnieni,
     };
   });
+}
+
+/**
+ * Oznacza KAZDY kontener przycinajacy poziomo atrybutem
+ * `data-isk413-obcina="<i>"` i oddaje liste ich opisow.
+ *
+ * Drugie ramie nie dostaje listy selektorow na sztywno. Gdyby ja dostalo,
+ * zestarzalaby sie po pierwszej zmianie arkusza i ramie przestaloby pokrywac
+ * nowe poddrzewa, dalej swiecac na zielono. Przyklad z tego repozytorium:
+ * `.ui-panel { overflow: hidden }` (`globals.css`) nie jest przypisana ZADNEMU
+ * elementowi w `app/` ani `components/` — selektor wskazany w karcie M4b
+ * celowal w martwa regule, a prawdziwe poddrzewo (`.home-hero-inner`) nie bylo
+ * wymienione wcale.
+ */
+export async function oznaczKonteneryObcinajace(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const OBCINA = new Set(["hidden", "clip"]);
+    const opis = (el: Element) => {
+      const klasy = Array.from(el.classList).slice(0, 4).join(".");
+      return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${
+        klasy ? `.${klasy}` : ""
+      }`;
+    };
+
+    const opisy: string[] = [];
+    for (const el of Array.from(document.body.querySelectorAll("*"))) {
+      // TYLKO elementy HTML. `<svg>` ma w wyliczonym stylu `overflow-x: hidden`,
+      // wiec trafial tu jako "kontener przycinajacy" — a wstrzyknietego `<div>`
+      // nie uklada jako pudelka HTML (zerowa geometria), czyli ramie padalo na
+      // wlasnym narzedziu, nie na defekcie produktu. Zmierzone w CI: trzy
+      // czerwone testy z komunikatem „wstrzyknięty w svg NIE zostal zgloszony".
+      if (!(el instanceof HTMLElement)) continue;
+      if (!OBCINA.has(getComputedStyle(el).overflowX)) continue;
+      const rect = el.getBoundingClientRect();
+      // Kontener o zerowej geometrii nie moze niczego pokazac ani ukryc.
+      if (rect.width === 0 || rect.height === 0) continue;
+      el.setAttribute("data-isk413-obcina", String(opisy.length));
+      opisy.push(opis(el));
+    }
+    return opisy;
+  });
+}
+
+/**
+ * Wstrzykuje do wskazanego kontenera element SZERSZY od kadru. `tresc` daje
+ * element zwyczajny (ma byc zlapany), `ornament` — element z `aria-hidden`
+ * i `pointer-events: none` (ma byc zwolniony).
+ *
+ * Oddaje tez ZMIERZONA geometrie wstrzyknietego elementu. Kontener, ktory nie
+ * potrafi ulozyc pudelka HTML (element zastapiony w rodzaju `<img>`), oddaje
+ * zerowa szerokosc — wolajacy ma wtedy ten kontener POMINAC, a nie zglaszac
+ * jako slepote detektora. Bez tego pomiaru narzedzie myli „nie da sie tu nic
+ * pokazac" z „detektor tego nie widzi".
+ */
+export async function wstrzyknijZaSzeroki(
+  page: Page,
+  opts: { indeks: number; rodzaj: "tresc" | "ornament" },
+): Promise<{ id: string; width: number; height: number }> {
+  return page.evaluate(({ indeks, rodzaj }) => {
+    const host = document.querySelector(`[data-isk413-obcina="${indeks}"]`);
+    if (!host) throw new Error(`brak kontenera o indeksie ${indeks}`);
+
+    const el = document.createElement("div");
+    const id = `isk413-${rodzaj}-${indeks}`;
+    el.id = id;
+    // Kadr + 200 px: z zapasem ponad `limit = kadr + 1`, zeby wynik nie zalezal
+    // od zaokraglen subpikselowych.
+    const szerokosc = document.documentElement.clientWidth + 200;
+    // `flex: 0 0 auto` oraz `min-width` sa KONIECZNE, nie ozdobne: w kontenerze
+    // `display: flex` goly `width` jest tylko baza, ktora `flex-shrink: 1`
+    // sciska do rozmiaru rodzica — probka zmiescilaby sie w kadrze i ramie
+    // zglosiloby slepote detektora tam, gdzie nie ma czego zglaszac.
+    el.style.cssText = `flex:0 0 auto;min-width:${szerokosc}px;width:${szerokosc}px;height:40px;`;
+    if (rodzaj === "ornament") {
+      el.setAttribute("aria-hidden", "true");
+      el.style.pointerEvents = "none";
+    } else {
+      // Element tresci: zostaje w drzewie dostepnosci i jest wskazywalny.
+      el.textContent = "ISK-413 element kontrolny szerszy od kadru";
+    }
+    host.appendChild(el);
+
+    const rect = el.getBoundingClientRect();
+    return { id, width: rect.width, height: rect.height };
+  }, opts);
+}
+
+/** Zdejmuje wstrzyknieta kontrolke; strona wraca do stanu produktu. */
+export async function usunWstrzyknieta(page: Page, id: string): Promise<void> {
+  await page.evaluate((wybrany) => {
+    document.getElementById(wybrany)?.remove();
+  }, id);
 }
