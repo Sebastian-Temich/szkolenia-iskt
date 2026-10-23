@@ -148,8 +148,21 @@ for (const [name, path, status] of widokiBledu) {
     // Dowod, ze to NASZ ekran, a nie wbudowany Next.js: tamten ma angielski
     // komunikat i zero naszych klas. Bez tej asercji usuniecie
     // `app/not-found.tsx` nie zmienilo by wyniku testu.
-    await expect(page.locator(".empty-state-title")).toBeVisible();
+    //
+    // ISK-412 / UX-Z1 — marker przeniesiony z `.empty-state-title` na
+    // `.ui-page-title`. Oba ekrany 404 mialy H1 o rozmiarze 21,6 px
+    // (`.empty-state-title`) przy 48 px standardu strony i bramka UX kazala to
+    // ujednolicic, wiec oba skladaja sie teraz z `NotFoundScreen` →
+    // `PageHeader`. Stara klasa celowo tu nie wraca: pinowala wlasnie ten
+    // defekt, a jej obecnosc oznaczalaby regres skali naglowka.
+    await expect(page.locator("h1.ui-page-title")).toBeVisible();
     await expect(page.locator("h1")).toContainText("Nie znaleźliśmy");
+
+    // Powloka tez jest czescia UX-Z1: globalny 404 renderowal sie BEZ
+    // naglowka i stopki, a 404 szczegolu szkolenia z pelna nawigacja. Stopka
+    // dowodzi, ze oba maja dzis te sama powloke — i trzyma `SiteFooter`
+    // odporny na blad zapytania (inaczej 404 zamienialoby sie w 500).
+    await expect(page.locator("footer")).toBeVisible();
 
     const results = await scan(page);
     const critical = results.violations.filter(
