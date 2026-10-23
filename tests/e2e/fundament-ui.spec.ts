@@ -436,8 +436,12 @@ test.describe("ISK-400 — tokeny rytmu i formy", () => {
     expect(zastosowane.boxShadow).toContain("12px 30px -10px");
 
     // Gradient marki: green-500 -> green-700 (60%) -> green-900, 120deg.
+    // ISK-410: pierwszy stopien to `rgb(82, 128, 28)` (#52801c), nie
+    // `rgb(84, 132, 29)` (#54841d). Stara wartosc dawala bieli 4,4726:1 przy
+    // wymaganych 4,5:1, wiec token zostal przyciemniony — ta asercja celowo
+    // trzyma konkretne liczby, zeby zmiana tokenu nie przeszla niezauwazona.
     expect(zastosowane.backgroundImage).toContain("120deg");
-    expect(zastosowane.backgroundImage).toContain("rgb(84, 132, 29) 0%");
+    expect(zastosowane.backgroundImage).toContain("rgb(82, 128, 28) 0%");
     expect(zastosowane.backgroundImage).toContain("rgb(30, 85, 29) 60%");
     expect(zastosowane.backgroundImage).toContain("rgb(10, 52, 0) 100%");
   });

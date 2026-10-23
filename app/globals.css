@@ -6,7 +6,29 @@
   --color-green-200: #d5ebac;
   --color-green-300: #a9ce6e;
   --color-green-400: #7fa83a;
-  --color-green-500: #54841d;
+  /* ISK-410 / CR-B1: bylo `#54841d` — luminancja 0,184761, czyli biel na tym
+     kolorze daje 4,4726:1 przy wymaganych 4,5:1 (WCAG 2.1, 1.4.3, tekst
+     normalny). Brakowalo 0,03 i przegrywal KAZDY nosnik marki naraz:
+     `.site-brand-mark` i `.footer-brand-mark` (13 px/800), `.panel-avatar`
+     (12 px/700), `.ui-panel-brand`, `.ui-iconchip-brand` oraz `.hero-panel`
+     — wszystkie biora kolor stad przez `--gradient-brand` (pierwszy stopien)
+     albo wprost. W druga strone bylo tak samo: green-500 jako TEKST na bieli
+     (`.prose li::marker`, `.detail-module-items li::marker`) to ten sam
+     4,4726:1, bo stosunek kontrastu jest symetryczny.
+
+     Dlatego poprawiamy TOKEN, a nie pojedynczy stopien gradientu: jedno
+     zrodlo prawdy zamyka obie strony i szesc nosnikow jednym pomiarem.
+     Alternatywa z karty — podniesc tekst do klasy „duzy" (prog 3:1) — jest
+     odrzucona: wymagalaby zmiany typografii znaku marki, czyli tozsamosci
+     wizualnej zatwierdzonej przez UX, zeby obejsc problem koloru.
+
+     `#52801c` to luminancja 0,173160 → biel 4,7051:1 (zapas 0,2 nad progiem,
+     wiec zaokraglenia renderera go nie zjedza). Roznica wobec starej wartosci
+     to (2, 4, 1) na 255 kanalu — wizualnie nierozpoznawalna, tozsamosc marki
+     zostaje. Pozostale stopnie gradientu sa ciemniejsze (green-700 8,85:1,
+     green-900 13,96:1), wiec green-500 jest przypadkiem najgorszym i to on
+     wyznacza prog calej powierzchni. */
+  --color-green-500: #52801c;
   --color-green-600: #2e6b1e;
   --color-green-700: #1e551d;
   --color-green-800: #123f14;
@@ -2064,10 +2086,21 @@
     color: var(--color-text-on-brand);
     box-shadow: none;
   }
-  /* Welon na tle zielonego panelu — we wzorcu nazwane "glass". */
+  /* Welon na tle zielonego panelu — we wzorcu nazwane "glass".
+     ISK-410: welon byl BIALY (`rgb(255 255 255 / 8%)`) i rozjasnial markowy
+     gradient z `rgb(82, 128, 28)` do `rgb(96, 138, 46)`, zbijajac biel tekstu
+     do 4,054:1. Nikt tego nie widzial, bo do tej pory zaden pomiar nie skladal
+     welonu z gradientem pod spodem — zlapala to dopiero bramka tras
+     publicznych z tej karty.
+     Jasny welon na powierzchni markowej jest z AA nie do pogodzenia: nawet 2%
+     zostawia 4,532:1, czyli zero zapasu. Dlatego welon jest ciemny — karta
+     nadal odcina sie od panelu (zostaje jasna krawedz 16% i `blur`), ale tlo
+     idzie W DOL, do `rgb(74, 115, 25)`, co daje bieli 5,577:1.
+     UWAGA: `.home-funding-card` POWTARZA ten welon wlasna regula, ktora stoi
+     dalej w pliku i wygrywa kaskade — obie musza trzymac te sama wartosc. */
   .ui-card-glass {
     border-color: rgb(255 255 255 / 16%);
-    background: rgb(255 255 255 / 8%);
+    background: rgb(0 0 0 / 10%);
     color: var(--color-text-on-brand);
     backdrop-filter: blur(4px);
     box-shadow: none;
@@ -2159,7 +2192,22 @@
     background: currentColor;
   }
   .ui-eyebrow-on-dark {
-    color: var(--color-green-200);
+    /* ISK-410: bylo `green-200` (#d5ebac) — na markowym gradiencie 3,65:1
+       przy 13 px/600, czyli tekscie NORMALNYM (prog 4,5:1). Znalazl to dopiero
+       kubelek `incomplete` z axe, ktorego nikt wczesniej nie czytal.
+
+       Zadna zielen z palety tego nie ratuje — policzone na `green-500`
+       (#52801c): green-200 3,65:1, green-100 3,91:1, a nawet niemal biale
+       green-50 (#f2f8ec) tylko 4,35:1. Prog 4,5:1 na tej powierzchni
+       osiaga WYLACZNIE czysta biel (4,705:1), wiec wybor jest wymuszony
+       arytmetyka, a nie gustem.
+
+       Nadkreslenie nadal odrozni sie od tytulu wielkoscia, gruboscia,
+       wersalikami i swiatlem miedzyliterowym — niesie je `.ui-eyebrow`.
+       `onDark` ma jedno uzycie w produkcie (panel dofinansowan na
+       `.ui-panel-brand`), a `.ui-panel-dark` nie ma zadnego, wiec zawezanie
+       selektora do konkretnego panelu byloby pusta komplikacja. */
+    color: var(--color-text-on-brand);
   }
   .ui-section-heading {
     display: flex;
@@ -2221,7 +2269,11 @@
     color: var(--color-text-on-brand);
   }
   .ui-section-heading-on-dark .ui-section-lead {
-    color: rgb(255 255 255 / 90%);
+    /* ISK-410: bylo `rgb(255 255 255 / 90%)` — na markowym gradiencie sklada
+       sie do `rgb(238, 243, 233)` i daje 4,16:1 przy 18,4 px/400 (to NIE jest
+       „duzy tekst": prog 18,66 px wypada tuz powyzej). Przygaszanie bieli na
+       powierzchni markowej kosztuje wiecej, niz daje — pelna biel to 4,705:1. */
+    color: var(--color-text-on-brand);
   }
 
   /* --------------------------------------------------------- page header -- */
@@ -3028,7 +3080,14 @@
     justify-content: center;
     height: 96px;
     background: var(--gradient-brand);
-    color: rgba(255, 255, 255, 0.92);
+    /* ISK-410 / CR-B1: bylo `rgba(255, 255, 255, 0.92)`. Welon 8% sklada sie
+       na gradiencie do ~`rgb(241, 245, 237)` i zbijal kontrast ikony do
+       4,2589:1 nawet PO przyciemnieniu green-500. Pasmo jest `aria-hidden` i
+       niesie wylacznie ikone, wiec formalnie obowiazuje je 1.4.11 (3:1), nie
+       1.4.3 — ale 8% przezroczystosci nie daje tu nic wizualnie, a zostawia
+       powierzchnie, ktora wymagalaby wyjatku w bramce. Pelna biel to te same
+       4,7051:1 co reszta marki, czyli zero wyjatkow do uzasadniania. */
+    color: var(--color-text-on-brand);
   }
   .training-card-body {
     display: flex;
@@ -3181,7 +3240,11 @@
     padding: 1.5rem;
     border: 1px solid rgb(255 255 255 / 16%);
     border-radius: var(--radius-card);
-    background: rgb(255 255 255 / 8%);
+    /* ISK-410: ta regula POWTARZA welon z `.ui-card-glass` i — stojac dalej w
+       pliku — to ona faktycznie maluje karte. Przyciemnienie samego
+       `.ui-card-glass` nic nie dalo; zmierzone, bo pomiar wciaz pokazywal
+       `rgb(96, 138, 46)`. Obie reguly musza trzymac te sama wartosc. */
+    background: rgb(0 0 0 / 10%);
     color: var(--color-text-on-brand);
     backdrop-filter: blur(4px);
   }
@@ -3192,7 +3255,10 @@
   }
   .home-funding-text {
     margin: 0;
-    color: rgb(255 255 255 / 85%);
+    /* ISK-410: bylo `rgb(255 255 255 / 85%)`. Przygaszona biel na rozjasnionym
+       welonem gradiencie dawala 3,42:1 — najgorszy pomiar na calej stronie
+       glownej. Po sciemnieniu welonu i pelnej bieli: 5,577:1. */
+    color: var(--color-text-on-brand);
     font-size: 14px;
     line-height: 1.55;
   }
@@ -3365,7 +3431,13 @@
     text-decoration: none;
   }
   .detail-crumb-sep {
-    color: var(--color-green-300);
+    /* ISK-410: bylo `green-300` (#a9ce6e) na pasmie `green-50` — 1,65:1, czyli
+       separator praktycznie niewidoczny. `green-600` to 5,996:1 i nadal jest
+       wyraznie lzejszy od `green-700` linkow okruszkow (8,18:1), wiec
+       hierarchia „separator ciszej niz link" zostaje zachowana.
+       Drugie uzycie `green-300` jako tekstu (`.detail-funding-title`) stoi na
+       ciemnym tle i przechodzi — dlatego zmieniona jest ta regula, nie token. */
+    color: var(--color-green-600);
   }
   .detail-badges {
     display: flex;
