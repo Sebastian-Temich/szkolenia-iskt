@@ -30,6 +30,9 @@ const requireAdmin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/public-catalog", () => ({ getTrainers }));
 vi.mock("@/lib/seo", () => ({ buildPageMetadata: () => ({}) }));
 vi.mock("@/lib/panel/auth", () => ({ requireAdmin }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
 // Server Actions wiersza siegaja do Supabase i `next/cache`; w tescie liczy
 // sie sama tresc krazka, wiec akcje sa zaslepione.
 vi.mock("@/app/panel/(admin)/actions", () => ({
