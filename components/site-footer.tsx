@@ -30,7 +30,21 @@ import { getCategories } from "@/lib/public-catalog";
 async function footerCategories() {
   try {
     return await getCategories();
-  } catch {
+  } catch (error) {
+    /**
+     * ISK-426 / D-1 (M4b-R): `catch` bylo PUSTE. Sama degradacja jest tu
+     * sluszna — stopka stoi na KAZDEJ stronie publicznej, wiec rzucenie
+     * wyjatkiem zamienialoby awarie bazy w 500 takze na
+     * `app/not-found.tsx`. Ale bez logu awaria kolumny obszarow nie
+     * zostawiala ZADNEGO sladu: stopka wyglada wtedy poprawnie, tylko jest
+     * o kolumne krotsza, i nikt sie o tym nie dowiaduje.
+     *
+     * `console.error` w komponencie serwerowym idzie do logu serwera, nie do
+     * przegladarki, i nie zmienia renderu. Scenariusz „build bez sekretow”
+     * opisany wyzej nie jest tu halasem: `getCategories()` oddaje wtedy
+     * pusta liste bez wyjatku, wiec ta galaz w ogole sie nie wykonuje.
+     */
+    console.error("[site-footer] getCategories() nie powiodlo sie", error);
     return [];
   }
 }

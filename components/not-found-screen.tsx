@@ -30,6 +30,19 @@ type Props = {
  * `public-pages.spec.ts` sprawdza ten tekst RAZEM ze statusem 404, czyli
  * dowodzi, ze nieopublikowane szkolenie nie tylko wyglada na nieobecne, ale
  * faktycznie oddaje 404 (ochrona szkicow). Zmiana tego napisu rozbroi bramke.
+ *
+ * NADTYTUL „404” MA KRESKE — SWIADOMIE (ISK-426 / D-4)
+ * Poprzednia wersja ekranu wylaczala ja jawnie (`dash={false}`), bo „404” bylo
+ * wtedy kodem bledu nad bezstylowym komunikatem, a nie etykieta sekcji.
+ * Ujednolicenie z ISK-412 odwrocilo te decyzje MILCZACO: `PageHeader` oddaje
+ * `Eyebrow` z `dash` domyslnie `true` (`components/ui/section-heading.tsx:23`),
+ * wiec kreska wrocila sama z siebie. Zostaje — i jest to wybor, nie
+ * przeoczenie: ekran 404 jest teraz zwyklym widokiem o tej samej powloce
+ * i tej samej skali naglowka, co katalog, trenerzy, kontakt i polityka
+ * prywatnosci, a wszystkie cztery rysuja kreske przy nadtytule. Wylaczenie
+ * jej TYLKO tutaj przywrociloby dokladnie ten rozjazd dwoch ekranow, ktory
+ * UX-Z1 kazal zlikwidowac. Zapisane, bo przy poprzedniej zmianie ta decyzja
+ * zniknela bez sladu.
  */
 export function NotFoundScreen({ title, children, actions }: Props) {
   return (

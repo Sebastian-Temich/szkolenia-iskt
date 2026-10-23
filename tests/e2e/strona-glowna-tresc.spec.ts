@@ -133,6 +133,112 @@ test.describe("D1: strona glowna nie stwierdza rzeczy, ktorych nie ma w danych",
     }
   });
 
+  /**
+   * ISK-426 / I-1 — TA SAMA ZASADA, ALE NA CALEJ STRONIE.
+   *
+   * Asercja wyzej jest zawezona do `.home-hero-points`, a skan
+   * calostronicowy („zadne twierdzenie o popularnosci”) wylicza tylko frazy
+   * o popularnosci. Przez te dwie dziury „Online i stacjonarnie” wrocilo na
+   * `/` jako `<h3>` karty pasma `#zakres`, a „Ucz sie z ekspertem” nigdy
+   * z niego nie znikneło (`lib/audience.ts`, `<h3 class="home-step-title">`)
+   * — ZADNA bramka nie zaswiecila sie na jedno ani drugie.
+   *
+   * DLACZEGO WLASNIE NAGLOWKI, A NIE CALA TRESC
+   * Doktryna pliku dopuszcza twierdzenie, ktore nosi `[DEMO]` (lead pasma
+   * i akapity kart je nosza). Naglowek jest jednak jedynym miejscem, gdzie
+   * oznaczyc go NIE DA SIE: test „[DEMO] nie stoi w zadnym naglowku” nizej
+   * tego zabrania. Te dwie asercje razem daja regule nie do obejscia:
+   * twierdzenie o formacie zajec albo o jakosci MUSI zjechac do oznaczonego
+   * akapitu, bo w `h1/h2/h3` nie ma dla niego legalnej formy.
+   *
+   * NAZWY WLASNE Z BAZY SA WYLACZONE, I TO MIERZONE, NIE ZALOZONE
+   * `h3` obszarow i wyroznionych szkolen to `categories.name`
+   * i `trainings.title` — dane, nie copy. Kategoria nazwana w panelu
+   * „Szkolenia online” nie jest twierdzeniem marketingowym (ta sama zasada,
+   * co w UX-B3: znacznik idzie przy twierdzeniach, nie przy nazwach). Zbior
+   * do wylaczenia pobieram z bazy tym samym helperem, co bramka UX-B3, wiec
+   * nie da sie go po cichu rozszerzyc, wpisujac wyjatek do testu.
+   */
+  test("zaden naglowek na / nie obiecuje formatu zajec ani nie ocenia jakosci", async ({
+    page,
+  }) => {
+    const nazwyZBazy = new Set(
+      (await nazwyWlasneNaStronieGlownej()).map(({ nazwa }) => nazwa),
+    );
+
+    await page.goto("/");
+    const wszystkieNaglowki = await page
+      .locator("h1, h2, h3")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => (node.textContent ?? "").trim()),
+      );
+    const naglowkiCopy = wszystkieNaglowki.filter(
+      (text) => text.length > 0 && !nazwyZBazy.has(text),
+    );
+
+    // KONTROLA WAKUACYJNOSCI 1: strona, ktora nie wyrenderowala sie wcale,
+    // dalaby pusta liste i zielona petle nizej.
+    expect(
+      naglowkiCopy.length,
+      "brak naglowkow redakcyjnych na / — bramka nie mialaby czego mierzyc",
+    ).toBeGreaterThan(5);
+
+    // KONTROLA WAKUACYJNOSCI 2: naglowki, ktore niosly naruszenie, musza na
+    // stronie BYC. Bez tego usuniecie calego pasma `#zakres` albo kroku
+    // procesu przeszloby jako „naprawa”.
+    for (const naglowek of ["Forma prowadzenia", "Ucz się z prowadzącym"]) {
+      expect(
+        naglowkiCopy,
+        `/: brak naglowka „${naglowek}” — asercje negatywne nizej byly by prawdziwe takze dla strony bez tej sekcji`,
+      ).toContain(naglowek);
+    }
+
+    for (const fraza of [
+      "Online i stacjonarnie",
+      "stacjonarn",
+      "online",
+      "zdalnie",
+      "hybrydow",
+      "Praktyczne programy",
+      "ekspert",
+    ]) {
+      const trafienia = naglowkiCopy.filter((text) =>
+        text.toLowerCase().includes(fraza.toLowerCase()),
+      );
+      expect(
+        trafienia,
+        `/: naglowek z fraza „${fraza}” — model danych nie ma kolumny formatu dostawy ani oceny jakosci, a naglowka NIE WOLNO oznaczyc [DEMO]; twierdzenie nalezy przeniesc do oznaczonego akapitu`,
+      ).toEqual([]);
+    }
+  });
+
+  /**
+   * ISK-426 / I-1, strona pozytywna: twierdzenie o formie zajec zostalo
+   * PRZENIESIONE do oznaczonego akapitu, a nie skasowane. Bez tej asercji
+   * bramka wyzej nagradzalaby ciche usuniecie informacji.
+   */
+  test("forma zajec jest nadal podana, ale w akapicie oznaczonym [DEMO]", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const akapity = await page
+      .locator("#zakres .home-scope-text")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => (node.textContent ?? "").trim()),
+      );
+    const oFormie = akapity.filter((text) => /online|stacjonarn/i.test(text));
+
+    expect(
+      oFormie.length,
+      "#zakres: zaden akapit nie mowi o formie zajec — informacja zniknela, zamiast zjechac z naglowka do oznaczonej tresci",
+    ).toBe(1);
+    expect(
+      oFormie[0],
+      "#zakres: akapit o formie zajec bez znacznika [DEMO] — nieoznaczone twierdzenie o kolumnie, ktorej nie ma",
+    ).toContain("[DEMO]");
+  });
+
   test("prog procentowy dofinansowania nie wrocil", async ({ page }) => {
     await page.goto("/");
     const tresc = await trescStrony(page);
