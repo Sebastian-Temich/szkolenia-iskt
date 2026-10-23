@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { publishAuditAction, recordAdminAction } from "@/lib/panel/audit";
 import { requireAdmin } from "@/lib/panel/auth";
 import { invalidatePublicCatalog } from "@/lib/panel/catalog-cache";
 import { isDeleteConfirmed } from "@/lib/panel/confirm-delete";
-import { withFlash } from "@/lib/panel/flash";
+import { type FlashCode, flashCookie, withFlash } from "@/lib/panel/flash";
 import {
   inquiryStatusSchema,
   isAllowedInquiryTransition,
@@ -32,6 +33,24 @@ function refreshCatalog() {
   invalidatePublicCatalog({ revalidatePath, updateTag });
   revalidatePath("/panel/szkolenia");
   revalidatePath("/panel/trenerzy");
+}
+
+/**
+ * Przekierowanie z paskiem potwierdzenia (ISK-414 / CR-I8).
+ *
+ * Bilet jedzie DWOMA kanalami: jednorazowy `nonce` w adresie i para
+ * `<kod>.<nonce>` w ciasteczku `httpOnly`. Sam adres nie wystarcza, wiec
+ * podeslany link „?komunikat=szkolenie-zapisane" nie potwierdza niczego —
+ * cale uzasadnienie w `lib/panel/flash.ts`. Wywolywac WYLACZNIE po udanym
+ * zapisie: funkcja nie konczy sie zwrotem (`redirect` rzuca).
+ */
+async function redirectWithFlash(
+  path: string,
+  code: FlashCode,
+): Promise<never> {
+  const flash = flashCookie(code);
+  (await cookies()).set(flash.name, flash.value, flash.options);
+  redirect(withFlash(path, flash.nonce));
 }
 
 export async function saveCategory(formData: FormData) {
@@ -65,7 +84,7 @@ export async function saveCategory(formData: FormData) {
     entity: "category",
     entityId: savedId,
   });
-  redirect(withFlash("/panel/szkolenia", "kategoria-zapisana"));
+  await redirectWithFlash("/panel/szkolenia", "kategoria-zapisana");
 }
 
 export async function saveTrainer(formData: FormData) {
@@ -97,7 +116,7 @@ export async function saveTrainer(formData: FormData) {
     entity: "trainer",
     entityId: savedId,
   });
-  redirect(withFlash("/panel/trenerzy", "trener-zapisany"));
+  await redirectWithFlash("/panel/trenerzy", "trener-zapisany");
 }
 
 export async function saveTraining(formData: FormData) {
@@ -135,7 +154,7 @@ export async function saveTraining(formData: FormData) {
     );
 
   refreshCatalog();
-  redirect(withFlash("/panel/szkolenia", "szkolenie-zapisane"));
+  await redirectWithFlash("/panel/szkolenia", "szkolenie-zapisane");
 }
 
 /**
@@ -266,16 +285,34 @@ export async function changeInquiryStatus(id: string, nextStatus: string) {
 export async function saveInquiryNote(id: string, formData: FormData) {
   const validId = idSchema.safeParse(id);
   if (!validId.success) fail("Niepoprawny identyfikator.");
-  const parsed = inquiryNoteSchema.safeParse(formData.get("admin_note") ?? "");
+  // ISK-414: BRAK pola to nie to samo, co pole PUSTE. Wczesniej `?? ""`
+  // sprowadzalo oba przypadki do „wyczysc notatke", wiec powtorzone albo
+  // obciete zadanie (ponowienie bez pola, recznie zlozony POST) kasowalo
+  // istniejaca notatke i zapisywalo w dzienniku `cleared: true`. Wyczyszczenie
+  // ma byc decyzja administratora, a nie skutkiem brakujacego pola.
+  const raw = formData.get("admin_note");
+  if (typeof raw !== "string") fail("Brak treści notatki w żądaniu.");
+  const parsed = inquiryNoteSchema.safeParse(raw);
   if (!parsed.success)
     fail(parsed.error.issues[0]?.message ?? "Niepoprawna notatka.");
 
   const { supabase } = await requireAdmin();
-  const { error } = await supabase
+  // `.select("id").single()` zamiast samego `.update().eq()`: RLS filtruje
+  // UPDATE jak WHERE, wiec zapis, ktory nie objal ANI JEDNEGO wiersza (czyjes
+  // cudze zgloszenie, pozycja usunieta w innej karcie), wracal z
+  // `error === null` — czyli cichym sukcesem z wpisem audytu i bannerem
+  // „Zapisano notatkę". `single()` podnosi wtedy blad. Ta sama klasa defektu
+  // byla juz zamknieta dla usuwania (`delete_catalog_item`, nota wyzej).
+  const { data: updated, error } = await supabase
     .from("inquiries")
     .update({ admin_note: parsed.data })
-    .eq("id", validId.data);
-  if (error) fail("Nie udało się zapisać notatki.");
+    .eq("id", validId.data)
+    .select("id")
+    .single();
+  if (error || !updated)
+    fail(
+      "Nie udało się zapisać notatki. Żadna zmiana nie została wprowadzona.",
+    );
 
   revalidatePath(`/panel/zgloszenia/${validId.data}`);
   // `details` NIE nosi tresci notatki: notatka opisuje osobe, ktora zlozyla
@@ -288,5 +325,8 @@ export async function saveInquiryNote(id: string, formData: FormData) {
     entityId: validId.data,
     details: { cleared: parsed.data === null },
   });
-  redirect(withFlash(`/panel/zgloszenia/${validId.data}`, "notatka-zapisana"));
+  await redirectWithFlash(
+    `/panel/zgloszenia/${validId.data}`,
+    "notatka-zapisana",
+  );
 }

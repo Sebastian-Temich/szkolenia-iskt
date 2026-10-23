@@ -37,6 +37,15 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
 }));
 
+// ISK-414: udany zapis wystawia bilet paska potwierdzenia w ciasteczku
+// `panel_flash` (kontrakt biletu ma wlasne testy w `panel-flash` i
+// `panel-inquiry-note-action`). Tutaj wystarczy atrapa magazynu ciasteczek —
+// bez niej `cookies()` leci poza zakresem zadania i caly plik pada na wywolaniu
+// akcji, a nie na jej kontrakcie.
+vi.mock("next/headers", () => ({
+  cookies: () => Promise.resolve({ set: vi.fn(), get: vi.fn() }),
+}));
+
 vi.mock("@/lib/panel/catalog-cache", () => ({
   invalidatePublicCatalog: (...args: unknown[]) => refreshed(...args),
 }));

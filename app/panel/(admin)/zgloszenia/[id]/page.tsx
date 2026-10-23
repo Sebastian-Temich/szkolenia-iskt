@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Field, Icon, Notice, Textarea } from "@/components/ui";
+import { Field, Icon, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/panel/auth";
-import { FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
+import { readPanelFlash } from "@/lib/panel/flash-server";
 import {
   getAllowedInquiryTransitions,
   inquiryStatusSchema,
@@ -11,6 +11,7 @@ import {
 import { toOne } from "@/lib/supabase/embed";
 
 import { changeInquiryStatus, saveInquiryNote } from "../../actions";
+import { PanelFlash } from "../../panel-flash";
 import { SubmitButton } from "../../submit-button";
 
 const labels = {
@@ -35,7 +36,7 @@ export default async function InquiryDetails({
 }) {
   const { id } = await params;
   const { supabase } = await requireAdmin();
-  const flash = flashMessage((await searchParams)[FLASH_PARAM]);
+  const flash = await readPanelFlash(await searchParams);
   const { data: inquiry } = await supabase
     .from("inquiries")
     .select("*,trainings(title)")
@@ -73,11 +74,7 @@ export default async function InquiryDetails({
         </span>
       </div>
 
-      {flash ? (
-        <Notice tone="success" className="panel-flash">
-          {flash}
-        </Notice>
-      ) : null}
+      {flash ? <PanelFlash message={flash} /> : null}
 
       <div className="panel-detail-grid">
         <article className="panel-card">

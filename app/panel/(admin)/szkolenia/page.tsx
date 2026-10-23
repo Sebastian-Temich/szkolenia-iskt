@@ -1,11 +1,12 @@
 import Link from "next/link";
 
-import { Icon, Notice } from "@/components/ui";
+import { Icon } from "@/components/ui";
 import { requireAdmin } from "@/lib/panel/auth";
-import { FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
+import { readPanelFlash } from "@/lib/panel/flash-server";
 import { toOne } from "@/lib/supabase/embed";
 
 import { deleteCatalogItem, setPublished } from "../actions";
+import { PanelFlash } from "../panel-flash";
 import { RowActions } from "../row-actions";
 
 export default async function TrainingsPage({
@@ -14,7 +15,7 @@ export default async function TrainingsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { supabase } = await requireAdmin();
-  const flash = flashMessage((await searchParams)[FLASH_PARAM]);
+  const flash = await readPanelFlash(await searchParams);
   const [{ data: trainings }, { data: categories }] = await Promise.all([
     supabase
       .from("trainings")
@@ -38,14 +39,12 @@ export default async function TrainingsPage({
         </Link>
       </div>
 
-      {/* Pasek potwierdzenia operacji. `Notice` ma `role="status"` —
-          wzorzec renderuje w tym miejscu zwykly `div`, wiec po zapisie
-          czytnik ekranu nie oglasza nic. */}
-      {flash ? (
-        <Notice tone="success" className="panel-flash">
-          {flash}
-        </Notice>
-      ) : null}
+      {/* Pasek potwierdzenia operacji. `Notice` (w `PanelFlash`) ma
+          `role="status"` — wzorzec renderuje w tym miejscu zwykly `div`, wiec
+          po zapisie czytnik ekranu nie oglasza nic. Bilet jest JEDNORAZOWY
+          (ISK-414): bez pasujacego ciasteczka sam `?komunikat=` nie potwierdza
+          niczego, a `PanelFlash` zdejmuje parametr z adresu po renderze. */}
+      {flash ? <PanelFlash message={flash} /> : null}
 
       {!trainings?.length ? (
         <p className="panel-empty">

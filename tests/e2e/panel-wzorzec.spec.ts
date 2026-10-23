@@ -475,6 +475,73 @@ test.describe("M3 — panel wg wzorca", () => {
     }
   });
 
+  /**
+   * ISK-414 / CR-I8 — pasek potwierdzenia jest JEDNORAZOWY i nie da sie go podrobic.
+   *
+   * Do M4b banner stal na samym `?komunikat=<kod>`, wiec link podeslany
+   * administratorowi renderowal „Zapisano szkolenie." bez zadnego zapisu, a po
+   * F5 potwierdzenie wracalo — takze po NIEUDANEJ pozniejszej edycji. Test
+   * mierzy obie polowy naprawy: brak bannera dla recznie zlozonego adresu
+   * i brak bannera po przeladowaniu prawdziwego potwierdzenia.
+   *
+   * Lokalizacja po KLASIE `.panel-flash`, nie po `getByRole("status")` —
+   * `next dev` wstrzykuje wlasne regiony `role="status"` razem z nakladka.
+   */
+  test("pasek potwierdzenia: podrobiony `?komunikat=` milczy, prawdziwy nie wraca po F5", async () => {
+    const inquiry = await createInquiry();
+    try {
+      await page.setViewportSize({ width: 1440, height: 900 });
+
+      // 1. Linki z kodami wprost ze zamknietego zbioru — zero bannerow.
+      const forged = [
+        ["/panel/szkolenia", "szkolenie-zapisane"],
+        ["/panel/trenerzy", "trener-zapisany"],
+        [`/panel/zgloszenia/${inquiry.id}`, "notatka-zapisana"],
+      ] as const;
+      for (const [path, code] of forged) {
+        await page.goto(`${path}?komunikat=${code}`);
+        // Strona MUSI sie wyrenderowac — inaczej „brak bannera" bylby
+        // spelniony takze przez bialy ekran albo przekierowanie na logowanie.
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+          timeout: actionTimeout,
+        });
+        await expect(
+          page.locator(".panel-flash"),
+          `podrobiony adres ${path}?komunikat=${code} pokazal potwierdzenie`,
+        ).toHaveCount(0);
+      }
+
+      // 2. Prawdziwy zapis potwierdzenie pokazuje.
+      await page.goto(`/panel/zgloszenia/${inquiry.id}`);
+      const note = page.getByLabel("Treść notatki");
+      await expect(note).toBeVisible({ timeout: actionTimeout });
+      await note.fill("Notatka do testu paska (ISK-414).");
+      await page.getByRole("button", { name: "Zapisz notatkę" }).click();
+      await expect(page.locator(".panel-flash")).toContainText(
+        "Zapisano notatkę wewnętrzną.",
+        { timeout: actionTimeout },
+      );
+
+      // 3. Bilet zostaje ZUZYTY: `PanelFlash` zdejmuje parametr z adresu.
+      await expect
+        .poll(() => new URL(page.url()).searchParams.has("komunikat"), {
+          timeout: actionTimeout,
+        })
+        .toBe(false);
+
+      // 4. F5 renderuje strone bez bannera — lepkosc zamknieta. Zapis w bazie
+      // zostal, wiec brak bannera nie jest skutkiem nieudanego zapisu.
+      await page.reload();
+      await expect(page.getByLabel("Treść notatki")).toHaveValue(
+        "Notatka do testu paska (ISK-414).",
+        { timeout: actionTimeout },
+      );
+      await expect(page.locator(".panel-flash")).toHaveCount(0);
+    } finally {
+      await serviceClient().from("inquiries").delete().eq("id", inquiry.id);
+    }
+  });
+
   test("submit blokuje sie na czas wysylki (`disabled` + `aria-busy`)", async () => {
     const inquiry = await createInquiry();
     // OSOBNA karta w tym samym kontekscie (czyli z ta sama sesja): przechwycenie

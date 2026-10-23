@@ -1,11 +1,12 @@
 import Link from "next/link";
 
-import { Icon, IconChip, Notice } from "@/components/ui";
+import { Icon, IconChip } from "@/components/ui";
 import { trainerInitials } from "@/lib/format";
 import { requireAdmin } from "@/lib/panel/auth";
-import { FLASH_PARAM, flashMessage } from "@/lib/panel/flash";
+import { readPanelFlash } from "@/lib/panel/flash-server";
 
 import { deleteCatalogItem, setPublished } from "../actions";
+import { PanelFlash } from "../panel-flash";
 import { RowActions } from "../row-actions";
 
 export default async function TrainersPage({
@@ -14,7 +15,7 @@ export default async function TrainersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { supabase } = await requireAdmin();
-  const flash = flashMessage((await searchParams)[FLASH_PARAM]);
+  const flash = await readPanelFlash(await searchParams);
   const { data: trainers } = await supabase
     .from("trainers")
     .select("id,full_name,headline,slug,is_published")
@@ -32,11 +33,7 @@ export default async function TrainersPage({
         </Link>
       </div>
 
-      {flash ? (
-        <Notice tone="success" className="panel-flash">
-          {flash}
-        </Notice>
-      ) : null}
+      {flash ? <PanelFlash message={flash} /> : null}
 
       {!trainers?.length ? (
         <p className="panel-empty">
