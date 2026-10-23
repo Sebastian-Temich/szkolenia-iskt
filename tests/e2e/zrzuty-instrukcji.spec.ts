@@ -299,8 +299,15 @@ test.describe("Zrzuty do instrukcji administratora", () => {
     await page.getByLabel("Dla kogo").fill(TRAINING.audience);
     // Zaznaczamy trenera, zeby zrzut pokazywal sekcje „Trenerzy" w uzyciu —
     // krok 10 instrukcji mowi wprost, ze mozna wybrac wiecej niz jedna osobe.
-    const trainerCheckbox = page.getByRole("checkbox").first();
-    if (await trainerCheckbox.isVisible()) await trainerCheckbox.check();
+    //
+    // Celujemy PO NAZWISKU, a nie `getByRole("checkbox").first()`. Pierwszy
+    // checkbox w formularzu to „Dostepne dofinansowanie", ktore lezy WYZEJ niz
+    // sekcja „Trenerzy" — wariant `.first()` zaznaczal wiec dofinansowanie,
+    // zostawiajac wszystkich trenerow pustych. Test przechodzil, a zrzuty 08/10
+    // pokazywaly odwrotnosc tego, co opisuje komentarz, i doklejaly do zrzutu 12
+    // kafel „DOFINANSOWANIE", ktorego krok instrukcji w ogole nie omawia
+    // (zmierzone na zrzucie 08, ISK-429).
+    await page.getByRole("checkbox", { name: TRAINER.fullName }).check();
     await shoot(page, SHOT.trainingNew);
 
     await page.getByRole("button", { name: "Zapisz szkolenie" }).click();
