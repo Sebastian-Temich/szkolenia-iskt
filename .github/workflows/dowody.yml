@@ -1,0 +1,127 @@
+name: Dowody wizualne
+
+# ISK-428: do odbioru V1 material dowodowy (zrzuty RWD i pomiary panelu) istnial
+# wylacznie na nieopublikowanej galezi jednej maszyny. Testy, ktore go produkuja,
+# sa bramkowane `EVIDENCE_DIR` i w `ci.yml` zawsze sie pomijaja, a artefakty
+# wgrywaja sie tylko `if: failure()` — czyli udany przebieg nie zostawia NICZEGO.
+#
+# Dlaczego osobny przeplyw, a nie zmiana w `ci.yml`:
+# `quality`, `database` i `e2e` sa wymaganymi bramkami na chronionym `main`, wiec
+# kazda ich niestabilnosc blokuje dostawe. Pobieranie obrazow Supabase bywa
+# odrzucane przez rejestry (ISK-398, ISK-420), a tu dokladamy ~30 zrzutow w
+# trzech szerokosciach. Doklejenie tego do `e2e` wydluzyloby KAZDY PR i
+# postawiloby znany punkt awarii przed cala dostawa. Ten przeplyw NIE jest
+# bramka wymagana: jego czerwien nie blokuje nikogo, a dowody i tak powstaja.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      # Pozwala zweryfikowac przeplyw zanim trafi na `main` — bez tego plik
+      # workflow lezy martwy do czasu scalenia i nie da sie go przetestowac.
+      - "ci/isk-428-**"
+
+concurrency:
+  group: dowody-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MAIL_TRANSPORT: log
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+  # Wartosci i strategia rejestrow jak w `ci.yml` (ISK-398/ISK-420) — pelne
+  # uzasadnienie przy definicji `SUPABASE_IMAGE_SOURCE_REGISTRIES` w `ci.yml`.
+  SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+  SUPABASE_IMAGE_SOURCE_REGISTRIES: ghcr.io public.ecr.aws docker.io
+  # Wylacznie dla CI — NIE sa sekretami ISKT (ADR-0004).
+  FORM_TOKEN_SECRET: ci-only-form-token-secret-0123456789-abcdef
+  FORM_THROTTLE_SALT: ci-only-form-throttle-salt-0123456789-abcdef
+  INQUIRY_NOTIFICATION_TO: biuro@example.invalid
+  RODO_CLAUSE_APPROVED: "true"
+
+jobs:
+  dowody:
+    name: dowody
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - run: npm ci
+      - name: Initialize temporary local configuration for E1
+        run: test -f supabase/config.toml || supabase init
+      - name: Log in to ghcr.io for Supabase image pulls
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+      - name: Pre-pull Supabase images serially
+        run: ./scripts/ci-prepull-supabase-images.sh
+      - name: Start local Supabase
+        run: ./scripts/ci-start-supabase.sh
+      - name: Export local-only Supabase variables
+        run: ./scripts/ci-export-supabase-env.sh
+      - run: npm run build
+      - name: Restore Playwright browser cache
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install browser system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      # `EVIDENCE_DIR` odbramkowuje przypadki, ktore w `ci.yml` zawsze sa pomijane.
+      # `PLAYWRIGHT_USE_BUILD` testuje artefakt builda, nie `next dev` (ADR-0005 D2) —
+      # w trybie dev zrzuty lapalyby nakladke deweloperska Next.js.
+      - name: Generate visual evidence
+        env:
+          EVIDENCE_DIR: ${{ github.workspace }}/artefakty/ci/zrzuty
+          PLAYWRIGHT_USE_BUILD: "1"
+        run: npm run test:e2e -- --project=chromium tests/e2e/visual-evidence.spec.ts tests/e2e/panel-wzorzec.spec.ts
+      # Dowod, ze przebieg naprawde cos wyprodukowal. Bez tego "zielony" przeplyw
+      # z zero zrzutami (np. gdy bramka `EVIDENCE_DIR` nie zadziala) wygladalby
+      # na sukces i znow zostalibysmy bez materialu.
+      - name: Verify evidence was actually produced
+        if: always()
+        run: |
+          count=$(find artefakty/ci/zrzuty -type f -name '*.png' 2>/dev/null | wc -l)
+          echo "Zrzuty: $count"
+          if [ "$count" -lt 20 ]; then
+            echo "::error::Oczekiwano >=20 zrzutow, powstalo $count — bramka EVIDENCE_DIR nie zadzialala."
+            exit 1
+          fi
+      - name: Collect local Supabase diagnostics
+        if: failure()
+        run: |
+          mkdir -p test-results/supabase
+          supabase status > test-results/supabase/status.log 2>&1 || true
+          docker ps -a > test-results/supabase/containers.log 2>&1 || true
+          cp supabase-prepull.log test-results/supabase/ 2>/dev/null || true
+          cp supabase-start.log test-results/supabase/ 2>/dev/null || true
+      # `always()`, nie `failure()` — sednem tej karty jest to, ze UDANY przebieg
+      # ma zostawic material. Przy `failure()` dowody ginely razem z runnerem.
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dowody-wizualne-${{ github.sha }}
+          path: |
+            artefakty/ci
+            playwright-report
+            test-results
+          if-no-files-found: warn
+          retention-days: 90
