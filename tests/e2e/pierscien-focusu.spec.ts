@@ -15,8 +15,10 @@
  * uzytkownik, razem ze stopka na `ink-900` i pasmami `green-700`.
  *
  * Test `pokrycie powierzchni ciemnych` pilnuje, zeby bramka nie byla pusta:
- * gdyby przejscie nie dochodzilo do stopki, pozostale asercje bylyby zielone
- * na samych tlach jasnych — czyli dokladnie poza miejscem najglebszej awarii.
+ * gdyby przejscie nie dochodzilo do zadnej ciemnej powierzchni, pozostale
+ * asercje bylyby zielone na samych tlach jasnych — czyli dokladnie poza
+ * miejscem najglebszej awarii. Ten straznik zadzialal od razu: pierwsza wersja
+ * chodzila po `/` i oczekiwala ciemnej stopki, ktora od M2 jest jasna.
  */
 import { expect, test } from "@playwright/test";
 
@@ -81,13 +83,28 @@ for (const [nazwa, sciezka] of WIDOKI_PUBLICZNE) {
   });
 }
 
-test("pokrycie powierzchni ciemnych — pomiar dochodzi do stopki ink-900", async ({
+/**
+ * DLACZEGO SZCZEGOL SZKOLENIA, A NIE STRONA GLOWNA
+ * Pierwsza wersja tego testu chodzila po `/` i oczekiwala ciemnej stopki.
+ * To zalozenie jest nieaktualne: `.site-footer` ma DWIE reguly w tej samej
+ * warstwie `components` i ta pozniejsza (`app/globals.css`, sekcja stopki)
+ * maluje ja na `--color-surface-page`, czyli jasno. Stopka przestala byc
+ * ciemna w M2 i zaden przystanek Tab na `/` nie wypadal na ciemnym tle —
+ * test slusznie zglaszal wtedy, ze bramka byla pusta (zmierzone: 59
+ * przystankow, zero ciemnych).
+ *
+ * Ciemna powierzchnia z elementem fokusowalnym jest dzis na szczegole
+ * szkolenia: karta dofinansowania to `<Card tone="dark">` (`.ui-card-dark`,
+ * tlo `ink-900`) z przyciskiem `variant="light"` w srodku. Na niej wlasnie
+ * zmierzono defekt F9 (1,54:1 — rdzen bez obwodki).
+ */
+test("pokrycie powierzchni ciemnych — pomiar dochodzi do karty ink-900", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/szkolenia/wprowadzenie-do-ai");
   const przystanki = await przejscieFocusem(page, LICZBA_TABOW);
 
-  // `.site-footer` ma `background: var(--color-surface-dark)` (#0e1511,
+  // `.ui-card-dark` ma `background: var(--color-ink-900)` (#0e1511,
   // luminancja 0,006). Prog 0,2 lapie cala rodzine ciemnych powierzchni
   // (`ink-900`, `green-700` = 0,069), a odcina tla jasne.
   const ciemne = przystanki.filter((p) => luminancjaTla(p.tloOtoczenia) < 0.2);
@@ -98,7 +115,9 @@ test("pokrycie powierzchni ciemnych — pomiar dochodzi do stopki ink-900", asyn
       `defekt F9 byl najglebszy (pasmo CTA 1,45:1)`,
   ).not.toEqual([]);
 
-  // Na tych wlasnie przystankach pierscien mial 2,07:1 przed naprawa.
+  // Na tych wlasnie przystankach pierscien mial 1,54:1 przed naprawa: rdzen
+  // `green-800` bez obwodki, bo `box-shadow` skladnika z `@layer components`
+  // wygrywal z obwodka z `@layer base`.
   expect(naruszenia(ciemne)).toEqual([]);
 });
 

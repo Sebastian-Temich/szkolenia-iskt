@@ -183,6 +183,20 @@
   --focus-ring-halo-spread: calc(
     var(--focus-ring-offset) + var(--focus-ring-width) + var(--focus-ring-halo)
   );
+  /* Obwodka jako TOKEN, a nie jako deklaracja `box-shadow` w regule bazowej.
+     Powod jest kaskadowy, nie estetyczny: regula bazowa siedzi w `@layer base`,
+     a kazdy skladnik z cieniem spoczynkowym (`.ui-button-primary`,
+     `.ui-button-light`, `.panel-button`, karty) w `@layer components`. Warstwa
+     pozniejsza wygrywa BEZ WZGLEDU na specyficznosc, wiec obwodka z `base`
+     przegrywala z cieniem skladnika i na ciemnych powierzchniach zostawal sam
+     rdzen: 1,54:1 na `.detail-aside` (zmierzone, e2e PR #43).
+     Skladnik, ktory ma rysowac inny pierscien albo zaden, nadpisuje TEN token
+     (patrz `.ui-field-control:focus-visible`, `.ui-segmented-option input`) —
+     wartosc wlasna elementu bije odziedziczona z `:root` bez udzialu warstw.
+     Kierunek gnicia jest teraz bezpieczny: skladnik, ktory o tokenie zapomni,
+     dostaje pierscien WIDOCZNY, a nie niewidoczny. */
+  --focus-ring-shadow: 0 0 0 var(--focus-ring-halo-spread)
+    var(--focus-ring-contrast);
 
   /* --- Ruch --- */
   --dur-fast: 130ms;
@@ -1152,12 +1166,14 @@
      wlasnego osobna zmienna przez kazdy skladnik z osobna — gnije przy
      pierwszym nowym skladniku, ktory o niej zapomni, i zamienia regresje
      widoczna (znikniety cien) na niewidoczna (znikniety wskaznik). Wybor jest
-     wiec po stronie dostepnosci; do akceptacji UX przy odbiorze ISK-418. */
+     wiec po stronie dostepnosci; do akceptacji UX przy odbiorze ISK-418.
+
+     Sam `box-shadow` obwodki NIE MOZE stac w tej regule — patrz blok
+     bezwarstwowy zaraz za `@layer base`. */
   :focus-visible {
     border-radius: var(--radius-xs);
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
-    box-shadow: 0 0 0 var(--focus-ring-halo-spread) var(--focus-ring-contrast);
   }
 
   ::selection {
@@ -1217,6 +1233,35 @@
   h6 {
     font-size: var(--text-base);
   }
+}
+
+/* ============================================================================
+   ISK-418 / F9 — obwodka pierscienia focusu, CELOWO BEZ WARSTWY.
+
+   Ta jedna regula stoi poza jakimkolwiek `@layer`, bo inaczej nie dziala.
+   Kaskada warstw rozstrzyga PRZED specyficznoscia: deklaracja z `@layer base`
+   przegrywa z deklaracja z `@layer components` nawet wtedy, gdy ma wyzsza
+   specyficznosc. Obwodka wpisana do reguly bazowej byla wiec zabijana przez
+   kazdy skladnik, ktory ma wlasny `box-shadow` spoczynkowy — a takich jest
+   wiele (`.ui-button-primary`, `.ui-button-light`, `.panel-button`, karty).
+   Na jasnym tle defekt byl niewidoczny, bo sam rdzen `green-800` daje tam
+   ~11,9:1. Ujawnial sie dopiero na ciemnych powierzchniach, gdzie rdzen ma
+   1,54:1 i cala widocznosc niesie obwodka: `.detail-aside` (`ink-900`) na
+   `/szkolenia/[slug]` — zmierzone przez `tests/e2e/pierscien-focusu.spec.ts`,
+   trzy przystanki Tab po 1,54:1 przy progu 3:1.
+
+   Styl bezwarstwowy bije WSZYSTKIE warstwy, wiec nie trzeba dopisywac niczego
+   do skladnikow; opt-out i warianty ida przez token `--focus-ring-shadow`.
+   Nie uzywam `!important`: tamto bije rowniez `!important` uzytkownika
+   i arkusze wysokiego kontrastu, a tu nie ma takiej potrzeby.
+
+   Gdyby ktos przenosil ten plik: regula MUSI zostac poza `@layer`. Przeniesienie
+   jej do `base` przywraca defekt i NIE zlamie zadnej bramki jasnotlowej —
+   lapie ja wylacznie pomiar na ciemnym tle (test `pokrycie powierzchni
+   ciemnych`).
+   ========================================================================= */
+:focus-visible {
+  box-shadow: var(--focus-ring-shadow);
 }
 
 @layer components {
@@ -2384,8 +2429,12 @@
     /* Dwa tony jak w regule bazowej, tylko oba w `box-shadow` i przyklejone do
        krawedzi pola (bez odstepu) — wiec rdzen idzie PIERWSZY, a obwodka ma
        promien wiekszy o swoja grubosc. Cien wypisany wczesniej lezy wyzej, stad
-       ta kolejnosc, odwrotna niz czyta sie od srodka. */
-    box-shadow:
+       ta kolejnosc, odwrotna niz czyta sie od srodka.
+
+       Przez TOKEN, nie przez `box-shadow`: pierscien maluje regula
+       bezwarstwowa za `@layer base`, a ta bije kazda warstwe — deklaracja
+       `box-shadow` postawiona tutaj zostalaby przez nia nadpisana. */
+    --focus-ring-shadow:
       0 0 0 var(--focus-ring-width) var(--focus-ring),
       0 0 0 calc(var(--focus-ring-width) + var(--focus-ring-halo))
         var(--focus-ring-contrast);
@@ -2409,7 +2458,7 @@
      wychodzilo 1,5:1. Pola formularza stoja na bieli i na `green-50`, gdzie
      nieprzezroczysty `error-500` daje odpowiednio 5,91:1 i 5,47:1. */
   .ui-field-control[aria-invalid="true"]:focus-visible {
-    box-shadow:
+    --focus-ring-shadow:
       0 0 0 var(--focus-ring-width) var(--color-error-500),
       0 0 0 calc(var(--focus-ring-width) + var(--focus-ring-halo))
         var(--focus-ring-contrast);
@@ -2574,7 +2623,9 @@
      Wskaznik niesie element nadrzedny (regula na koncu bloku), input nic. */
   .ui-segmented-option input:focus-visible {
     outline: none;
-    box-shadow: none;
+    /* Token, nie `box-shadow`: wygaszenie musi przebic regule bezwarstwowa,
+       a ta nie da sie nadpisac z warstwy. */
+    --focus-ring-shadow: none;
   }
   /* Wariant zielony (hero, zakladki panelu). */
   .ui-segmented-green .ui-segmented-option:has(input:checked) {

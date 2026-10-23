@@ -118,7 +118,10 @@ const POWIERZCHNIE: Array<{ nazwa: string; tokenTla: string; przed: number }> =
   [
     { nazwa: "biel strony", tokenTla: "color-neutral-0", przed: 2.11 },
     {
-      nazwa: "ink-900 (stopka, .detail-aside)",
+      // Nie „stopka”: ta jest jasna od M2 (dwie reguly `.site-footer`, wygrywa
+      // pozniejsza z `--color-surface-page`). Ciemne tlo `ink-900` niesie dzis
+      // `.ui-card-dark` — m.in. karta dofinansowania na szczegole szkolenia.
+      nazwa: "ink-900 (.ui-card-dark)",
       tokenTla: "color-ink-900",
       przed: 2.07,
     },
@@ -193,8 +196,9 @@ describe("ISK-418 — pierscien focusu, SC 1.4.11", () => {
    * tokenow dalej zielona przy jednotonowym pierscieniu na ekranie.
    */
   it("rysuje obwodke wszedzie, gdzie rysuje rdzen", () => {
+    // Skladniki, ktore rysuja WLASNY pierscien — kazdy musi niesc obwodke.
+    // Obwodke globalna ma regula bezwarstwowa, sprawdzana osobno nizej.
     const reguly = [
-      ":focus-visible",
       ".ui-field-control:focus-visible",
       '.ui-field-control[aria-invalid="true"]:focus-visible',
       ".ui-segmented .ui-segmented-option:has(input:focus-visible)",
@@ -213,5 +217,56 @@ describe("ISK-418 — pierscien focusu, SC 1.4.11", () => {
         "--focus-ring-contrast",
       );
     }
+
+    // Obwodka globalna: token domyslny + regula, ktora go maluje.
+    expect(token("focus-ring-shadow")).toContain("--focus-ring-contrast");
+    expect(
+      CSS.slice(
+        indeksRegulyGlobalnej(),
+        CSS.indexOf("}", indeksRegulyGlobalnej()),
+      ),
+      "regula globalna nie maluje tokenu obwodki",
+    ).toContain("--focus-ring-shadow");
+  });
+
+  /**
+   * NAJWAZNIEJSZA ASERCJA W TYM PLIKU, I NAJMNIEJ OCZYWISTA.
+   *
+   * Obwodka musi byc malowana z reguly BEZ WARSTWY. Kaskada warstw rozstrzyga
+   * PRZED specyficznoscia, wiec deklaracja `box-shadow` z `@layer base`
+   * przegrywa z dowolnym skladnikiem z `@layer components`, ktory ma wlasny
+   * cien spoczynkowy (`.ui-button-primary`, `.ui-button-light`, karty...).
+   * Dokladnie tak zginela obwodka w pierwszej wersji tej karty: na jasnym tle
+   * nic nie bylo widac, bo sam rdzen daje tam ~12:1, a na ciemnej karcie
+   * `ink-900` zostawalo 1,54:1 przy progu 3:1.
+   *
+   * Przeniesienie tej reguly do jakiejkolwiek warstwy NIE zlamie zadnej
+   * asercji na tokenach ani na jasnym tle — lapie je tylko ten test
+   * i pomiar e2e na ciemnym tle. Dlatego stoi tu osobno i opisowo.
+   */
+  it("obwodka jest malowana spoza @layer (inaczej skladniki ja zabija)", () => {
+    const indeks = indeksRegulyGlobalnej();
+    expect(
+      indeks,
+      "brak bezwarstwowej reguly `:focus-visible` w app/globals.css",
+    ).toBeGreaterThan(-1);
+
+    // Komentarze wylatuja, zeby nawias w prozie nie zliczyl sie jako blok.
+    const przed = CSS.slice(0, indeks).replace(/\/\*[\s\S]*?\*\//g, "");
+    const glebokosc =
+      (przed.match(/\{/g) ?? []).length - (przed.match(/\}/g) ?? []).length;
+    expect(
+      glebokosc,
+      "regula obwodki wpadla do @layer — skladniki z wlasnym `box-shadow` " +
+        "znow ja nadpisza (patrz komentarz nad regula w arkuszu)",
+    ).toBe(0);
   });
 });
+
+/**
+ * Pozycja bezwarstwowej reguly `:focus-visible`. Wymagamy POCZATKU wiersza bez
+ * wciecia — w tym arkuszu wciecie dwoch spacji oznacza wnetrze `@layer`.
+ */
+function indeksRegulyGlobalnej(): number {
+  return CSS.indexOf("\n:focus-visible {");
+}
