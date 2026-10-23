@@ -17,7 +17,7 @@ Panel ma **własną powłokę**: nie widać w nim publicznego nagłówka ani sto
 
 ![Formularz logowania](images/01-logowanie.png)
 
-Gdy któreś pole jest puste lub ma zły format, komunikat pojawia się **przy tym polu**. Gdy sam adres i hasło nie pasują do konta, nad przyciskiem pojawia się komunikat „Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.” — czytnik ekranu ogłasza go od razu. Sprawdź wtedy adres i hasło; jeśli pola zostały wyczyszczone, wpisz je ponownie. Nie wysyłaj hasła e-mailem ani komunikatorem. Gdy dostęp nadal nie działa, poproś opiekuna technicznego o sprawdzenie konta administratora.
+Gdy któreś pole jest puste lub ma zły format, komunikat pojawia się **przy tym polu**. Gdy sam adres i hasło nie pasują do konta, nad przyciskiem pojawia się komunikat „Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.” — czytnik ekranu ogłasza go od razu. Po nieudanej próbie **oba pola zostają wyczyszczone** — wpisz adres i hasło od nowa. Nie wysyłaj hasła e-mailem ani komunikatorem. Gdy dostęp nadal nie działa, poproś opiekuna technicznego o sprawdzenie konta administratora.
 
 ![Komunikat po nieudanym logowaniu](images/02-logowanie-blad.png)
 
@@ -51,7 +51,7 @@ W wierszu wybranej osoby kliknij ikonę ołówka (**Edytuj**), zmień dane i pon
 
 ![Edycja danych trenera](images/06-trener-edycja.png)
 
-Zdjęcie jest opcjonalne. Bez niego publiczna lista pokazuje tekstowy profil z imieniem, nagłówkiem, biogramem i kompetencjami — nie ma pustego ani uszkodzonego obrazka.
+Zdjęcie jest opcjonalne. Bez niego publiczna lista pokazuje kółko z inicjałami osoby, a obok imię i nazwisko, nagłówek, kompetencje i biogram — nie ma pustego ani uszkodzonego obrazka.
 
 ![Publiczny profil trenera bez zdjęcia](images/07-profil-trenera-bez-zdjecia.png)
 
@@ -65,13 +65,14 @@ Przed publikacją zdjęcia upewnij się, że ISKT ma prawo do wykorzystania wize
 2. Podaj **Tytuł** oraz **Slug**, czyli fragment adresu bez spacji i polskich znaków, np. `zarzadzanie-projektem`. Tak jak u trenerów, slug wpisujesz sam.
 3. Wpisz **Podsumowanie** widoczne na liście oraz dłuższy **Opis**.
 4. Wybierz **Kategorię** i **Poziom**. Listę kategorii prowadzisz sam — patrz „Kategorie” poniżej.
-5. Podaj **Czas (godz.)** i **Cenę netto PLN**. Możesz dopisać **Najbliższe terminy**, zaznaczyć **Dostępne dofinansowanie** i dodać **Informację o dofinansowaniu**.
+5. Podaj **Czas (godz.)** i **Cenę netto PLN**.
 6. W polu **Czego się nauczysz** wpisz korzyści — jedną w wierszu. Puste pole ukrywa tę sekcję na publicznej stronie, więc nie zostaje po niej pusty nagłówek. W **Dla kogo** opisz odbiorców.
-7. Zaznacz **Pokaż w sekcji „Szkolenia, które wyróżniamy” na stronie głównej**, jeśli szkolenie ma trafić do tej sekcji.
-8. **Tytuł SEO** (do 70 znaków) i **Opis SEO** (do 160 znaków) są widoczne w wynikach wyszukiwania. Puste pola oznaczają, że użyty zostanie tytuł i podsumowanie szkolenia.
-9. Pole **Kolejność** ustawia miejsce pozycji w katalogu: mniejsza liczba oznacza wyżej.
+7. W **Najbliższe terminy** możesz dopisać terminy. Niżej zaznacz **Dostępne dofinansowanie** i uzupełnij **Informację o dofinansowaniu**, jeśli dotyczy.
+8. Zaznacz **Pokaż w sekcji „Szkolenia, które wyróżniamy” na stronie głównej**, jeśli szkolenie ma trafić do tej sekcji.
+9. **Tytuł SEO** (do 70 znaków) i **Opis SEO** (do 160 znaków) są widoczne w wynikach wyszukiwania. Puste pola oznaczają, że wyszukiwarka pokaże nazwę szkolenia i jego krótki wstęp.
 10. W sekcji **Trenerzy** zaznacz osoby prowadzące. Można wybrać więcej niż jedną.
-11. Wybierz **Zapisz szkolenie**.
+11. Pole **Kolejność** ustawia miejsce pozycji w katalogu: mniejsza liczba oznacza wyżej. Nowe szkolenie startuje ze `100`.
+12. Wybierz **Zapisz szkolenie**. Obok stoi **Anuluj**, który wraca na listę bez zapisu.
 
 Rozbudowany program szkolenia (sekcje z punktami) nie ma pola w panelu — do jego wprowadzenia potrzebny jest kontakt z wykonawcą. Dopóki jest pusty, publiczna strona po prostu nie pokazuje sekcji „Program szkolenia”.
 
@@ -101,7 +102,9 @@ Kategorii **nie da się usunąć z panelu**. Jeśli kategoria jest już niepotrz
 
 W każdym wierszu listy szkoleń i trenerów stoją trzy operacje: ikona ołówka (**Edytuj**), tekstowy przycisk **Publikuj** albo **Wycofaj** oraz ikona kosza (**Usuń**).
 
-Po każdej udanej operacji nad tabelą pojawia się zielony pasek potwierdzenia — czytnik ekranu ogłasza go jako komunikat stanu. Pasek jest jednorazowy: po odświeżeniu strony (F5, powrót do zakładki) nie wraca, więc nie potwierdza omyłkowo zmiany, której nie było.
+Po **zapisaniu formularza** pojawia się zielony pasek potwierdzenia — czytnik ekranu ogłasza go jako komunikat stanu. Dotyczy to czterech operacji: „Zapisano szkolenie”, „Zapisano profil trenera”, „Zapisano kategorię” i „Zapisano notatkę wewnętrzną”. Pasek jest jednorazowy: po odświeżeniu strony (F5, powrót do zakładki) nie wraca, więc nie potwierdza omyłkowo zmiany, której nie było.
+
+**Publikacja, wycofanie i usunięcie paska nie pokazują.** Potwierdzeniem jest tu sama tabela: zmieniony znacznik statusu (**Szkic** / **Opublikowane**) albo zniknięcie wiersza. Jeśli po kliknięciu nic się nie zmieniło, operacja się nie powiodła — odśwież stronę i spróbuj ponownie.
 
 ### Publikacja
 
@@ -110,6 +113,8 @@ Na liście szkoleń wybierz **Publikuj**. Status zmieni się ze **Szkic** na **O
 ![Szkolenie opublikowane w panelu](images/11-szkolenie-opublikowane-panel.png)
 
 Od tej chwili odwiedzający mogą znaleźć szkolenie w katalogu i otworzyć jego publiczną stronę. Widzą między innymi tytuł, opis, kategorię, poziom, czas, cenę, terminy i przypisanych opublikowanych trenerów.
+
+Gdy **Najbliższe terminy** zostawisz puste, strona publiczna pisze w tym miejscu „Terminy ustalane indywidualnie” — nie zostaje pusta rubryka. Jeśli chcesz podać konkretne daty, uzupełnij to pole w edytorze.
 
 ![Widok opublikowanego szkolenia](images/12-szkolenie-opublikowane-publicznie.png)
 
@@ -121,7 +126,7 @@ Przy opublikowanym szkoleniu wybierz **Wycofaj**. Status wróci do **Szkic**.
 
 ![Szkolenie wycofane w panelu](images/13-szkolenie-wycofane-panel.png)
 
-Po wycofaniu pozycja znika z katalogu, a jej dotychczasowy adres pokazuje stronę „Nie znaleziono strony”. Osoba, która ma jeszcze starą stronę otwartą w karcie, musi ją odświeżyć.
+Po wycofaniu pozycja znika z katalogu, a jej dotychczasowy adres pokazuje stronę „Nie znaleźliśmy tego szkolenia” z wyjaśnieniem „Szkolenie nie istnieje albo nie zostało opublikowane” i przyciskiem **Wróć do katalogu**. Osoba, która ma jeszcze starą stronę otwartą w karcie, musi ją odświeżyć.
 
 ![Publiczny adres po wycofaniu szkolenia](images/14-szkolenie-wycofane-publicznie.png)
 
@@ -142,14 +147,14 @@ Używaj **Usuń** tylko wtedy, gdy treść naprawdę nie będzie już potrzebna.
 
 ## 5. Zgłoszenia
 
-Wejdź w **Zgłoszenia**. Tabela ma kolumny **Zgłaszający**, **Data**, **Status**, **Potwierdzenie** i **Akcje**. W kolumnie **Potwierdzenie** zobaczysz stan powiadomienia e-mail: **Wysłano**, **Oczekuje na wysyłkę** albo **Wysyłka nieudana**.
+Wejdź w **Zgłoszenia**. Tabela ma kolumny **Zgłaszający**, **Data**, **Status**, **Potwierdzenie** i **Akcje**. W kolumnie **Potwierdzenie** zobaczysz stan powiadomienia e-mail: **Wysłano**, **Oczekuje** albo **Błąd wysyłki**.
 
 ![Lista zgłoszeń i stan e-maila](images/15-zgloszenia-lista.png)
 
 Wybierz **Zobacz szczegóły**. Na stronie zgłoszenia znajdziesz:
 
 - kartę **Dane kontaktowe** — e-mail (klikalny), telefon, firmę i temat;
-- kartę **Powiadomienie e-mail** — stan wysyłki, a przy udanej wysyłce także jej czas;
+- kartę **Powiadomienie e-mail** — stan wysyłki, a przy udanej wysyłce także jej czas. Na szczegółach stany mają dłuższe nazwy niż na liście: **Oczekuje na wysyłkę** i **Wysyłka nieudana**;
 - kartę **Treść zgłoszenia** — wiadomość nadawcy;
 - kartę **Notatka wewnętrzna** (patrz niżej);
 - sekcję **Zmień status**.
@@ -211,7 +216,7 @@ Jeśli osoba zainteresowana chce zapisać się lub zapłacić, obsłuż ten krok
 
 ### Nie mogę się zalogować. Co zrobić?
 
-Sprawdź oba pola — przy błędzie formatu komunikat pojawia się przy konkretnym polu. Jeśli pola zostały wyczyszczone, wpisz je ponownie. Gdy problem pozostaje, poproś opiekuna technicznego o sprawdzenie uprawnień konta.
+Sprawdź oba pola — przy błędzie formatu komunikat pojawia się przy konkretnym polu. Po odrzuconej próbie logowania oba pola są czyszczone, więc wpisz adres i hasło od nowa. Gdy problem pozostaje, poproś opiekuna technicznego o sprawdzenie uprawnień konta.
 
 ### Szkolenie jest zapisane, ale nie ma go w katalogu.
 
@@ -245,7 +250,7 @@ Nie. Notatka jest widoczna tylko w panelu i nie trafia ani do nadawcy, ani na pu
 
 Nic się nie stało — kosz tylko otwiera pytanie w tym wierszu. Wybierz **Anuluj** albo naciśnij **Escape**. Usunięcie następuje wyłącznie po wybraniu **Tak, usuń trwale**.
 
-### E-mail przy zgłoszeniu ma status „Wysyłka nieudana”.
+### E-mail przy zgłoszeniu ma status „Błąd wysyłki”.
 
 Zgłoszenie nadal znajduje się w panelu i można je obsłużyć. Przekaż błąd opiekunowi technicznemu; nie kopiuj całej treści ani danych osobowych do wiadomości — wystarczy identyfikacja zgłoszenia i czas zdarzenia.
 
