@@ -2041,10 +2041,13 @@
   }
   /* Na ciemnym tle (panel `--gradient-brand`, karty `--ink-900`). Krawedz
      zostaje przezroczysta, zeby wysokosc i padding zgadzaly sie z primary. */
+  /* Waga 600, jak kazdy inny wariant przycisku (ISK-412). Samotne `700` bylo
+     literowka, nie decyzja: ten sam przycisk na jasnym tle wazy 600, wiec na
+     ciemnym robil sie o stopien grubszy bez powodu. */
   .ui-button-light {
     background: var(--color-neutral-0);
     color: var(--color-green-800);
-    font-weight: 700;
+    font-weight: 600;
     box-shadow: var(--shadow-md);
   }
   .ui-button-light:hover:not(:disabled) {
@@ -2346,6 +2349,44 @@
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
+
+  /* ------------------------------------------------------- tytul karty -- */
+  /* ISK-412 / UX-Z2 — JEDNA SKALA DLA KAZDEGO NAGLOWKA WEWNATRZ KARTY.
+     Bramka UX zmierzyla cztery rozne rozmiary H2 (18,4 / 19,2 / 25,6 / 41,6 px)
+     i slusznie nazwala to brakiem skali. Zrodlem rozjazdu byly tytuly KART:
+     ta sama rola wizualna miala 1.05rem (karta z pasmem), 1.15rem (karta
+     katalogu i krok procesu), 1.2rem (karta trenera) i 1.35rem (karta sciezki
+     oraz stan pusty) — piec wartosci bez ani jednej decyzji za nimi.
+
+     SKALA MA CZTERY ROLE I KAZDA MA DOKLADNIE JEDNA WARTOSC:
+       `.ui-page-title`       — 48 px   — jeden na strone (h1)
+       `.ui-section-title`    — 41,6 px — naglowek pasma sekcji
+       `.ui-subsection-title` — 25,6 px — naglowek w kolumnie tresci sekcji
+       `.ui-card-title`       — 19,2 px — naglowek wewnatrz karty
+
+     ROZMIAR IDZIE ZA ROLA, NIE ZA POZIOMEM NAGLOWKA. Karta katalogu musi byc
+     `h2` (nad siatka nie ma naglowka), a ta sama karta na stronie glownej jest
+     `h3` — i w obu miejscach ma wygladac identycznie, bo jest tym samym
+     elementem. Dlatego skala siedzi w klasie roli, a nie w selektorze `h2`.
+
+     Selektory kontekstowe (`.training-card .training-card-title`,
+     `.trainer-card .trainer-name`) sa tu KONIECZNE: stare reguly zestawu
+     (`.training-card h2`, `.trainer-card h2`) maja specyficznosc (0,1,1)
+     i bez nich wygraly z sama klasa. */
+  .ui-card-title,
+  .training-card .training-card-title,
+  .trainer-card .trainer-name,
+  .home-path-title,
+  .home-step-title,
+  .home-funding-title,
+  .home-scope-title,
+  .empty-state-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
   .ui-section-lead {
     margin: 0;
     color: var(--color-text-secondary);
@@ -2373,6 +2414,11 @@
     gap: 0.875rem;
     max-width: 720px;
     margin-bottom: 2.5rem;
+  }
+  /* Naglowek w kolumnie, ktora sama ma `gap` (`/kontakt`) — wlasny
+     `margin-bottom` dodawalby sie do niego i rozrywal rytm. */
+  .ui-page-header-flush {
+    margin-bottom: 0;
   }
   .ui-page-title {
     margin: 0;
@@ -2655,6 +2701,37 @@
     transition:
       background var(--dur-base) var(--ease-standard),
       color var(--dur-base) var(--ease-standard);
+  }
+
+  /* ISK-412 — PRZEPELNIENIE 4 PX PRZY 320 PX MIALO ZRODLO TUTAJ.
+     Zmierzone przed poprawka: `label.ui-segmented-option` z etykieta „Osoba
+     indywidualna” konczyl sie na 324 px przy kadrze 320 px. Przyczyna nie byla
+     w szerokosci karty, tylko w tym, ze pastylka NIE DAWALA SIE SCISNAC:
+     `white-space: nowrap` razem z `padding-inline: 20px` ustawia jej szerokosc
+     min-content na ~182 px, a `flex` nie kurczy elementu ponizej min-content.
+     Dwie pastylki nie mialy jak zmiescic sie w karcie przy 320 px — i zamiast
+     sie zwezic, wychodzily poza kadr.
+
+     Ponizej 30rem (480 px) etykieta moze sie wiec ZLAMAC, a padding schodzi do
+     12 px. `min-width: 0` jest konieczne: bez niego domyslne `min-width: auto`
+     elementu flex blokuje zwezenie nawet przy lamaniu tekstu.
+
+     `min-height` POWTARZAMY SWIADOMIE, mimo ze reguly bazowej nie zmieniamy:
+     zwezanie pastylki nie moze zmniejszyc celu dotykowego, a ta reguła jest
+     tym, co obowiazuje na najwezszych ekranach — czyli dokladnie tam, gdzie
+     44 px jest najwazniejsze. `tests/unit/inquiry-form.test.ts` czyta ten
+     warunek z arkusza, a `tests/e2e/dostepnosc.spec.ts` mierzy go w kadrze.
+
+     Pastylki zostaja OBOK SIEBIE — to przelacznik, a jego sens polega na
+     porownaniu dwoch opcji jednym spojrzeniem. */
+  @media (max-width: 30rem) {
+    .ui-segmented-option {
+      min-width: 0;
+      min-height: var(--control-h-sm);
+      padding-inline: 12px;
+      white-space: normal;
+      text-align: center;
+    }
   }
   .ui-segmented-option input {
     position: absolute;
@@ -3082,12 +3159,7 @@
   .home-path {
     gap: 14px;
   }
-  .home-path-title {
-    margin: 0;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-path-text {
     margin: 0;
     color: var(--color-text-secondary);
@@ -3228,17 +3300,12 @@
   }
   /* (0,2,0) — stara regula `.training-card h2` (0,1,1) ma wyzsza specyficznosc
      niz sama klasa tytulu. */
+  /* Skala i waga przychodza z `.ui-card-title` (sekcja "tytul karty" wyzej) —
+     tutaj zostaje wylacznie kolor. Wariant `plain` NIE ma juz wlasnego
+     rozmiaru: ta sama karta w katalogu i na stronie glownej jest tym samym
+     elementem, wiec nie moze miec dwoch skal (ISK-412 / UX-Z2). */
   .training-card .training-card-title {
-    margin: 0;
     color: var(--color-ink-900);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-  }
-  .training-card-plain .training-card-title {
-    font-size: 1.15rem;
-    letter-spacing: -0.015em;
   }
   .training-card-summary {
     color: var(--color-text-secondary);
@@ -3322,12 +3389,7 @@
     font-size: 22px;
     font-weight: 600;
   }
-  .home-step-title {
-    margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-step-text {
     margin: 0;
     color: var(--color-text-secondary);
@@ -3364,17 +3426,52 @@
     color: var(--color-text-on-brand);
     backdrop-filter: blur(4px);
   }
-  .home-funding-title {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-  }
+  /* Skala: `.ui-card-title`. */
   .home-funding-text {
     margin: 0;
     /* ISK-410: bylo `rgb(255 255 255 / 85%)`. Przygaszona biel na rozjasnionym
        welonem gradiencie dawala 3,42:1 — najgorszy pomiar na calej stronie
        glownej. Po sciemnieniu welonu i pelnej bieli: 5,577:1. */
     color: var(--color-text-on-brand);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  /* ------------------------------------------------------ #zakres --------- */
+  /* ISK-412 — pasmo `ink-900` wraca, ale BEZ LICZB.
+     Powod przywrocenia jest KOMPOZYCYJNY, nie tresciowy (werdykt bramki UX):
+     wzorzec stawia dwa panele z rzedu i dopiero ciemny panel ustanawia panel
+     jako srodek wyrazu oraz domyka ciag sekcji przed jasnym pasmem formularza.
+     Bez niego panel gradientowy dofinansowan zostawal JEDYNYM nasyconym
+     elementem strony i wygladal na przypadek.
+
+     Tresc opisuje ZAKRES DZIALANIA, nie wyniki — zadnych progow, ocen,
+     licznikow ani SLA, wiec mieci sie w D1. Stare pasmo mialo tu "500+
+     przeszkolonych" i "98% zadowolenia"; takich liczb nikt nie potwierdzil
+     i dlatego nie wracaja w zadnej formie. */
+  .home-scope-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* Jak `.home-funding-card`: stoi bez `.ui-card`, wiec obudowa jest tutaj. */
+  .home-scope-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: var(--radius-card);
+    background: rgb(255 255 255 / 6%);
+    color: var(--color-text-on-brand);
+  }
+  /* Skala: `.ui-card-title`. */
+  .home-scope-text {
+    margin: 0;
+    color: rgb(255 255 255 / 85%);
     font-size: 14px;
     line-height: 1.55;
   }
@@ -3514,12 +3611,7 @@
     align-items: flex-start;
     gap: 12px;
   }
-  .empty-state-title {
-    margin: 0;
-    font-size: 1.35rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
+  /* `.empty-state-title` ma skale `.ui-card-title` — stan pusty jest karta. */
 
   /* ------------------------------------------------------ szczegol: hero -- */
   .detail-hero {
@@ -3859,13 +3951,10 @@
   .trainer-identity-text {
     min-width: 0;
   }
-  /* (0,2,0) — stare `.trainer-card h2` i `.trainer-card p` (0,1,1). */
+  /* (0,2,0) — stare `.trainer-card h2` i `.trainer-card p` (0,1,1).
+     Skala przychodzi z `.ui-card-title`; tutaj zostaje kolor. */
   .trainer-card .trainer-name {
-    margin: 0;
     color: var(--color-ink-900);
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: -0.015em;
   }
   .trainer-card .trainer-role {
     margin: 0;
@@ -3995,11 +4084,25 @@
   /* RESPONSYWNOSC                                                            */
   /* ======================================================================== */
 
-  /* --- 64rem (1024 px): siatki wielokolumnowe schodza do dwoch kolumn ----- */
-  @media (max-width: 64rem) {
+  /* --- 63.9375rem (1023 px): siatki wielokolumnowe schodza do dwoch kolumn -
+     GRANICA JEST WSPOLNA Z NAWIGACJA (ISK-412 / UX-K1), NIE PRZYPADKOWA.
+     Korpus schodzil wczesniej do dwoch kolumn przy `max-width: 64rem`, czyli
+     JUZ przy 1024 px, a nawigacja chowala sie dopiero przy `max-width: 60rem`,
+     czyli przy 960 px. W pasmie 961–1024 px pelny pasek stal wiec nad korpusem
+     dwukolumnowym, a dokladnie przy 1024 px zatwierdzona tabela punktow
+     zalamania obiecuje TRZY kolumny — a byly dwie.
+
+     `63.9375rem` to 1023 px, wiec 1024 px nie wpada do zadnej z tych dwoch
+     regul: przy 1024 px naglowek i korpus sa JEDNOCZESNIE w trybie
+     desktopowym, a ponizej (<= 1023 px) oba przelaczaja sie RAZEM.
+     Dopelnieniem jest `@media (min-width: 64rem)` na dole pliku — miedzy
+     63.9375rem i 64rem nie ma luki, bo piksel 1023 nalezy do pierwszej
+     reguly, a 1024 do drugiej. */
+  @media (max-width: 63.9375rem) {
     .home-area-grid,
     .home-featured-grid,
     .home-steps,
+    .home-scope-grid,
     .catalog-grid,
     .trainer-grid,
     .footer-grid {
@@ -4024,12 +4127,16 @@
     }
   }
 
-  /* --- 60rem (960 px): nawigacja chowa sie za przyciskiem ----------------- */
+  /* --- 63.9375rem (1023 px): nawigacja chowa sie za przyciskiem ----------
+     TA SAMA GRANICA, CO SIATKI TRESCI WYZEJ (ISK-412 / UX-K1). Pasek i korpus
+     musza przelaczac sie w tym samym punkcie — rozjazd 960/1024 px dawal
+     pasmo 961–1024 px, w ktorym pelna nawigacja stala nad ukladem juz
+     zwinietym do dwoch kolumn. */
   .site-nav-toggle,
   .site-nav-panel {
     display: none;
   }
-  @media (max-width: 60rem) {
+  @media (max-width: 63.9375rem) {
     .site-nav {
       display: none;
     }
@@ -4094,6 +4201,7 @@
     .home-area-grid,
     .home-featured-grid,
     .home-steps,
+    .home-scope-grid,
     .catalog-grid,
     .trainer-grid,
     .footer-grid {
@@ -4205,27 +4313,69 @@
    bo ma w danych cztery pozycje na sztywno; w produkcie liczba wyroznionych
    jest decyzja administratora i moze byc dowolna od 0 do 4.
 
-   Reguly sa zamkniete w `@media (min-width: 64rem)` SWIADOMIE: modyfikator ma
-   te sama wage co `.home-featured-grid`, a stoi w pliku pozniej, wiec bez tego
-   ograniczenia wygralby z zapytaniami medialnymi powyzej i zablokowalby siatke
-   na ukladzie desktopowym przy 360 px.
+   ISK-412 / UX-B2 — ZWEZA SIE CALE PASMO, RAZEM Z NAGLOWKIEM
+   Samo zwezenie siatki nie wystarczylo: naglowek dalej rozpinal pelne 1104 px
+   nad karta szerokosci 380 px, czyli po 362 px pustki z kazdej strony. Zasiew
+   kanoniczny ma DOKLADNIE JEDNO wyroznione szkolenie, wiec to jest stan, ktory
+   ISKT widzi na odbiorze — nie przypadek brzegowy.
+
+   Dlatego modyfikator siada na WSPOLNYM opakowaniu naglowka i siatki
+   (`.home-featured-band-*`), a nie na samej siatce. Naglowek i karty maja wtedy
+   jedna szerokosc i pasmo czyta sie jak zamierzona kolumna, a nie jak uklad,
+   z ktorego wypadla tresc.
+
+   SZEROKOSCI NIE SA OKRAGLE, SA POLICZONE
+   Kontener to `75rem` (1200 px) minus `2 x 48 px` paddingu = 1104 px. Przy
+   trzech kartach i odstepie 24 px tor ma `(1104 - 48) / 3 = 352 px`. Pasma dla
+   jednej i dwoch kart sa wielokrotnosciami TEGO toru (352 px i
+   `2 x 352 + 24 = 728 px`), wiec karta wyrozniona ma zawsze te sama szerokosc
+   niezaleznie od tego, ile ich jest. Poprzednie `380 px` i `320 px` wprowadzaly
+   trzecia i czwarta szerokosc karty w produkcie (ISK-412, uwaga o 380 vs 352).
+
+   `max-width` na pasmie jest bezpieczne na kazdej szerokosci ekranu: dopoki
+   kadr jest wezszy od pasma, regula nie robi nic (320 px kadru < 352 px pasma),
+   wiec nie potrzebuje oslony `@media`.
+
+   Reguly KOLUMN zostaja oslonione zapytaniami medialnymi: modyfikator ma te
+   sama wage co `.home-featured-grid`, a stoi poza warstwa `@layer components`,
+   wiec bez oslony wygralby takze z zapytaniami medialnymi warstwy
+   i zablokowalby uklad desktopowy przy 360 px.
 
    Poza warstwa `@layer components` — tak samo jak reguly awatara wyzej —
    zeby mialy pierwszenstwo nad warstwa, w ktorej siedzi wariant bazowy.
    ========================================================================== */
+.home-featured-band-1 {
+  max-width: 352px;
+  margin-inline: auto;
+}
+.home-featured-band-2 {
+  max-width: 728px;
+  margin-inline: auto;
+}
+/* W zwezonym pasmie akcja ("Caly katalog →") schodzi pod tytul na KAZDEJ
+   szerokosci — obok tytulu w 352 px kolumnie nie ma dla niej miejsca. */
+.home-featured-band-1 .ui-section-heading-row,
+.home-featured-band-2 .ui-section-heading-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Jedna karta: jeden tor na kazdej szerokosci — pasmo juz ogranicza wymiar. */
+.home-featured-grid-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.home-featured-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* 40rem (640 px): dwie karty obok siebie przestaja byc czytelne. Regula stoi
+   poza warstwa i PO modyfikatorze wyzej, wiec go nadpisuje. */
+@media (max-width: 40rem) {
+  .home-featured-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (min-width: 64rem) {
   .home-featured-grid-3 {
     grid-template-columns: repeat(3, 1fr);
-  }
-  /* Dwie karty: pelna szerokosc podzielona na pol bylaby nieczytelnie szeroka,
-     wiec rzad jest zwezony i wysrodkowany — ten sam zabieg co w siatce
-     obszarow, gdzie ostatni rzad centrujemy zamiast zostawiac dziure. */
-  .home-featured-grid-2 {
-    grid-template-columns: repeat(2, minmax(0, 320px));
-    justify-content: center;
-  }
-  .home-featured-grid-1 {
-    grid-template-columns: minmax(0, 380px);
-    justify-content: center;
   }
 }

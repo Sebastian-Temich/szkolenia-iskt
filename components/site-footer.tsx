@@ -27,8 +27,16 @@ import { getCategories } from "@/lib/public-catalog";
  * `getCategories()` zwraca pusta liste — kolumna obszarow znika zamiast
  * rozsypac stopke.
  */
+async function footerCategories() {
+  try {
+    return await getCategories();
+  } catch {
+    return [];
+  }
+}
+
 export async function SiteFooter() {
-  const categories = await getCategories();
+  const categories = await footerCategories();
   /**
    * ISK-409: bylo `const year = 2026`, renderowane jako "© 2026 ISKT" — napis
    * falszywy od 2027-01-01 i to bez zadnego sygnalu, ze sie zestarzal.

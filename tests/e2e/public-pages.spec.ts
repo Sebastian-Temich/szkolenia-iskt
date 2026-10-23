@@ -170,7 +170,7 @@ test("filtr i wyszukiwanie są zapisane w URL", async ({ page }) => {
   // (nieskuteczne `eq` na osadzonej tabeli, pominiete `!inner`), przechodzil
   // przez nia bez sladu. Szkolenie z innego obszaru musi zniknac.
   await expect(
-    page.getByRole("link", { name: /Zrownowazony rozwoj i ESG/ }),
+    page.getByRole("link", { name: /Zrównoważony rozwój i ESG/ }),
   ).toHaveCount(0);
 
   // Fraza dochodzi do adresu RAZEM z obszarem. Pole `category` jest ukryte
@@ -188,11 +188,28 @@ test("filtr i wyszukiwanie są zapisane w URL", async ({ page }) => {
 test("wyszukiwanie znajduje tresc gdy fraza ma polskie znaki", async ({
   page,
 }) => {
-  // Seed trzyma tytuly bez diakrytykow, a search_tsv jest zbudowane na tekscie
-  // po unaccent. Fraza wpisana z polskimi znakami musi trafic w ten sam zapis.
+  // `search_tsv` jest zbudowane na tekscie po `unaccent`, wiec fraza wpisana
+  // z polskimi znakami musi trafic w ten sam zapis.
   await page.goto(`/szkolenia?q=${encodeURIComponent("zrównoważony")}`);
   await expect(
-    page.getByRole("link", { name: /Zrownowazony rozwoj i ESG/ }),
+    page.getByRole("link", { name: /Zrównoważony rozwój i ESG/ }),
+  ).toBeVisible();
+});
+
+/**
+ * KIERUNEK ODWROTNY — DO ISK-412 NIEMOZLIWY DO ZMIERZENIA PRZEZ UI.
+ * Zasiew trzymal wczesniej tytuly BEZ diakrytykow, wiec zapytanie ASCII
+ * trafialo w tekst ASCII i nie dowodzilo niczego o `unaccent` — wlasciwosc
+ * byla sprawdzana wylacznie w tescie integracyjnym (P6a) na wlasnej pozycji.
+ * Odkad tresc zasiewu ma polskie znaki (ISK-412), ten przeplyw da sie dowiesc
+ * na prawdziwym widoku: fraza bez ogonkow musi znalezc tekst z ogonkami.
+ */
+test("wyszukiwanie bez polskich znakow znajduje tresc z diakrytykami", async ({
+  page,
+}) => {
+  await page.goto("/szkolenia?q=zrownowazony");
+  await expect(
+    page.getByRole("link", { name: /Zrównoważony rozwój i ESG/ }),
   ).toBeVisible();
 });
 

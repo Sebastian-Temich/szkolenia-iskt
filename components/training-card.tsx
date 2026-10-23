@@ -2,7 +2,11 @@ import Link from "next/link";
 
 import { Badge, Icon, IconChip } from "@/components/ui";
 import { categoryIconName } from "@/lib/category-icon";
-import { formatDurationHours, formatPriceNet } from "@/lib/format";
+import {
+  formatDurationHours,
+  formatLevel,
+  formatPriceNet,
+} from "@/lib/format";
 import type { Training } from "@/lib/public-catalog";
 
 type Props = {
@@ -62,6 +66,8 @@ export function TrainingCard({
   const icon = categoryIconName(training.category?.icon);
   const duration = formatDurationHours(training.duration_hours);
   const price = formatPriceNet(training.price_net_pln);
+  // Slownik `level` jest ASCII w bazie (check + enum), etykieta ma diakrytyki.
+  const level = formatLevel(training.level);
 
   return (
     <Link
@@ -116,10 +122,10 @@ export function TrainingCard({
               {duration}
             </span>
           ) : null}
-          {training.level ? (
+          {level ? (
             <span className="training-card-meta-item">
               <Icon name="gauge" size={15} />
-              {training.level}
+              {level}
             </span>
           ) : null}
         </span>
