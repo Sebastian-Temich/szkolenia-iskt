@@ -1,5 +1,26 @@
 # ISK-419 — blokada Dockera (przyczyna pierwotna) i plan domkniecia pomiarow
 
+> **STATUS: sekcje 2–4 SA NIEAKTUALNE (2026-10-23).** Operator uruchomil Dockera
+> recznie i caly zakres karty zostal zmierzony — wyniki sa w
+> **`WYNIKI-ISK419.md`**. Ten plik zostaje jako zapis **przyczyny blokady**
+> (sekcja 1 — nadal aktualna i warta zachowania, bo awaria moze wrocic)
+> oraz jako zapis stanu wiedzy sprzed pomiaru.
+>
+> Co pomiar zweryfikowal inaczej, niz zakladal plan ponizej:
+>
+> - stan stacku: kontenery **przezyly** awarie Dockera (sekcja 4 slusznie
+>   kazala sprawdzic, a nie zalozyc),
+> - przyczyna padniecia pkt 1: **nie** wyscig `afterAll` (jak sadzil spec)
+>   ani brak wiersza (jak sadzila karta), a **dwa naruszone CHECK-i** tabeli
+>   `inquiries`,
+> - `stan bledu`: **nie** trzeba bylo drugiego serwera — wystarczylo odebrac
+>   roli `anon` prawo `SELECT`; podmiana adresu w env nie zadzialalaby,
+>   bo `NEXT_PUBLIC_*` jest wkompilowane w bundel,
+> - uniewaznienie ISR przez zapis panelowy okazalo sie **niepotrzebne** do
+>   pomiaru — wystarczylo przeczekac okno `revalidate` (ale sama pulapka ISR
+>   z sekcji 3 potwierdzila sie w pelni i okazala sie wyciekac miedzy
+>   przebiegami).
+
 Przebieg 2026-10-22 ~22:20. Karta ISK-419 wymaga dzialajacego Dockera. Nie udalo
 sie go uruchomic — ponizej **przyczyna pierwotna**, a nie samo „Docker nie
 dziala”, zeby kolejny przebieg nie powtarzal tej samej diagnostyki.
@@ -26,13 +47,13 @@ okno bledu (co tez sie nie udaje, bo to ten sam mechanizm Electrona) i konczy
 
 ### Co zostalo wykluczone pomiarem
 
-| Hipoteza | Pomiar | Wynik |
-| --- | --- | --- |
-| Brak sesji graficznej (headless) | `launchctl managername` -> `Aqua`; `who` -> `ST console Oct 22 17:21`; zywe `Finder`/`Dock` | **wykluczone** — sesja GUI dziala |
-| Zly `DOCKER_HOST` / kontekst | `DOCKER_HOST` nieustawiony; kontekst `desktop-linux` -> `~/.docker/run/docker.sock` (poprawny) | **wykluczone** |
-| Uszkodzony plik wykonywalny Electrona | uruchomiony bezposrednio: `Running Electron app (stock)` + `will delegate to Docker Desktop backends` | **wykluczone** — binarka dziala |
-| Zajety port / kolidujacy stack | zero kontenerow, brak gniazda `docker.sock` | **nieistotne** — demon nie wstaje wcale |
-| Zablokowany ekran | `ioreg ... CGSSessionScreenIsLocked` — klucz nieobecny | nierozstrzygniete |
+| Hipoteza                              | Pomiar                                                                                                | Wynik                                   |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Brak sesji graficznej (headless)      | `launchctl managername` -> `Aqua`; `who` -> `ST console Oct 22 17:21`; zywe `Finder`/`Dock`           | **wykluczone** — sesja GUI dziala       |
+| Zly `DOCKER_HOST` / kontekst          | `DOCKER_HOST` nieustawiony; kontekst `desktop-linux` -> `~/.docker/run/docker.sock` (poprawny)        | **wykluczone**                          |
+| Uszkodzony plik wykonywalny Electrona | uruchomiony bezposrednio: `Running Electron app (stock)` + `will delegate to Docker Desktop backends` | **wykluczone** — binarka dziala         |
+| Zajety port / kolidujacy stack        | zero kontenerow, brak gniazda `docker.sock`                                                           | **nieistotne** — demon nie wstaje wcale |
+| Zablokowany ekran                     | `ioreg ... CGSSessionScreenIsLocked` — klucz nieobecny                                                | nierozstrzygniete                       |
 
 Gniazdo `~/.docker/run/docker.sock` **nie istnieje**; katalog `~/.docker/run/`
 jest tworzony przy kazdej probie startu i zostaje pusty. Uprzywilejowany pomocnik
@@ -57,11 +78,11 @@ Potrzebna jest interwencja na maszynie, ktorej agent nie moze wykonac:
 
 ## 2. Stan gotowosci zakresu ISK-419
 
-| Zakres karty | Spec | Czego brakuje |
-| --- | --- | --- |
-| 1. Trzy widoki szczegolowe panelu @360/768/1440 | `tests/e2e/isk403-panel.spec.ts` — **gotowy** | tylko Docker |
-| 2. Regresja funkcjonalna `--retries=0` | `tests/e2e/isk403-regresja.spec.ts` — **gotowy** | tylko Docker |
-| 3. Trzy stany brzegowe | **brak specu** | projekt + Docker (ponizej) |
+| Zakres karty                                    | Spec                                             | Czego brakuje              |
+| ----------------------------------------------- | ------------------------------------------------ | -------------------------- |
+| 1. Trzy widoki szczegolowe panelu @360/768/1440 | `tests/e2e/isk403-panel.spec.ts` — **gotowy**    | tylko Docker               |
+| 2. Regresja funkcjonalna `--retries=0`          | `tests/e2e/isk403-regresja.spec.ts` — **gotowy** | tylko Docker               |
+| 3. Trzy stany brzegowe                          | **brak specu**                                   | projekt + Docker (ponizej) |
 
 Punkt 1 ma w specu (commit `51ba009`) rozwiazana przyczyne wczesniejszego
 padniecia: `zgloszenie testowe musi istniec -> undefined` **nie bylo brakiem
@@ -74,11 +95,11 @@ Poprawka jest w kodzie, ale **nieuruchomiona** — potwierdzi ja dopiero przebie
 
 Trzy brakujace stany maja realne powierzchnie w produkcie:
 
-| Stan | Powierzchnia | Jak wymusic |
-| --- | --- | --- |
-| brak trenerow | `app/(public)/trenerzy/page.tsx:33` (`Card.empty-state`) | `trainers.is_published = false` dla wszystkich |
+| Stan                    | Powierzchnia                                                                  | Jak wymusic                                    |
+| ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| brak trenerow           | `app/(public)/trenerzy/page.tsx:33` (`Card.empty-state`)                      | `trainers.is_published = false` dla wszystkich |
 | pusty stan wyroznionych | `app/(public)/home-sections.tsx:253` -> „Nie mamy teraz wyróżnionych szkoleń” | `trainings.is_featured = false` dla wszystkich |
-| stan bledu | `app/error.tsx` -> „Nie udało się wczytać strony” | **nierozstrzygniete** (ponizej) |
+| stan bledu              | `app/error.tsx` -> „Nie udało się wczytać strony”                             | **nierozstrzygniete** (ponizej)                |
 
 ### Pulapka: `revalidate = 300` unieważnia naiwny pomiar
 

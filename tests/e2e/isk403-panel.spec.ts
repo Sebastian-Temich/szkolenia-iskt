@@ -56,17 +56,42 @@ test("pomiar panelu: szczegoly (zgloszenie, szkolenie, trener) @ 360/768/1440", 
   test.setTimeout(600_000);
   const svc = serviceClient();
 
+  const { data: szkolenie } = await svc
+    .from("trainings")
+    .select("id")
+    .eq("slug", "wprowadzenie-do-ai")
+    .single();
+  const { data: trener } = await svc
+    .from("trainers")
+    .select("id")
+    .eq("slug", "jan-przykladowy")
+    .single();
+  expect(
+    szkolenie?.id,
+    "szkolenie 'wprowadzenie-do-ai' musi istniec",
+  ).toBeTruthy();
+
   // Zgloszenie tworzymy TUTAJ, a nie w `beforeAll`.
   //
   // `beforeAll`/`afterAll` sa per-WORKER, a nie per-plik: przy `--workers=2`
   // testy tego pliku rozkladaja sie na dwa procesy, wiec `afterAll` jednego
-  // workera usuwal zgloszenie, kiedy drugi wlasnie go potrzebowal. Objaw byl
-  // mylacy — test padal po 60 ms na „zgloszenie testowe musi istniec", co czyta
-  // sie jak brak danych w bazie, a byl wyscigiem o porzadki.
+  // workera usuwal zgloszenie, kiedy drugi wlasnie go potrzebowal.
+  //
+  // ISK-419: ten zasiew padal wczesniej na DWOCH naruszeniach CHECK-ow naraz,
+  // a nie na braku wiersza ani na wyscigu — Postgres raportuje tylko pierwszy,
+  // wiec poprawienie jednego odslonilo drugi:
+  //  1. `inquiries_has_subject` — zgloszenie musi wskazywac albo `training_id`,
+  //     albo niepusty `interest_area`; wstawka nie dawala zadnego z nich,
+  //  2. `inquiries_kind_check` — `kind` dopuszcza tylko 'osoba' i 'firma',
+  //     a wstawka uzywala nieistniejacego 'indywidualne'.
+  // Wiazemy zgloszenie z realnym szkoleniem, bo tak wyglada zgloszenie zlozone
+  // ze strony szkolenia — widok szczegolu renderuje wtedy swoja pelna forme
+  // (z osadzonym tytulem szkolenia), a nie wariant bez przedmiotu.
   const { data: zgloszenie, error: bladZgloszenia } = await svc
     .from("inquiries")
     .insert({
-      kind: "indywidualne",
+      kind: "osoba",
+      training_id: szkolenie!.id,
       full_name: `${ZNACZNIK} Szczegol ${Date.now()}`,
       email: `isk403-szczegol-${Date.now()}@example.invalid`,
       phone: "+48 600 000 403",
@@ -79,21 +104,9 @@ test("pomiar panelu: szczegoly (zgloszenie, szkolenie, trener) @ 360/768/1440", 
     .single();
   expect(bladZgloszenia, "wstawienie zgloszenia testowego").toBeNull();
 
-  const { data: szkolenie } = await svc
-    .from("trainings")
-    .select("id")
-    .eq("slug", "wprowadzenie-do-ai")
-    .single();
-  const { data: trener } = await svc
-    .from("trainers")
-    .select("id")
-    .eq("slug", "jan-przykladowy")
-    .single();
-
   // Brak ktoregokolwiek identyfikatora to blad PRZYGOTOWANIA pomiaru, nie
   // defekt produktu — ma zatrzymac test, a nie cicho pominac widok.
   expect(zgloszenie?.id, "zgloszenie testowe musi istniec").toBeTruthy();
-  expect(szkolenie?.id, "szkolenie 'wprowadzenie-do-ai' musi istniec").toBeTruthy();
   expect(trener?.id, "trener 'jan-przykladowy' musi istniec").toBeTruthy();
 
   await page.setViewportSize({ width: 1440, height: 900 });

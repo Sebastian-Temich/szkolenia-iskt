@@ -1,0 +1,39 @@
+{
+  "klucz": "panel-trener-edycja",
+  "sciezka": "/panel/trenerzy/9cefe76b-9da2-47a2-a879-432fdb371781",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/panel/trenerzy/9cefe76b-9da2-47a2-a879-432fdb371781",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-trener-edycja-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "[DEMO] Jan Przykladowy"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Nawigacja panelu]",
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "klucz": "panel-zgloszenie-szczegol",
+  "sciezka": "/panel/zgloszenia/f6fefc8a-b386-4d16-ae56-d2c929c88623",
+  "szerokosc": 1440,
+  "url": "http://localhost:4473/panel/zgloszenia/f6fefc8a-b386-4d16-ae56-d2c929c88623",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-zgloszenie-szczegol-1440.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "ISK403-QA Szczegol 1792745099638"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Dane kontaktowe"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Powiadomienie e-mail"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Treść zgłoszenia"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Notatka wewnętrzna"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Zmień status"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Nawigacja panelu]",
+    "main"
+  ],
+  "maleCele": [
+    {
+      "selektor": "a.panel-inline-link",
+      "tekst": "isk403-szczegol-1792745099638@example.in",
+      "width": 403.5,
+      "height": 20
+    }
+  ],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

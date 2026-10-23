@@ -1,0 +1,64 @@
+{
+  "klucz": "panel-szkolenie-edycja",
+  "sciezka": "/panel/szkolenia/30d0c12b-c6b6-404e-a772-ca99c14a0a6b",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/panel/szkolenia/30d0c12b-c6b6-404e-a772-ca99c14a0a6b",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "panel-szkolenie-edycja-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "[DEMO] Wprowadzenie do AI"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "nav[Nawigacja panelu]",
+    "main"
+  ],
+  "maleCele": [
+    {
+      "selektor": "input#training-funding",
+      "tekst": "",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "selektor": "input#training-featured",
+      "tekst": "",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "selektor": "input#training-trainer-9cefe76b-9da2-47a2-a879-432fdb371781",
+      "tekst": "",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "selektor": "input#training-trainer-394bd814-b247-4b9c-9ee6-3df43d44adff",
+      "tekst": "",
+      "width": 18,
+      "height": 18
+    }
+  ],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

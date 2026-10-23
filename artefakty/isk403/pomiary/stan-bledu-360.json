@@ -1,0 +1,37 @@
+{
+  "klucz": "stan-bledu",
+  "sciezka": "/szkolenia?q=isk419-1792746177096",
+  "szerokosc": 360,
+  "url": "http://localhost:4473/szkolenia?q=isk419-1792746177096",
+  "tytul": "Katalog szkoleń | ISKT",
+  "zrzut": "stan-bledu-360.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Nie udało się wczytać strony"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "main"
+  ],
+  "maleCele": [],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}

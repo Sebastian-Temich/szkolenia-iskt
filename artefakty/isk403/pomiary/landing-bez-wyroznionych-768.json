@@ -1,0 +1,128 @@
+{
+  "klucz": "landing-bez-wyroznionych",
+  "sciezka": "/",
+  "szerokosc": 768,
+  "url": "http://localhost:4473/",
+  "tytul": "Szkolenia ISKT — wiedza, która działa",
+  "zrzut": "landing-bez-wyroznionych-768.png",
+  "axe": [],
+  "pozaViewportem": [],
+  "siatki": [],
+  "naglowki": {
+    "poziomy": [
+      {
+        "poziom": 1,
+        "tekst": "Rozwijaj kompetencje przyszłości."
+      },
+      {
+        "poziom": 2,
+        "tekst": "Dla osób indywidualnych"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Dla firm i zespołów"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Kompetencje, które budują przewagę"
+      },
+      {
+        "poziom": 3,
+        "tekst": "[DEMO] Sztuczna inteligencja"
+      },
+      {
+        "poziom": 3,
+        "tekst": "[DEMO] ESG"
+      },
+      {
+        "poziom": 3,
+        "tekst": "[DEMO] Jezyk angielski"
+      },
+      {
+        "poziom": 3,
+        "tekst": "[DEMO] Rozwoj oprogramowania"
+      },
+      {
+        "poziom": 3,
+        "tekst": "[DEMO] Projekty B+R"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Najczęściej wybierane"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Nie mamy teraz wyróżnionych szkoleń"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Od zapisu do nowych kompetencji w 4 krokach"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Wybierz szkolenie"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Wyślij zgłoszenie"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Ucz się z ekspertem"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Potwierdź kompetencje"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Sprawdź możliwość dofinansowania"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Źródła publiczne"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Formalności"
+      },
+      {
+        "poziom": 3,
+        "tekst": "Rozliczenie"
+      },
+      {
+        "poziom": 2,
+        "tekst": "Zapisz się na szkolenie"
+      }
+    ],
+    "liczbaH1": 1,
+    "przeskoki": []
+  },
+  "landmarki": [
+    "header",
+    "main",
+    "footer",
+    "nav[Obszary]",
+    "nav[Serwis]"
+  ],
+  "maleCele": [
+    {
+      "selektor": "a.home-contact-link",
+      "tekst": "biuro@iskt.pl",
+      "width": 95.9,
+      "height": 22.5
+    }
+  ],
+  "kroje": [
+    {
+      "rodzina": "interVariable",
+      "waga": "100 900",
+      "status": "loaded"
+    },
+    {
+      "rodzina": "interVariable Fallback",
+      "waga": "normal",
+      "status": "unloaded"
+    }
+  ]
+}
