@@ -409,6 +409,38 @@ test.describe("nawigacja klawiatura (WCAG 2.1.1, 2.4.3, 2.4.7)", () => {
  * administracyjna nie miala egzekwowania jednego `h1` (CR-I7).
  */
 async function sprawdzNaglowki(page: Page, path: string): Promise<void> {
+  /*
+   * WYSCIG ZE STRUMIENIOWANIEM ODPOWIEDZI (ISK-413).
+   *
+   * `page.goto()` konczy sie na zdarzeniu `load`, a to NIE znaczy, ze cala
+   * odpowiedz serwera doszla: trasa `/szkolenia/[slug]` jest dynamiczna
+   * (`revalidate = 300`, zapytanie do bazy w komponencie serwerowym), wiec
+   * Next wysyla najpierw powloke, a tresc — razem z `h1` ekranu 404 —
+   * dostrumieniowuje pozniej. Na obciazonym runnerze `document` w momencie
+   * pomiaru mial ZERO naglowkow i bramka padala na poprawnym produkcie.
+   *
+   * ZMIERZONE, nie domniemane. Ten sam test, ta sama asercja, cztery przebiegi:
+   *   7m10s -> PASS, 11m02s -> FAIL, 7m09s -> PASS, 14m25s -> FAIL.
+   * Czyli korelacja z czasem przebiegu, nie z zawartoscia zmian. Potwierdza to
+   * asymetria: `/nie-ma-takiego-adresu` (404 globalny, strona statyczna, bez
+   * strumieniowania) nie padl ANI RAZU — padala wylacznie trasa dynamiczna.
+   * `chromium-forms` ma `retries: 0`, wiec jedno takie trafienie czerwieni
+   * cala bramke.
+   *
+   * To oczekiwanie NIE oslabia asercji. Jest ograniczone czasem, a licznik
+   * `h1` ponizej wykonuje sie tak czy tak: strona, ktora naprawde nie ma `h1`,
+   * dalej pada — tylko z czytelnym komunikatem zamiast z golego timeoutu.
+   * Wzorzec jest ten sam, co w petli panelu nizej, gdzie `dowod` czeka na
+   * wlasciwy widok, zeby bramka nie mierzyla przypadkiem ekranu 404.
+   */
+  await page
+    .locator("h1")
+    .first()
+    .waitFor({ state: "attached", timeout: 15_000 })
+    .catch(() => {
+      // Brak `h1` po czasie to realny defekt — oddajemy go asercji nizej.
+    });
+
   const levels = await page.evaluate(() =>
     Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map((h) =>
       Number(h.tagName.slice(1)),
